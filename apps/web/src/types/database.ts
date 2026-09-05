@@ -91,7 +91,20 @@ export interface Database {
           status?: MemberStatus;
           joined_at?: string;
         };
-        Relationships: [];
+        Relationships: [{
+            foreignKeyName: "organization_members_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_members_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }];
       };
       classes: {
         Row: {
