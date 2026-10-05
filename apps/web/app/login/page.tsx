@@ -11,14 +11,28 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setErrorMsg('');
     setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
     try {
-      await loginAction(formData);
+      const formData = new FormData(e.currentTarget);
+      const result = await loginAction(formData);
+
+      if (result?.error) {
+        setErrorMsg(result.error);
+        setLoading(false);
+        return;
+      }
+
+      if (result?.redirectTo) {
+        window.location.href = result.redirectTo;
+        return;
+      }
+
+      setLoading(false);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao realizar login.');
+      setErrorMsg(err.message || 'Erro inesperado ao realizar login.');
       setLoading(false);
     }
   };
@@ -27,7 +41,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
       <Card className="max-w-4xl w-full p-0 overflow-hidden grid grid-cols-1 md:grid-cols-2 shadow-lg border-zinc-200">
         
-        {/* Painel Esquerdo: Identidade / Mensagem de Boas-vindas */}
+        {/* Painel Esquerdo */}
         <div className="bg-zinc-900 text-white p-8 md:p-12 flex flex-col justify-between">
           <div>
             <span className="text-xs uppercase tracking-wider font-semibold text-zinc-400">Plataforma Fikra</span>
@@ -35,7 +49,7 @@ export default function LoginPage() {
               Transforme o ensino de idiomas em uma jornada organizada.
             </h2>
             <p className="text-sm text-zinc-400 mt-3 leading-relaxed">
-              Ambiente integrado para professoras gerenciarem turmas, agendas de aulas ao vivo e trilhas personalizadas.
+              Ambiente integrado para professoras gerenciarem turmas, horários de aulas e trilhas personalizadas.
             </p>
           </div>
 
@@ -44,11 +58,11 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Painel Direito: Formulário de Entrada */}
+        {/* Painel Direito */}
         <div className="p-8 md:p-12 flex flex-col justify-center">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-zinc-900">Acesse sua conta</h1>
-            <p className="text-xs text-zinc-500 mt-1">Informe seu e-mail e senha de acesso</p>
+            <p className="text-xs text-zinc-500 mt-1">Insira seu e-mail e senha de acesso</p>
           </div>
 
           {errorMsg && (
@@ -76,7 +90,7 @@ export default function LoginPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Senha
                 </label>
-                <a href="#" className="text-xs text-zinc-500 hover:text-zinc-800">Esqueceu?</a>
+                <a href="#" className="text-xs text-zinc-500 hover:text-zinc-800">Esqueceu a senha?</a>
               </div>
               <input
                 name="password"
