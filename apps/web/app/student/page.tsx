@@ -1,133 +1,185 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '../../src/lib/supabase/server';
-import { getUserOrganizations } from '../../src/services/organizations';
-import { getStudentContext } from '../../src/services/student';
-import { Card } from '../../src/components/Card';
 
-export default async function StudentHomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ org?: string }>;
-}) {
-  const supabase = await createClient();
-  const resolvedParams = await searchParams;
+export default function LandingPage() {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
-  const memberships = await getUserOrganizations(supabase);
-  const activeOrgId = resolvedParams.org || memberships[0]?.organizations?.id;
-
-  if (!activeOrgId) return null;
-
-  const context = await getStudentContext(supabase, activeOrgId);
-  const nextSession = context?.nextSession;
-  const currentClass = context?.classData;
+  const plans = [
+    {
+      id: 'fikra-essencial',
+      name: 'Fikra Essencial',
+      desc: 'Ideal para professoras particulares que estão dando os primeiros passos.',
+      priceMonthly: 69.90,
+      priceYearly: 754.92,
+      installmentYearly: 62.91,
+      students: 'Até 20 alunas ativas',
+      teachers: '1 professora titular',
+      popular: false,
+    },
+    {
+      id: 'fikra-pro',
+      name: 'Fikra Pro',
+      desc: 'Para professoras em crescimento com turmas regulares e assistentes.',
+      priceMonthly: 119.90,
+      priceYearly: 1294.92,
+      installmentYearly: 107.91,
+      students: 'Até 50 alunas ativas',
+      teachers: 'Titular + até 2 professoras',
+      popular: true,
+    },
+    {
+      id: 'fikra-equipe',
+      name: 'Fikra Equipe',
+      desc: 'Estrutura completa para pequenos institutos e cursos em expansão.',
+      priceMonthly: 179.90,
+      priceYearly: 1942.92,
+      installmentYearly: 161.91,
+      students: 'Até 100 alunas ativas',
+      teachers: 'Titular + até 5 professoras',
+      popular: false,
+    },
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* Saudação */}
-      <div>
-        <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Student Hub</span>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 mt-1">
-          Olá, bem-vindo de volta! 👋
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans">
+      {/* Topo */}
+      <header className="border-b border-zinc-200 bg-white sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <span className="font-bold text-lg tracking-tight">Fikra Study Hub</span>
+          <Link
+            href="/login"
+            className="text-xs font-semibold px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors"
+          >
+            Acessar Plataforma
+          </Link>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="max-w-4xl mx-auto text-center pt-20 pb-12 px-6">
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-zinc-900">
+          A plataforma completa para gerenciar suas alunas e aulas de idiomas.
         </h1>
-        {currentClass && (
-          <p className="text-sm text-zinc-500 mt-1">
-            Turma: <span className="font-semibold text-zinc-800">{currentClass.name}</span> ({currentClass.level || 'Geral'})
-          </p>
-        )}
-      </div>
+        <p className="mt-4 text-base text-zinc-600 max-w-2xl mx-auto">
+          Centralize suas turmas, agenda ao vivo, lições didáticas e acompanhe a evolução de cada estudante em um só lugar.
+        </p>
 
-      {/* Grid Principal: Destaque da Lição + Próxima Aula */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Banner de Atividade da Vez (2 colunas) */}
-        <div className="lg:col-span-2 bg-zinc-900 text-white rounded-xl p-6 flex flex-col justify-between shadow-sm">
-          <div>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-200">
-              🔔 Atividade esperando por você
-            </span>
-            <h2 className="text-xl font-bold mt-4">Leitura & Compreensão • Módulo 1</h2>
-            <p className="text-zinc-300 text-sm mt-2 max-w-xl">
-              Pratique os novos termos e complete a atividade de fixação recomendada pela sua professora.
-            </p>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-zinc-800">
-            <Link
-              href={`/student/tracks?org=${activeOrgId}`}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-white hover:underline"
+        {/* Toggle Mensal / Anual */}
+        <div className="mt-10 flex items-center justify-center">
+          <div className="bg-zinc-200/80 p-1 rounded-xl flex items-center gap-1">
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                billingCycle === 'monthly'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-600 hover:text-zinc-900'
+              }`}
             >
-              Começar agora →
-            </Link>
+              Mensal
+            </button>
+            <button
+              onClick={() => setBillingCycle('yearly')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                billingCycle === 'yearly'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-600 hover:text-zinc-900'
+              }`}
+            >
+              <span>Anual</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                10% OFF
+              </span>
+            </button>
           </div>
         </div>
+      </section>
 
-        {/* Card: Próxima Aula */}
-        <Card className="flex flex-col justify-between">
-          <div>
-            <span className="text-xs uppercase font-semibold text-zinc-500">Próxima Aula</span>
-            {nextSession ? (
-              <div className="mt-3">
-                <h3 className="font-bold text-lg text-zinc-900">{nextSession.title}</h3>
-                <p className="text-sm text-zinc-600 mt-1">
-                  {new Date(nextSession.scheduled_at).toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' })} às{' '}
-                  {new Date(nextSession.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <p className="text-xs text-zinc-400 mt-0.5">Duração: {nextSession.duration_minutes} min</p>
-              </div>
-            ) : (
-              <div className="mt-4">
-                <p className="font-semibold text-zinc-800">Nenhuma aula agendada</p>
-                <p className="text-xs text-zinc-500 mt-1">
-                  {currentClass ? 'Sua professora agendará o próximo encontro em breve.' : 'Você não possui encontros em turma no momento.'}
-                </p>
-              </div>
-            )}
-          </div>
+      {/* Grid de Planos */}
+      <section className="max-w-6xl mx-auto pb-24 px-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {plans.map((plan) => {
+            const isMonthly = billingCycle === 'monthly';
 
-          <div className="mt-6 pt-4 border-t border-zinc-100">
-            {nextSession?.meet_url ? (
-              <a
-                href={nextSession.meet_url}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full text-center block px-3 py-2 bg-zinc-900 text-white text-xs font-semibold rounded-lg hover:bg-zinc-800"
+            return (
+              <div
+                key={plan.id}
+                className={`bg-white border rounded-2xl p-6 flex flex-col justify-between transition-all ${
+                  plan.popular
+                    ? 'border-zinc-900 ring-2 ring-zinc-900 shadow-md relative'
+                    : 'border-zinc-200 shadow-sm'
+                }`}
               >
-                Entrar na Aula ao Vivo
-              </a>
-            ) : (
-              <Link
-                href={`/student/calendar?org=${activeOrgId}`}
-                className="text-xs font-semibold text-zinc-600 hover:text-zinc-900"
-              >
-                Abrir calendário →
-              </Link>
-            )}
-          </div>
-        </Card>
-      </div>
+                {plan.popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                    Mais Escolhido
+                  </span>
+                )}
 
-      {/* Seção Resumo Rápido */}
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">
-          Um olhar rápido
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="p-4">
-            <span className="text-xs text-zinc-500 font-medium">Trilhas Disponíveis</span>
-            <p className="text-2xl font-bold text-zinc-900 mt-1">{context?.tracks.length || 0}</p>
-          </Card>
-          <Card className="p-4">
-            <span className="text-xs text-zinc-500 font-medium">Turma Atual</span>
-            <p className="text-base font-bold text-zinc-900 mt-1 truncate">
-              {currentClass ? currentClass.name : 'Aulas Individuais'}
-            </p>
-          </Card>
-          <Card className="p-4">
-            <span className="text-xs text-zinc-500 font-medium">Status da Matrícula</span>
-            <p className="text-base font-bold text-emerald-600 mt-1">Ativo</p>
-          </Card>
+                <div>
+                  <h3 className="font-bold text-lg text-zinc-900">{plan.name}</h3>
+                  <p className="text-xs text-zinc-500 mt-1 min-h-[32px]">{plan.desc}</p>
+
+                  <div className="mt-6 flex flex-col">
+                    {isMonthly ? (
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-extrabold text-zinc-900">
+                          R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
+                        </span>
+                        <span className="text-xs text-zinc-500">/mês</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-extrabold text-zinc-900">
+                            12x R$ {plan.installmentYearly.toFixed(2).replace('.', ',')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400 mt-0.5">
+                          ou R$ {plan.priceYearly.toFixed(2).replace('.', ',')} à vista no cartão
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <ul className="mt-6 space-y-2.5 text-xs text-zinc-600 border-t border-zinc-100 pt-5">
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span><strong>{plan.students}</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span><strong>{plan.teachers}</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span>Aulas ao vivo ilimitadas</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span>Trilhas e materiais pedagógicos</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="mt-8 pt-4 border-t border-zinc-100">
+                  <Link
+                    href={`/checkout?plan=${plan.id}&cycle=${billingCycle}`}
+                    className={`w-full block text-center py-2.5 px-4 font-semibold rounded-lg text-xs transition-colors ${
+                      plan.popular
+                        ? 'bg-zinc-900 text-white hover:bg-zinc-800'
+                        : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
+                    }`}
+                  >
+                    Assinar Agora
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
