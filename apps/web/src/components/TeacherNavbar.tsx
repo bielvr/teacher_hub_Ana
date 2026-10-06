@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 interface OrganizationItem {
   id: string;
@@ -23,7 +23,6 @@ interface TeacherNavbarProps {
 export function TeacherNavbar({ memberships, activeOrgId }: TeacherNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -37,14 +36,17 @@ export function TeacherNavbar({ memberships, activeOrgId }: TeacherNavbarProps) 
   ];
 
   const handleOrgChange = (newOrgId: string) => {
-    const params = new URLSearchParams(searchParams?.toString());
-    params.set('org', newOrgId);
-    router.push(`${pathname}?${params.toString()}`);
+    const currentParams = typeof window !== 'undefined' 
+      ? new URLSearchParams(window.location.search) 
+      : new URLSearchParams();
+    currentParams.set('org', newOrgId);
+    router.push(`${pathname}?${currentParams.toString()}`);
   };
 
   return (
     <header className="border-b border-zinc-200 bg-white sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        
         {/* Identificação e Switcher de Org */}
         <div className="flex items-center gap-4 sm:gap-6">
           <div className="font-bold text-lg text-zinc-900 tracking-tight flex items-center gap-2">
@@ -88,7 +90,7 @@ export function TeacherNavbar({ memberships, activeOrgId }: TeacherNavbarProps) 
           })}
         </nav>
 
-        {/* Toggle Mobile / Tablet */}
+        {/* Toggle Mobile */}
         <button
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
