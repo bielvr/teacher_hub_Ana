@@ -6,11 +6,18 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type MemberRole = 'owner' | 'tutor' | 'student';
+export type MemberRole = 'owner' | 'admin' | 'teacher' | 'tutor' | 'student';
 export type MemberStatus = 'active' | 'invited' | 'suspended';
 export type SessionStatus = 'scheduled' | 'live' | 'finished' | 'cancelled';
 export type LessonReleaseType = 'immediate' | 'scheduled';
-export type ActivityType = 'video' | 'pdf' | 'quiz' | 'text' | 'audio' | 'external_link' | 'assignment';
+export type ActivityType =
+  | 'video'
+  | 'pdf'
+  | 'quiz'
+  | 'text'
+  | 'audio'
+  | 'external_link'
+  | 'assignment';
 
 export interface Database {
   public: {
@@ -91,7 +98,8 @@ export interface Database {
           status?: MemberStatus;
           joined_at?: string;
         };
-        Relationships: [{
+        Relationships: [
+          {
             foreignKeyName: "organization_members_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
@@ -104,7 +112,8 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
-          }];
+          }
+        ];
       };
       classes: {
         Row: {
@@ -315,6 +324,123 @@ export interface Database {
           duration_minutes?: number;
           meet_url?: string | null;
           status?: SessionStatus;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      free_submissions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          student_id: string;
+          title: string;
+          content: string;
+          status: string;
+          teacher_feedback: string | null;
+          teacher_id: string | null;
+          submitted_at: string;
+          reviewed_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          student_id: string;
+          title: string;
+          content: string;
+          status?: string;
+          teacher_feedback?: string | null;
+          teacher_id?: string | null;
+          submitted_at?: string;
+          reviewed_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          student_id?: string;
+          title?: string;
+          content?: string;
+          status?: string;
+          teacher_feedback?: string | null;
+          teacher_id?: string | null;
+          submitted_at?: string;
+          reviewed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lesson_notes: {
+        Row: {
+          id: string;
+          organization_id: string;
+          student_id: string;
+          lesson_id: string | null;
+          title: string;
+          content: string;
+          author_role: 'teacher' | 'student';
+          lesson_date: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          student_id: string;
+          lesson_id?: string | null;
+          title: string;
+          content?: string;
+          author_role: 'teacher' | 'student';
+          lesson_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          student_id?: string;
+          lesson_id?: string | null;
+          title?: string;
+          content?: string;
+          author_role?: 'teacher' | 'student';
+          lesson_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      student_review_items: {
+        Row: {
+          id: string;
+          organization_id: string;
+          student_id: string;
+          item_type: 'lesson' | 'resource' | 'note';
+          item_id: string;
+          title: string;
+          subtitle: string | null;
+          content_preview: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          student_id: string;
+          item_type: 'lesson' | 'resource' | 'note';
+          item_id: string;
+          title: string;
+          subtitle?: string | null;
+          content_preview?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          student_id?: string;
+          item_type?: 'lesson' | 'resource' | 'note';
+          item_id?: string;
+          title?: string;
+          subtitle?: string | null;
+          content_preview?: string | null;
           created_at?: string;
         };
         Relationships: [];
