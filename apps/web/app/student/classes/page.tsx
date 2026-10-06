@@ -1,80 +1,84 @@
-import { createClient } from '../../../../src/lib/supabase/server';
-import { getUserOrganizations } from '../../../../src/services/organizations';
-import { getStudentContext } from '../../../../src/services/student';
-import { getClassWithStudents } from '../../../../src/services/classes';
-import { Card } from '../../../../src/components/Card';
-import { EmptyState } from '../../../../src/components/EmptyState';
+import { createClient } from '../../../src/lib/supabase/server';
+import { Card } from '../../../src/components/Card';
+import { EmptyState } from '../../../src/components/EmptyState';
 
-export default async function StudentClassesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ org?: string }>;
-}) {
+export default async function StudentClassesPage() {
   const supabase = await createClient();
-  const resolvedParams = await searchParams;
 
-  const memberships = await getUserOrganizations(supabase);
-  const activeOrgId = resolvedParams.org || memberships[0]?.organizations?.id;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!activeOrgId) return null;
+  const userId = user?.id || '';
 
-  const context = await getStudentContext(supabase, activeOrgId);
-  const currentClass = context?.classData;
+  // Busca o registro de membro do estudante
+  const { data: member } = await supabase
+    .from('organization_members')
+    .select('id')
+    .eq('profile_id', userId)
+    .eq('status', 'active')
+    .maybeSingle();
 
-  // Caso o aluno não esteja vinculado a nenhuma turma específica
-  if (!currentClass?.id) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Turma</span>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mt-1">Minha Turma</h1>
-        </div>
-        <EmptyState
-          title="Você não está vinculado a uma turma"
-          description="Seus estudos são conduzidos individualmente com a professora. Todos os materiais e encontros continuam disponíveis na sua trilha e agenda."
-        />
-      </div>
-    );
-  }
+  const memberId = member?.id || '';
 
-  // Se o aluno pertence a uma turma, busca os dados da turma e colegas
-  const classDetails = await getClassWithStudents(supabase, currentClass.id);
-  const classmates = classDetails?.class_students || [];
+  // Busca as turmas associadas ao membro
+  const { data: enrollments } = await supabase
+    .from('class_students')
+    .select(`
+      class_id,
+      enrolled_at,
+      classes (
+        id,
+        name,
+        level,
+        created_at
+      )
+    `)
+    .eq('student_id', memberId);
+
+  const classesList = (enrollments || [])
+    .map((e: any) => e.classes)
+    .filter(Boolean);
 
   return (
     <div className="space-y-6">
-      <div>
-        <span className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Turma</span>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mt-1">{classDetails.name}</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          Nível: {classDetails.level || 'Geral'} • {classmates.length} {classmates.length === 1 ? 'colega' : 'colegas'} de turma
+      <div className="border-b border-zinc-200 pb-4">
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
+          Minhas Turmas
+        </h1>
+        <p className="text-xs text-zinc-500 mt-1">
+          Acompanhe suas turmas ativas, níveis pedagógicos e materiais de apoio.
         </p>
       </div>
 
-      <Card>
-        <h2 className="text-base font-bold text-zinc-900 mb-4">Integrantes da Turma</h2>
-        <div className="divide-y divide-zinc-100">
-          {classmates.map((item: any) => {
-            const student = item.student?.profiles;
-            const isMe = student?.id === context?.user?.id;
-
-            return (
-              <div key={item.student?.id} className="py-3 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center font-bold text-xs text-zinc-700">
-                    {student?.full_name?.charAt(0) || 'A'}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-zinc-900">
-                      {student?.full_name || 'Colega de turma'} {isMe && <span className="text-xs text-zinc-400 font-normal">(Você)</span>}
-                    </p>
-                  </div>
-                </div>
+      {classesList.length === 0 ? (
+        <Card className="p-8">
+          <EmptyState
+            title="Nenhuma turma vinculada"
+            description="Você ainda não foi adicionado a nenhuma turma da organização."
+          />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {classesList.map((item: any) => (
+            <Card key={item.id} className="p-5 border-zinc-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded">
+                  {item.level || 'Geral'}
+                </span>
+                <h3 className="text-base font-bold text-zinc-900 mt-2">
+                  {item.name}
+                </h3>
               </div>
-            );
-          })}
+
+              <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
+                <span>Status: Ativa</span>
+                <span className="font-semibold text-zinc-800">Ver detalhes →</span>
+              </div>
+            </Card>
+          ))}
         </div>
-      </Card>
+      )}
     </div>
   );
 }
