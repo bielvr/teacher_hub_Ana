@@ -1,0 +1,61 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../types/database';
+
+export async function getActivitiesByLesson(
+  supabase: SupabaseClient<Database>,
+  lessonId: string
+) {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('*')
+    .eq('lesson_id', lessonId)
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao buscar atividades:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getLessonsWithActivities(
+  supabase: SupabaseClient<Database>,
+  trackId: string
+) {
+  const { data, error } = await supabase
+    .from('modules')
+    .select(`
+      id,
+      title,
+      order_index,
+      lessons (
+        id,
+        title,
+        description,
+        order_index,
+        release_type,
+        release_date,
+        activities (
+          id,
+          title,
+          type,
+          description,
+          content_markdown,
+          video_url,
+          pdf_url,
+          link_url,
+          order_index
+        )
+      )
+    `)
+    .eq('track_id', trackId)
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao buscar grade de lições e atividades:', error);
+    return [];
+  }
+
+  return data || [];
+}
