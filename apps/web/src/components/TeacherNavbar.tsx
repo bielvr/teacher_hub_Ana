@@ -46,7 +46,6 @@ export function TeacherNavbar({ memberships, activeOrgId }: TeacherNavbarProps) 
   return (
     <header className="border-b border-zinc-200 bg-white sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        
         {/* Identificação e Switcher de Org */}
         <div className="flex items-center gap-4 sm:gap-6">
           <div className="font-bold text-lg text-zinc-900 tracking-tight flex items-center gap-2">
