@@ -25,8 +25,8 @@ export function ScheduleSessionModal({
     try {
       await scheduleSessionAction(formData);
       setIsOpen(false);
-    } catch {
-      alert('Erro ao agendar aula');
+    } catch (err: any) {
+      alert(err.message || 'Erro ao agendar aula');
     } finally {
       setLoading(false);
     }
@@ -66,9 +66,9 @@ export function ScheduleSessionModal({
                 <select
                   name="class_id"
                   required
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:ring-2 focus:ring-zinc-900"
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 bg-white"
                 >
-                  <option value="">Selecione uma turma...</option>
+                  <option value="">Selecione a turma...</option>
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
                       {cls.name}
@@ -79,30 +79,43 @@ export function ScheduleSessionModal({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-                  Título do Encontro
+                  Título da Aula
                 </label>
                 <input
                   name="title"
                   type="text"
                   required
-                  placeholder="Ex: Aula de Conversação - Unidade 2"
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:ring-2 focus:ring-zinc-900"
+                  placeholder="Ex: Conversation Practice - Unit 3"
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-                    Data e Hora
+                    Data
                   </label>
                   <input
-                    name="scheduled_at"
-                    type="datetime-local"
+                    name="scheduled_date"
+                    type="date"
                     required
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:ring-2 focus:ring-zinc-900"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
+                    Horário
+                  </label>
+                  <input
+                    name="scheduled_time"
+                    type="time"
+                    required
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                  />
+                </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
                     Duração (min)
@@ -111,38 +124,36 @@ export function ScheduleSessionModal({
                     name="duration_minutes"
                     type="number"
                     defaultValue={60}
-                    step={15}
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:ring-2 focus:ring-zinc-900"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
+                    Link Meet/Zoom
+                  </label>
+                  <input
+                    name="meet_url"
+                    type="url"
+                    placeholder="https://meet.google.com/..."
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-                  Link da Transmissão (Meet / Zoom)
-                </label>
-                <input
-                  name="meet_url"
-                  type="url"
-                  placeholder="https://meet.google.com/..."
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900 focus:ring-2 focus:ring-zinc-900"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg"
+                  className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 rounded-lg"
+                  className="px-4 py-2 text-sm font-semibold text-white bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 rounded-lg transition-colors"
                 >
-                  {loading ? 'Agendando...' : 'Confirmar Agenda'}
+                  {loading ? 'Salvando...' : 'Confirmar Agendamento'}
                 </button>
               </div>
             </form>
