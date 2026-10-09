@@ -6,18 +6,11 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type MemberRole = 'owner' | 'admin' | 'teacher' | 'tutor' | 'student';
+export type MemberRole = 'owner' | 'admin' | 'teacher' | 'student';
 export type MemberStatus = 'active' | 'invited' | 'suspended';
 export type SessionStatus = 'scheduled' | 'live' | 'finished' | 'cancelled';
 export type LessonReleaseType = 'immediate' | 'scheduled';
-export type ActivityType =
-  | 'video'
-  | 'pdf'
-  | 'quiz'
-  | 'text'
-  | 'audio'
-  | 'external_link'
-  | 'assignment';
+export type ActivityType = 'video' | 'pdf' | 'quiz' | 'text' | 'audio' | 'external_link' | 'assignment';
 
 export interface Database {
   public: {
@@ -49,12 +42,57 @@ export interface Database {
         };
         Relationships: [];
       };
+
+      system_plans: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          price_monthly: number;
+          price_yearly: number;
+          installment_yearly: number | null;
+          max_active_students: number;
+          max_teachers: number;
+          features: Json;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          price_monthly?: number;
+          price_yearly?: number;
+          installment_yearly?: number | null;
+          max_active_students?: number;
+          max_teachers?: number;
+          features?: Json;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          price_monthly?: number;
+          price_yearly?: number;
+          installment_yearly?: number | null;
+          max_active_students?: number;
+          max_teachers?: number;
+          features?: Json;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+
       organizations: {
         Row: {
           id: string;
           name: string;
           slug: string;
           logo_url: string | null;
+          plan_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -62,6 +100,7 @@ export interface Database {
           name: string;
           slug: string;
           logo_url?: string | null;
+          plan_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -69,10 +108,20 @@ export interface Database {
           name?: string;
           slug?: string;
           logo_url?: string | null;
+          plan_id?: string | null;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "organizations_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "system_plans";
+            referencedColumns: ["id"];
+          }
+        ];
       };
+
       organization_members: {
         Row: {
           id: string;
@@ -115,6 +164,7 @@ export interface Database {
           }
         ];
       };
+
       classes: {
         Row: {
           id: string;
@@ -140,8 +190,17 @@ export interface Database {
           level?: string | null;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "classes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          }
+        ];
       };
+
       class_students: {
         Row: {
           class_id: string;
@@ -158,8 +217,17 @@ export interface Database {
           student_id?: string;
           enrolled_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "class_students_class_id_fkey";
+            columns: ["class_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id"];
+          }
+        ];
       };
+
       tracks: {
         Row: {
           id: string;
@@ -182,8 +250,17 @@ export interface Database {
           description?: string | null;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "tracks_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          }
+        ];
       };
+
       modules: {
         Row: {
           id: string;
@@ -206,8 +283,17 @@ export interface Database {
           order_index?: number;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "modules_track_id_fkey";
+            columns: ["track_id"];
+            isOneToOne: false;
+            referencedRelation: "tracks";
+            referencedColumns: ["id"];
+          }
+        ];
       };
+
       lessons: {
         Row: {
           id: string;
@@ -239,12 +325,21 @@ export interface Database {
           release_date?: string | null;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "lessons_module_id_fkey";
+            columns: ["module_id"];
+            isOneToOne: false;
+            referencedRelation: "modules";
+            referencedColumns: ["id"];
+          }
+        ];
       };
+
       activities: {
         Row: {
           id: string;
-          lesson_id: string;
+          lesson_id: string | null;
           type: ActivityType;
           title: string;
           description: string | null;
@@ -259,7 +354,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          lesson_id: string;
+          lesson_id?: string | null;
           type: ActivityType;
           title: string;
           description?: string | null;
@@ -274,7 +369,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          lesson_id?: string;
+          lesson_id?: string | null;
           type?: ActivityType;
           title?: string;
           description?: string | null;
@@ -287,8 +382,17 @@ export interface Database {
           order_index?: number;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "activities_lesson_id_fkey";
+            columns: ["lesson_id"];
+            isOneToOne: false;
+            referencedRelation: "lessons";
+            referencedColumns: ["id"];
+          }
+        ];
       };
+
       live_sessions: {
         Row: {
           id: string;
@@ -328,6 +432,7 @@ export interface Database {
         };
         Relationships: [];
       };
+
       free_submissions: {
         Row: {
           id: string;
@@ -370,15 +475,17 @@ export interface Database {
         };
         Relationships: [];
       };
+
       lesson_notes: {
         Row: {
           id: string;
           organization_id: string;
           student_id: string;
+          teacher_id: string | null;
           lesson_id: string | null;
           title: string;
           content: string;
-          author_role: 'teacher' | 'student';
+          author_role: string;
           lesson_date: string;
           created_at: string;
           updated_at: string;
@@ -387,10 +494,11 @@ export interface Database {
           id?: string;
           organization_id: string;
           student_id: string;
+          teacher_id?: string | null;
           lesson_id?: string | null;
           title: string;
-          content?: string;
-          author_role: 'teacher' | 'student';
+          content: string;
+          author_role?: string;
           lesson_date?: string;
           created_at?: string;
           updated_at?: string;
@@ -399,22 +507,24 @@ export interface Database {
           id?: string;
           organization_id?: string;
           student_id?: string;
+          teacher_id?: string | null;
           lesson_id?: string | null;
           title?: string;
           content?: string;
-          author_role?: 'teacher' | 'student';
+          author_role?: string;
           lesson_date?: string;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
       };
+
       student_review_items: {
         Row: {
           id: string;
           organization_id: string;
           student_id: string;
-          item_type: 'lesson' | 'resource' | 'note';
+          item_type: string;
           item_id: string;
           title: string;
           subtitle: string | null;
@@ -425,7 +535,7 @@ export interface Database {
           id?: string;
           organization_id: string;
           student_id: string;
-          item_type: 'lesson' | 'resource' | 'note';
+          item_type: string;
           item_id: string;
           title: string;
           subtitle?: string | null;
@@ -436,7 +546,7 @@ export interface Database {
           id?: string;
           organization_id?: string;
           student_id?: string;
-          item_type?: 'lesson' | 'resource' | 'note';
+          item_type?: string;
           item_id?: string;
           title?: string;
           subtitle?: string | null;
@@ -458,6 +568,9 @@ export interface Database {
       session_status: SessionStatus;
       lesson_release_type: LessonReleaseType;
       activity_type: ActivityType;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 }
