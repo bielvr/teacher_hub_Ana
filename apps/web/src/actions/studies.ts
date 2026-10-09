@@ -122,3 +122,52 @@ export async function toggleReviewItemAction(
 
   revalidatePath('/student/review');
 }
+export async function getDirectMessagesAction(orgId: string) {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from('direct_messages')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: true });
+
+  if (error) return [];
+  return data || [];
+}
+
+export async function sendDirectMessageAction(orgId: string, content: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user || !content.trim()) return null;
+
+  const { data, error } = await (supabase as any)
+    .from('direct_messages')
+    .insert({
+      organization_id: orgId,
+      sender_id: user.id,
+      receiver_id: user.id,
+      content: content.trim(),
+    })
+    .select()
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
+export async function getNotificationsAction(orgId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return [];
+
+  const { data, error } = await (supabase as any)
+    .from('notifications')
+    .select('*')
+    .eq('organization_id', orgId)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) return [];
+  return data || [];
+}
