@@ -4,7 +4,8 @@ import { getUserOrganizations } from '../../../src/services/organizations';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
-import { createTrackAction, createModuleAction } from '../../../src/actions/tracks';
+import { CreateTrackModal } from '../../../src/components/CreateTrackModal';
+import { createModuleAction } from '../../../src/actions/tracks';
 
 export default async function TracksPage({
   searchParams,
@@ -17,19 +18,26 @@ export default async function TracksPage({
   const memberships = await getUserOrganizations(supabase);
   const activeOrgId = resolvedParams.org || memberships[0]?.organizations?.id;
 
-  if (!activeOrgId) return null;
+  if (!activeOrgId) {
+    return (
+      <div className="p-8 text-center text-zinc-500">
+        Nenhuma organização ativa encontrada.
+      </div>
+    );
+  }
 
   // 1. Busca as trilhas da organização
-  const { data: tracks } = await supabase
+  const { data: tracksData } = await supabase
     .from('tracks')
     .select('id, title, description, created_at')
     .eq('organization_id', activeOrgId)
     .order('created_at', { ascending: true });
 
-  // 2. Busca módulos e lições correspondentes
-  const trackIds = tracks?.map((t) => t.id) || [];
-  let modules: any[] = [];
+  const tracks = tracksData || [];
+  const trackIds = tracks.map((t: { id: string }) => t.id);
 
+  // 2. Busca módulos e lições correspondentes
+  let modules: any[] = [];
   if (trackIds.length > 0) {
     const { data: modulesData } = await supabase
       .from('modules')
@@ -51,9 +59,9 @@ export default async function TracksPage({
   }
 
   // Agrupa os módulos dentro de cada trilha
-  const tracksWithModules = (tracks || []).map((track) => ({
+  const tracksWithModules = tracks.map((track: any) => ({
     ...track,
-    modules: modules.filter((m) => m.track_id === track.id),
+    modules: modules.filter((m: any) => m.track_id === track.id),
   }));
 
   return (
@@ -61,48 +69,7 @@ export default async function TracksPage({
       <PageHeader
         title="Trilhas & Conteúdos"
         description="Estruture sua grade curricular em trilhas, módulos pedagógicos e lições."
-        action={
-          <details className="relative">
-            <summary className="list-none cursor-pointer px-4 py-2 text-sm font-semibold text-white bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors shadow-xs">
-              + Nova Trilha
-            </summary>
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-zinc-200 rounded-xl p-5 shadow-xl z-50">
-              <h4 className="text-sm font-bold text-zinc-900 mb-3">Criar Nova Trilha</h4>
-              <form action={createTrackAction} className="space-y-3">
-                <input type="hidden" name="organization_id" value={activeOrgId} />
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-600 mb-1">
-                    Título da Trilha
-                  </label>
-                  <input
-                    name="title"
-                    type="text"
-                    required
-                    placeholder="Ex: Minha Jornada - Beginner"
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-600 mb-1">
-                    Descrição (Opcional)
-                  </label>
-                  <textarea
-                    name="description"
-                    rows={2}
-                    placeholder="Resumo pedagógico..."
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm text-zinc-900"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-2 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded-lg transition"
-                >
-                  Salvar Trilha
-                </button>
-              </form>
-            </div>
-          </details>
-        }
+        action={<CreateTrackModal organizationId={activeOrgId} />}
       />
 
       {tracksWithModules.length === 0 ? (
