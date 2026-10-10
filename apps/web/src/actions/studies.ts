@@ -88,6 +88,77 @@ export async function createLessonNoteAction(formData: FormData) {
   revalidatePath('/professor/notes');
 }
 
+export async function updateLessonNoteAction(formData: FormData) {
+  const supabase = await createClient();
+  const note_id = formData.get('note_id') as string;
+  const title = (formData.get('title') as string)?.trim();
+  const content = (formData.get('content') as string)?.trim();
+  const lesson_date = (formData.get('lesson_date') as string)?.trim();
+
+  if (!note_id || !title || !content) {
+    throw new Error('ID, título e conteúdo são obrigatórios.');
+  }
+
+  const { error } = await supabase
+    .from('lesson_notes')
+    .update({
+      title,
+      content,
+      lesson_date: lesson_date || new Date().toISOString().split('T')[0],
+    })
+    .eq('id', note_id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/professor/notes');
+  revalidatePath('/student/notes');
+}
+
+export async function deleteLessonNoteAction(noteId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('lesson_notes')
+    .delete()
+    .eq('id', noteId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/professor/notes');
+  revalidatePath('/student/notes');
+}
+
+export async function reviewActivitySubmissionAction(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const submission_id = formData.get('submission_id') as string;
+  const teacher_feedback = formData.get('teacher_feedback') as string;
+  const score = formData.get('score') as string;
+
+  if (!submission_id || !teacher_feedback) {
+    throw new Error('ID e feedback da professora são obrigatórios.');
+  }
+
+  const formattedFeedback = score ? `[Nota/Pontuação: ${score}]\n\n${teacher_feedback}` : teacher_feedback;
+
+  const { error } = await supabase
+    .from('free_submissions')
+    .update({
+      teacher_feedback: formattedFeedback,
+      status: 'reviewed',
+      teacher_id: user?.id,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', submission_id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/professor/corrections');
+  revalidatePath('/student/activities');
+}
+
 // 4. Salvar / Remover Item em Quero Revisar
 export async function toggleReviewItemAction(
   organization_id: string,

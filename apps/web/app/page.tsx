@@ -1,17 +1,36 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '../src/lib/supabase/server';
+
+function parseFeatures(features: any): string[] {
+  if (Array.isArray(features)) {
+    return features.map((f) => String(f));
+  }
+  if (typeof features === 'string') {
+    try {
+      const parsed = JSON.parse(features);
+      if (Array.isArray(parsed)) return parsed.map((f) => String(f));
+    } catch {
+      return [features];
+    }
+  }
+  if (features && typeof features === 'object') {
+    return Object.values(features).map((f) => String(f));
+  }
+  return [];
+}
 
 export default async function LandingPage() {
   const supabase = await createClient();
 
-  // Busca planos cadastrados na system_plans que estejam visíveis ao público
+  // Consulta à tabela system_plans
   const { data: plansData } = await supabase
     .from('system_plans')
     .select('id, slug, name, price_monthly, price_yearly, installment_yearly, max_active_students, max_teachers, features')
     .eq('is_active', true)
     .order('price_monthly', { ascending: true });
 
-  // Fallback caso a tabela ainda não tenha retornado os seeds
+  // Planos com fallback padrão oficial
   const plans = (plansData && plansData.length > 0) ? plansData : [
     {
       id: '1',
@@ -21,7 +40,13 @@ export default async function LandingPage() {
       installment_yearly: 62.91,
       max_active_students: 20,
       max_teachers: 1,
-      features: ['Até 20 alunas ativas', '1 professora titular', 'Aulas e agendas ilimitadas', 'Trilhas pedagógicas integradas'],
+      features: [
+        'Até 20 alunos ativos',
+        '1 professor titular',
+        'Trilhas pedagógicas e materiais ilimitados',
+        'Banco de atividades e exercícios com gabarito',
+        'Caderno de anotações e modo apresentação',
+      ],
     },
     {
       id: '2',
@@ -31,7 +56,14 @@ export default async function LandingPage() {
       installment_yearly: 107.91,
       max_active_students: 50,
       max_teachers: 3,
-      features: ['Até 50 alunas ativas', 'Titular + até 2 professoras', 'Gestão de turmas e diário de classe', 'Acompanhamento individualizado'],
+      features: [
+        'Até 50 alunos ativos',
+        '1 professor titular + até 2 professores',
+        'Todas as ferramentas do plano Essencial',
+        'Cronograma e planejamento com liberação de aulas',
+        'Gestão financeira (cobranças, despesas e DRE)',
+        'Exportação de relatórios em CSV e PDF',
+      ],
     },
     {
       id: '3',
@@ -41,170 +73,304 @@ export default async function LandingPage() {
       installment_yearly: 161.91,
       max_active_students: 100,
       max_teachers: 6,
-      features: ['Até 100 alunas ativas', 'Titular + até 5 professoras', 'Painel executivo de turmas', 'Suporte prioritário'],
+      features: [
+        'Até 100 alunos ativos',
+        '1 professor titular + até 5 professores',
+        'Gestão completa de múltiplos docentes e turmas',
+        'Relatórios de faturamento por professor',
+        'Suporte prioritário e assessoria pedagógica',
+      ],
     },
   ];
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 scroll-smooth">
-      {/* 1. Navbar */}
-      <header className="border-b border-stone-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-serif text-2xl font-bold tracking-tight text-stone-900">
-              Fikra
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-stone-100 text-stone-600 rounded">
-              Study Hub
-            </span>
-          </div>
+    <div className="min-h-screen bg-[#F7F4ED] text-[#2B2426] selection:bg-[#D7CE36]/30 scroll-smooth">
+      {/* 1. Header & Barra Superior Pública */}
+      <header className="sticky top-0 z-40 bg-[#FFFDF7]/95 backdrop-blur-md border-b border-[#E6E1D8]">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-90">
+            <Image
+              src="/Logo.svg"
+              alt="Fikra Idiomas"
+              width={130}
+              height={34}
+              priority
+              className="h-8 w-auto object-contain"
+            />
+          </Link>
 
-          <nav className="flex items-center gap-3">
+          <nav className="hidden md:flex items-center gap-8">
+            <a
+              href="#recursos"
+              className="text-sm font-medium text-[#6F6865] hover:text-[#6C0F37] transition-colors"
+            >
+              Recursos
+            </a>
             <a
               href="#planos"
-              className="text-xs font-semibold px-3 py-2 text-stone-600 hover:text-stone-900 transition-colors"
+              className="text-sm font-medium text-[#6F6865] hover:text-[#6C0F37] transition-colors"
             >
               Planos & Assinaturas
             </a>
+            <a
+              href="#sobre"
+              className="text-sm font-medium text-[#6F6865] hover:text-[#6C0F37] transition-colors"
+            >
+              Sobre a Fikra
+            </a>
+          </nav>
+
+          <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-xs font-semibold px-4 py-2 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition shadow-xs"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#6C0F37] hover:bg-[#57102E] text-[#FFFDF7] text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow"
             >
-              Entrar na Plataforma →
+              <span>Entrar no Hub</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
             </Link>
-          </nav>
+          </div>
         </div>
       </header>
 
-      {/* 2. Hero Section */}
-      <section className="max-w-4xl mx-auto text-center pt-24 pb-16 px-6">
-        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-200 inline-block mb-4">
-          Ambiente Pedagógico Completo
-        </span>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold text-stone-900 tracking-tight leading-tight">
-          Acelere sua fluência com acompanhamento personalizado.
-        </h1>
-        <p className="mt-6 text-base sm:text-lg text-stone-600 max-w-2xl mx-auto leading-relaxed">
-          Uma plataforma centralizada para professoras organizarem turmas, agendas de aulas ao vivo, materiais em PDF e atividades interativas de imersão.
-        </p>
+      {/* 2. Hero Section de Impacto */}
+      <section className="relative overflow-hidden pt-20 pb-24 md:pt-28 md:pb-32 px-6">
+        <div className="max-w-5xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-[#E6E1D8] text-xs font-semibold uppercase tracking-wider text-[#6C0F37] shadow-2xs mb-6">
+            <span className="w-2 h-2 rounded-full bg-[#D7CE36]"></span>
+            Plataforma Pedagógica & Gestão Completa
+          </div>
 
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <a
-            href="#planos"
-            className="w-full sm:w-auto px-6 py-3 text-sm font-semibold bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 transition shadow-sm"
-          >
-            Conhecer Planos de Assinatura
-          </a>
-          <Link
-            href="/login"
-            className="w-full sm:w-auto px-6 py-3 text-sm font-semibold bg-white border border-stone-300 text-stone-800 rounded-xl hover:bg-stone-100 transition"
-          >
-            Já sou Aluna ou Docente
-          </Link>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-[#6C0F37] tracking-tight leading-tight md:leading-tight">
+            A plataforma definitiva para professores particulares e escolas de idiomas.
+          </h1>
+
+          <p className="mt-6 text-base sm:text-lg md:text-xl text-[#6F6865] max-w-3xl mx-auto leading-relaxed">
+            Centralize turmas, trilhas de aprendizagem, atividades com gabarito automático, diário de aulas e gestão financeira em um só lugar.
+          </p>
+
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="#planos"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-bold bg-[#D7CE36] text-[#6C0F37] rounded-xl hover:bg-[#C2B92F] transition-all shadow-md hover:shadow-lg"
+            >
+              <span>Conhecer Planos de Assinatura</span>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </a>
+
+            <Link
+              href="/login"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold bg-white border border-[#E6E1D8] text-[#2B2426] rounded-xl hover:bg-[#F7F4ED] hover:border-[#6C0F37]/30 transition-all shadow-xs"
+            >
+              <span>Acessar Minha Conta</span>
+              <svg className="w-4 h-4 text-[#6C0F37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
+          {/* Destaques Rápidos */}
+          <div className="mt-14 pt-10 border-t border-[#E6E1D8] grid grid-cols-1 sm:grid-cols-3 gap-6 text-left max-w-4xl mx-auto">
+            <div className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-full bg-[#6C0F37]/10 text-[#6C0F37] flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">✓</span>
+              <div>
+                <p className="text-sm font-bold text-[#2B2426]">14+ Formatos de Atividades</p>
+                <p className="text-xs text-[#6F6865] mt-0.5">Exercícios interativos com correção instantânea e gabarito.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-full bg-[#6C0F37]/10 text-[#6C0F37] flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">✓</span>
+              <div>
+                <p className="text-sm font-bold text-[#2B2426]">Caderno & Modo Aula</p>
+                <p className="text-xs text-[#6F6865] mt-0.5">Sem distrações, com zoom responsivo para videochamadas.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-full bg-[#6C0F37]/10 text-[#6C0F37] flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">✓</span>
+              <div>
+                <p className="text-sm font-bold text-[#2B2426]">Gestão Financeira e DRE</p>
+                <p className="text-xs text-[#6F6865] mt-0.5">Controle de mensalidades, despesas e resultado operacional.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* 3. Recursos & Pilares da Plataforma */}
-      <section className="max-w-5xl mx-auto py-12 px-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white border border-stone-200/90 rounded-2xl p-6 shadow-xs space-y-2">
-            <div className="text-2xl">🌿</div>
-            <h2 className="font-bold text-base text-stone-900">Trilhas de Aprendizado</h2>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              Grade modularizada com lições cronológicas, arquivos didáticos em PDF e conteúdos em vídeo integrados.
+      {/* 3. Seção de Recursos Principais */}
+      <section id="recursos" className="py-20 bg-white border-y border-[#E6E1D8] px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] px-3 py-1 bg-[#6C0F37]/5 rounded-full inline-block mb-3">
+              Recursos Desenvolvidos para o Ensino
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#6C0F37] tracking-tight">
+              Tudo o que você precisa para lecionar com excelência
+            </h2>
+            <p className="text-base text-[#6F6865] mt-3">
+              Uma arquitetura pensada para eliminar planilhas soltas e proporcionar uma experiência premium para você e seus alunos.
             </p>
           </div>
 
-          <div className="bg-white border border-stone-200/90 rounded-2xl p-6 shadow-xs space-y-2">
-            <div className="text-2xl">✍️</div>
-            <h2 className="font-bold text-base text-stone-900">Atividades & Produções</h2>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              Exercícios direcionados, redações livres e cadernos compartilhados com correções e notas em tempo real.
-            </p>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Card 1: Planejamento & Trilhas */}
+            <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-6 hover:shadow-md transition-shadow flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#6C0F37]/10 text-[#6C0F37] flex items-center justify-center text-2xl mb-5">
+                  📚
+                </div>
+                <h3 className="font-bold text-lg text-[#6C0F37] mb-2">Planejamento & Trilhas</h3>
+                <p className="text-sm text-[#6F6865] leading-relaxed">
+                  Cronograma hierárquico por níveis, unidades e aulas. Configure regras de liberação imediata, semanal ou por data para cada turma ou aluno.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-[#E6E1D8] flex items-center justify-between text-xs font-medium text-[#6C0F37]">
+                <span>Níveis • Módulos • Aulas</span>
+                <span>→</span>
+              </div>
+            </div>
 
-          <div className="bg-white border border-stone-200/90 rounded-2xl p-6 shadow-xs space-y-2">
-            <div className="text-2xl">📅</div>
-            <h2 className="font-bold text-base text-stone-900">Diário & Calendário de Lives</h2>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              Acesso descomplicado aos encontros síncronos com horário marcado, histórico de aulas e links de transmissão.
-            </p>
+            {/* Card 2: Banco de Atividades */}
+            <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-6 hover:shadow-md transition-shadow flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#D7CE36]/30 text-[#6C0F37] flex items-center justify-center text-2xl mb-5">
+                  ✍️
+                </div>
+                <h3 className="font-bold text-lg text-[#6C0F37] mb-2">Banco de Atividades</h3>
+                <p className="text-sm text-[#6F6865] leading-relaxed">
+                  Mais de 14 formatos de exercícios com recursos anexos (vídeos, áudios, PDFs e textos). Correção automática e mista com notas e gabaritos.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-[#E6E1D8] flex items-center justify-between text-xs font-medium text-[#6C0F37]">
+                <span>14+ Formatos de Questões</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            {/* Card 3: Caderno & Modo Aula */}
+            <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-6 hover:shadow-md transition-shadow flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#6C0F37]/10 text-[#6C0F37] flex items-center justify-center text-2xl mb-5">
+                  💻
+                </div>
+                <h3 className="font-bold text-lg text-[#6C0F37] mb-2">Caderno & Modo Aula</h3>
+                <p className="text-sm text-[#6F6865] leading-relaxed">
+                  Ambiente limpo e sem distrações com modo apresentação e zoom responsivo, perfeito para espelhar a tela durante aulas ao vivo no Meet ou Zoom.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-[#E6E1D8] flex items-center justify-between text-xs font-medium text-[#6C0F37]">
+                <span>Anotações & Zoom Dinâmico</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            {/* Card 4: Gestão & Financeiro */}
+            <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-6 hover:shadow-md transition-shadow flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#D7CE36]/30 text-[#6C0F37] flex items-center justify-center text-2xl mb-5">
+                  📊
+                </div>
+                <h3 className="font-bold text-lg text-[#6C0F37] mb-2">Gestão & Financeiro</h3>
+                <p className="text-sm text-[#6F6865] leading-relaxed">
+                  DRE simplificado, controle de cobranças e mensalidades de alunos, registro de despesas e exportação de relatórios em CSV e PDF.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-[#E6E1D8] flex items-center justify-between text-xs font-medium text-[#6C0F37]">
+                <span>DRE • Cobranças • Relatórios</span>
+                <span>→</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 4. Grade de Assinatura e Planos */}
-      <section id="planos" className="max-w-6xl mx-auto pt-16 pb-28 px-6">
-        <div className="text-center mb-12">
-          <span className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-1">
-            Transparência & Escala
+      {/* 4. Vitrine de Planos de Assinatura (Fikra SaaS) */}
+      <section id="planos" className="py-24 px-6 max-w-7xl mx-auto">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] px-3.5 py-1 bg-[#D7CE36]/30 border border-[#D7CE36] rounded-full inline-block mb-3">
+            Planos e Assinaturas
           </span>
-          <h2 className="text-3xl font-serif font-bold text-stone-900">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#6C0F37] tracking-tight">
             Escolha o formato ideal para seu ensino
           </h2>
-          <p className="text-sm text-stone-500 mt-2 max-w-xl mx-auto">
-            Matricule-se para acessar os conteúdos ou assine a plataforma para ministrar suas próprias aulas particulares.
+          <p className="text-base text-[#6F6865] mt-3">
+            Planos sob medida para professores autônomos e escolas de idiomas em expansão. Cancele ou altere a qualquer momento.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
           {plans.map((plan: any, idx: number) => {
-            const isPopular = idx === 1;
+            const isPopular = plan.slug?.includes('pro') || idx === 1;
+            const features = parseFeatures(plan.features);
 
             return (
               <div
                 key={plan.id}
-                className={`bg-white border rounded-2xl p-6 flex flex-col justify-between transition-all ${
+                className={`bg-white rounded-3xl p-8 flex flex-col justify-between transition-all relative ${
                   isPopular
-                    ? 'border-emerald-700 ring-2 ring-emerald-700 shadow-md relative'
-                    : 'border-stone-200/90 shadow-xs'
+                    ? 'border-2 border-[#6C0F37] shadow-xl ring-4 ring-[#6C0F37]/5'
+                    : 'border border-[#E6E1D8] shadow-sm hover:shadow-md'
                 }`}
               >
                 {isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-800 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 rounded-full">
-                    Mais Recomendado
-                  </span>
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#D7CE36] text-[#6C0F37] text-[11px] font-bold uppercase tracking-wider px-4 py-1 rounded-full shadow-xs border border-[#C2B92F]">
+                    Mais Escolhido
+                  </div>
                 )}
 
                 <div>
-                  <h3 className="font-bold text-lg text-stone-900">{plan.name}</h3>
-                  <p className="text-xs text-stone-500 mt-1">
-                    Até {plan.max_active_students || 20} alunas ativas • {plan.max_teachers || 1} professora(s)
-                  </p>
-
-                  <div className="mt-6 flex items-baseline gap-1">
-                    <span className="text-3xl font-serif font-bold text-stone-900">
-                      R$ {Number(plan.price_monthly).toFixed(2).replace('.', ',')}
-                    </span>
-                    <span className="text-xs text-stone-500">/mês</span>
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <h3 className="font-bold text-xl text-[#2B2426]">{plan.name}</h3>
+                      <p className="text-xs text-[#6F6865] mt-1 font-medium">
+                        Até {plan.max_active_students || 20} alunos ativos • {plan.max_teachers || 1} professor(es)
+                      </p>
+                    </div>
                   </div>
 
-                  {plan.installment_yearly && (
-                    <p className="text-[11px] text-stone-400 mt-0.5">
-                      ou até 12x de R$ {Number(plan.installment_yearly).toFixed(2).replace('.', ',')} no plano anual
-                    </p>
-                  )}
+                  {/* Preço */}
+                  <div className="mt-8 mb-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-[#6C0F37]">
+                        R$ {Number(plan.price_monthly).toFixed(2).replace('.', ',')}
+                      </span>
+                      <span className="text-sm font-medium text-[#6F6865]">/mês</span>
+                    </div>
 
-                  <ul className="mt-6 space-y-2.5 text-xs text-stone-600 border-t border-stone-100 pt-5">
-                    {(Array.isArray(plan.features) ? plan.features : []).map((feat: string, fIdx: number) => (
-                      <li key={fIdx} className="flex items-center gap-2">
-                        <span className="text-emerald-700 font-bold">✓</span>
-                        <span>{feat}</span>
-                      </li>
+                    {plan.installment_yearly && (
+                      <p className="text-xs text-[#6F6865] mt-1">
+                        ou até 12x de <strong className="text-[#2B2426]">R$ {Number(plan.installment_yearly).toFixed(2).replace('.', ',')}</strong> no plano anual
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Lista de Recursos */}
+                  <div className="mt-8 pt-6 border-t border-[#E6E1D8] space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6C0F37]">O que está incluso:</p>
+                    {features.map((feature: string, fIdx: number) => (
+                      <div key={fIdx} className="flex items-start gap-2.5 text-xs text-[#2B2426]">
+                        <span className="w-4 h-4 rounded-full bg-[#6C0F37]/10 text-[#6C0F37] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                          ✓
+                        </span>
+                        <span className="leading-relaxed">{feature}</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
 
-                <div className="mt-8 pt-4 border-t border-stone-100">
+                {/* Botão CTA */}
+                <div className="mt-10 pt-6 border-t border-[#E6E1D8]">
                   <Link
-                    href="/login"
-                    className={`w-full block text-center py-2.5 px-4 font-semibold rounded-lg text-xs transition ${
+                    href={`/login?plan=${plan.slug || plan.id}`}
+                    className={`w-full py-3.5 px-4 font-bold rounded-xl text-sm text-center block transition-all shadow-sm ${
                       isPopular
-                        ? 'bg-emerald-800 text-white hover:bg-emerald-900'
-                        : 'bg-stone-900 text-white hover:bg-stone-800'
+                        ? 'bg-[#6C0F37] hover:bg-[#57102E] text-white hover:shadow-md'
+                        : 'bg-[#F7F4ED] hover:bg-[#E6E1D8] text-[#2B2426] border border-[#E6E1D8]'
                     }`}
                   >
-                    Assinar Plano & Iniciar
+                    {isPopular ? 'Assinar Plano Pro' : 'Começar agora'}
                   </Link>
                 </div>
               </div>
@@ -213,9 +379,67 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* 5. Footer */}
-      <footer className="border-t border-stone-200 bg-white py-8 px-6 text-center text-xs text-stone-400">
-        <p>© 2026 Fikra Study Hub. Todos os direitos reservados.</p>
+      {/* 5. Banner de Conversão Final */}
+      <section id="sobre" className="py-16 px-6 max-w-7xl mx-auto">
+        <div className="bg-[#6C0F37] text-[#FFFDF7] rounded-3xl p-8 md:p-14 text-center relative overflow-hidden shadow-xl">
+          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-white/5 pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-[#D7CE36]/10 pointer-events-none" />
+
+          <div className="relative z-10 max-w-3xl mx-auto">
+            <span className="inline-block text-xs font-bold uppercase tracking-wider px-3.5 py-1 rounded-full bg-[#D7CE36] text-[#6C0F37] mb-4">
+              Junte-se à Fikra
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white leading-snug">
+              Pronto para elevar o nível das suas aulas e da sua gestão?
+            </h2>
+            <p className="mt-4 text-base text-white/80 leading-relaxed max-w-2xl mx-auto">
+              Experimente a tranquilidade de ter trilhas, atividades, materiais e finanças organizados em uma plataforma intuitiva e exclusiva.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <a
+                href="#planos"
+                className="w-full sm:w-auto px-8 py-3.5 text-sm font-bold bg-[#D7CE36] text-[#6C0F37] rounded-xl hover:bg-[#C2B92F] transition-all shadow-md"
+              >
+                Escolher Meu Plano
+              </a>
+              <Link
+                href="/login"
+                className="w-full sm:w-auto px-8 py-3.5 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all"
+              >
+                Fazer Login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Rodapé Oficial */}
+      <footer className="border-t border-[#E6E1D8] bg-white py-12 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center md:items-start gap-2">
+            <Image
+              src="/Logo.svg"
+              alt="Fikra Idiomas"
+              width={120}
+              height={30}
+              className="h-7 w-auto object-contain"
+            />
+            <p className="text-xs text-[#6F6865]">
+              Plataforma pedagógica e hub de gestão para o ensino de idiomas.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-[#6F6865]">
+            <a href="#recursos" className="hover:text-[#6C0F37] transition-colors">Recursos</a>
+            <a href="#planos" className="hover:text-[#6C0F37] transition-colors">Planos</a>
+            <Link href="/login" className="hover:text-[#6C0F37] transition-colors">Acesso de Professores</Link>
+            <Link href="/login" className="hover:text-[#6C0F37] transition-colors">Acesso de Alunos</Link>
+          </div>
+
+          <div className="text-xs text-[#6F6865] text-center md:text-right">
+            <p>© {new Date().getFullYear()} Fikra Idiomas. Todos os direitos reservados.</p>
+          </div>
+        </div>
       </footer>
     </div>
   );

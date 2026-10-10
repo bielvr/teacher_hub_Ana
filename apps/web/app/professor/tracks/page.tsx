@@ -2,10 +2,9 @@ import Link from 'next/link';
 import { createClient } from '../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../src/services/organizations';
 import { PageHeader } from '../../../src/components/PageHeader';
-import { Card } from '../../../src/components/Card';
-import { EmptyState } from '../../../src/components/EmptyState';
 import { CreateTrackModal } from '../../../src/components/CreateTrackModal';
-import { createModuleAction } from '../../../src/actions/tracks';
+import { CreateUnitModal } from '../../../src/components/CreateUnitModal';
+import { TrackCardMenu } from '../../../src/components/TrackCardMenu';
 
 export default async function TracksPage({
   searchParams,
@@ -20,13 +19,13 @@ export default async function TracksPage({
 
   if (!activeOrgId) {
     return (
-      <div className="p-8 text-center text-zinc-500">
+      <div className="p-8 text-center text-[#6F6865]">
         Nenhuma organização ativa encontrada.
       </div>
     );
   }
 
-  // 1. Busca as trilhas da organização
+  // 1. Busca os níveis (tracks) da organização
   const { data: tracksData } = await supabase
     .from('tracks')
     .select('id, title, description, created_at')
@@ -36,7 +35,7 @@ export default async function TracksPage({
   const tracks = tracksData || [];
   const trackIds = tracks.map((t: { id: string }) => t.id);
 
-  // 2. Busca módulos e lições correspondentes
+  // 2. Busca unidades (modules), aulas (lessons) e materiais didáticos (activities)
   let modules: any[] = [];
   if (trackIds.length > 0) {
     const { data: modulesData } = await supabase
@@ -49,7 +48,12 @@ export default async function TracksPage({
         lessons (
           id,
           title,
-          order_index
+          order_index,
+          activities (
+            id,
+            title,
+            type
+          )
         )
       `)
       .in('track_id', trackIds)
@@ -58,118 +62,118 @@ export default async function TracksPage({
     modules = modulesData || [];
   }
 
-  // Agrupa os módulos dentro de cada trilha
-  const tracksWithModules = tracks.map((track: any) => ({
-    ...track,
-    modules: modules.filter((m: any) => m.track_id === track.id),
-  }));
+  // Agrupa e calcula as contagens reais para cada nível
+  const tracksWithStats = tracks.map((track: any) => {
+    const trackModules = modules.filter((m: any) => m.track_id === track.id);
+    const unitsCount = trackModules.length;
+    let lessonsCount = 0;
+    let materialsCount = 0;
+
+    trackModules.forEach((m: any) => {
+      const mLessons = m.lessons || [];
+      lessonsCount += mLessons.length;
+      mLessons.forEach((l: any) => {
+        materialsCount += (l.activities || []).length;
+      });
+    });
+
+    return {
+      ...track,
+      modules: trackModules,
+      unitsCount,
+      lessonsCount,
+      materialsCount,
+    };
+  });
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Trilhas & Conteúdos"
-        description="Estruture sua grade curricular em trilhas, módulos pedagógicos e lições."
-        action={<CreateTrackModal organizationId={activeOrgId} />}
+        title="Materiais didáticos"
+        description="Crie e organize os níveis, unidades, aulas e materiais que compõem o seu ensino."
+        action={
+          <CreateTrackModal
+            organizationId={activeOrgId}
+            triggerText="+ Novo nível"
+          />
+        }
       />
 
-      {tracksWithModules.length === 0 ? (
-        <EmptyState
-          title="Nenhuma trilha curricular cadastrada"
-          description="Crie uma trilha pedagógica para organizar seus módulos e lições."
-        />
+      {tracksWithStats.length === 0 ? (
+        <div className="bg-white border border-[#E6E1D8] rounded-2xl p-12 text-center shadow-[0_2px_8px_rgba(44,30,34,0.06)]">
+          <div className="w-12 h-12 rounded-full bg-[#F7F4ED] text-[#6C0F37] flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+            📚
+          </div>
+          <h3 className="text-base font-bold text-[#2B2426]">
+            Nenhum nível cadastrado
+          </h3>
+          <p className="text-xs text-[#6F6865] mt-1 max-w-sm mx-auto mb-5">
+            Crie o primeiro nível pedagógico para começar a estruturar suas unidades, aulas e materiais didáticos.
+          </p>
+          <CreateTrackModal
+            organizationId={activeOrgId}
+            triggerText="+ Novo nível"
+          />
+        </div>
       ) : (
-        <div className="space-y-6">
-          {tracksWithModules.map((track: any) => (
-            <Card key={track.id} className="space-y-4">
-              <div className="border-b border-zinc-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-bold text-lg text-zinc-900">{track.title}</h3>
-                  {track.description && (
-                    <p className="text-sm text-zinc-500 mt-0.5">{track.description}</p>
-                  )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {tracksWithStats.map((track) => (
+            <div
+              key={track.id}
+              className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-[0_2px_8px_rgba(44,30,34,0.06)] hover:border-[#6C0F37]/30 transition-colors flex flex-col justify-between gap-5"
+            >
+              <div className="space-y-3">
+                {/* Cabeçalho do Card com Título e Menu 3 Pontinhos */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8]">
+                      Nível
+                    </span>
+                    <h3 className="text-xl font-bold text-[#2B2426] pt-1">
+                      {track.title}
+                    </h3>
+                  </div>
+                  <TrackCardMenu
+                    track={{
+                      id: track.id,
+                      title: track.title,
+                      description: track.description,
+                    }}
+                  />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/professor/tracks/${track.id}`}
-                    className="text-xs font-semibold px-3 py-1.5 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition"
-                  >
-                    Gerenciar Aulas & PDFs →
-                  </Link>
+                {track.description && (
+                  <p className="text-xs text-[#6F6865] line-clamp-2 leading-relaxed">
+                    {track.description}
+                  </p>
+                )}
 
-                  <details className="relative">
-                    <summary className="list-none cursor-pointer text-xs font-semibold px-3 py-1.5 border border-zinc-200 rounded-md hover:bg-zinc-50 text-zinc-700">
-                      + Módulo
-                    </summary>
-                    <div className="absolute right-0 mt-2 w-72 bg-white border border-zinc-200 rounded-xl p-4 shadow-xl z-50">
-                      <h4 className="text-xs font-bold text-zinc-900 mb-2">Novo Módulo</h4>
-                      <form action={createModuleAction} className="space-y-2">
-                        <input type="hidden" name="track_id" value={track.id} />
-                        <div>
-                          <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
-                            Título
-                          </label>
-                          <input
-                            name="title"
-                            type="text"
-                            required
-                            placeholder="Ex: Unit 1: Nice to meet you"
-                            className="w-full px-2.5 py-1.5 border border-zinc-300 rounded-md text-xs text-zinc-900"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          className="w-full py-1.5 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded-md transition"
-                        >
-                          Adicionar
-                        </button>
-                      </form>
-                    </div>
-                  </details>
+                {/* Resumo de contadores no padrão: X unidades • Y aulas • Z materiais */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F4ED] border border-[#E6E1D8] rounded-xl text-xs font-medium text-[#2B2426]">
+                  <span>{track.unitsCount} unidades</span>
+                  <span className="text-[#6F6865]/50">•</span>
+                  <span>{track.lessonsCount} aulas</span>
+                  <span className="text-[#6F6865]/50">•</span>
+                  <span>{track.materialsCount} materiais</span>
                 </div>
               </div>
 
-              {(!track.modules || track.modules.length === 0) ? (
-                <p className="text-sm text-zinc-400 py-3 text-center">
-                  Nenhum módulo nesta trilha. Clique em "+ Módulo" para iniciar a grade.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {track.modules.map((mod: any) => (
-                    <div
-                      key={mod.id}
-                      className="bg-zinc-50 rounded-lg p-3 border border-zinc-200/70"
-                    >
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-semibold text-sm text-zinc-800">
-                          {mod.title}
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          {mod.lessons?.length || 0} aulas
-                        </span>
-                      </div>
+              {/* Rodapé do Card com Ações */}
+              <div className="pt-4 border-t border-[#E6E1D8] flex items-center justify-between gap-3">
+                <Link
+                  href={`/professor/tracks/${track.id}?org=${activeOrgId}`}
+                  className="px-4 py-2 text-xs font-semibold text-[#6C0F37] bg-white border border-[#6C0F37] rounded-xl hover:bg-[#F3E8EC] transition-colors flex items-center gap-1.5"
+                >
+                  <span>Ver unidades e aulas →</span>
+                </Link>
 
-                      <div className="space-y-1.5 pl-3 border-l-2 border-zinc-200">
-                        {(!mod.lessons || mod.lessons.length === 0) ? (
-                          <p className="text-xs text-zinc-400 italic">
-                            Nenhuma aula cadastrada ainda.
-                          </p>
-                        ) : (
-                          mod.lessons.map((les: any) => (
-                            <div
-                              key={les.id}
-                              className="text-xs text-zinc-600 flex justify-between items-center py-1"
-                            >
-                              <span>• {les.title}</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
+                <CreateUnitModal
+                  trackId={track.id}
+                  triggerText="+ Adicionar unidade"
+                  variant="shortcut"
+                />
+              </div>
+            </div>
           ))}
         </div>
       )}
