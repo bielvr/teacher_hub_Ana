@@ -6,6 +6,7 @@ import { PageHeader } from '../../../src/components/PageHeader';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { ScheduleSessionModal } from '../../../src/components/ScheduleSessionModal';
+import { SyncCalendarHeaderButton, AddToGoogleCalendarButton } from '../../../src/components/CalendarSyncButtons';
 
 export default async function CalendarPage({
   searchParams,
@@ -36,15 +37,22 @@ export default async function CalendarPage({
     name: c.name,
   }));
 
+  const sessionList = sessions || [];
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Agenda de Aulas"
-        description="Gerencie os encontros ao vivo, horários das turmas e links de transmissão."
-        action={<ScheduleSessionModal orgId={activeOrgId} classes={classOptions} />}
-      />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <PageHeader
+          title="Agenda de Aulas"
+          description="Gerencie os encontros ao vivo, horários das turmas e links de transmissão."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <SyncCalendarHeaderButton sessions={sessionList} />
+          <ScheduleSessionModal orgId={activeOrgId} classes={classOptions} />
+        </div>
+      </div>
 
-      {sessions.length === 0 ? (
+      {sessionList.length === 0 ? (
         <EmptyState
           title="Nenhuma aula agendada"
           description="Agende uma aula ao vivo vinculada a uma turma e compartilhe o link de acesso."
@@ -52,54 +60,51 @@ export default async function CalendarPage({
         />
       ) : (
         <div className="space-y-3">
-          {sessions.map((session: any) => {
+          {sessionList.map((session: any) => {
             const dateObj = new Date(session.scheduled_at);
-            const dateFormatted = dateObj.toLocaleDateString([], {
-              weekday: 'short',
-              day: '2-digit',
-              month: 'short',
-            });
             const timeFormatted = dateObj.toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
             });
 
             const statusColors: Record<string, string> = {
-              scheduled: 'bg-zinc-100 text-zinc-700',
-              live: 'bg-emerald-100 text-emerald-800 border-emerald-200 animate-pulse',
-              finished: 'bg-zinc-50 text-zinc-400',
-              cancelled: 'bg-red-50 text-red-600',
+              scheduled: 'bg-[#FFFDF7] text-[#6C0F37] border-[#E6E1D8]',
+              live: 'bg-emerald-50 text-emerald-800 border-emerald-200 animate-pulse',
+              finished: 'bg-stone-50 text-stone-400 border-stone-200',
+              cancelled: 'bg-red-50 text-red-600 border-red-200',
             };
 
             return (
               <Card
                 key={session.id}
-                className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4"
+                className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4 border-[#E6E1D8] shadow-sm"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-14 text-center bg-zinc-50 p-2 rounded-lg border border-zinc-200">
-                    <span className="block text-xs uppercase font-semibold text-zinc-400">
-                      {dateObj.toLocaleDateString([], { month: 'short' })}
+                  <div className="w-14 text-center bg-[#FFFDF7] p-2 rounded-xl border border-[#E6E1D8] shrink-0">
+                    <span className="block text-[11px] uppercase font-bold text-[#6C0F37]">
+                      {dateObj.toLocaleDateString('pt-BR', { month: 'short' })}
                     </span>
-                    <span className="block text-lg font-bold text-zinc-800">
+                    <span className="block text-xl font-bold text-[#2B2426]">
                       {dateObj.getDate()}
                     </span>
                   </div>
 
                   <div>
-                    <h3 className="font-semibold text-base text-zinc-900">
+                    <h3 className="font-bold text-base text-[#2B2426]">
                       {session.title}
                     </h3>
-                    <p className="text-xs text-zinc-500 mt-0.5">
-                      {session.classes?.name} • {timeFormatted} ({session.duration_minutes} min)
+                    <p className="text-xs text-[#6F6865] mt-0.5">
+                      {session.classes?.name || 'Geral'} • {timeFormatted} ({session.duration_minutes} min)
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+                  <AddToGoogleCalendarButton session={session} />
+
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-md font-medium uppercase border ${
-                      statusColors[session.status] || 'bg-zinc-100'
+                    className={`text-xs px-2.5 py-1 rounded-lg font-semibold uppercase border ${
+                      statusColors[session.status] || 'bg-stone-50'
                     }`}
                   >
                     {session.status}
@@ -110,9 +115,9 @@ export default async function CalendarPage({
                       href={session.meet_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-semibold px-3 py-1.5 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors"
+                      className="text-xs font-semibold px-3 py-1.5 bg-[#6C0F37] hover:bg-[#57102E] text-white rounded-xl transition-colors shadow-2xs"
                     >
-                      Acessar Link
+                      Acessar Sala
                     </a>
                   )}
                 </div>

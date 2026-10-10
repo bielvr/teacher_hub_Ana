@@ -48,7 +48,7 @@ function LoginForm() {
         <Link href="/" className="inline-block transition-transform hover:opacity-90">
           <Image
             src="/Logo.svg"
-            alt="Fikra Idiomas"
+            alt="Fikra"
             width={130}
             height={34}
             priority
@@ -203,7 +203,7 @@ export default function LoginPage() {
               className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-[#D7CE36] mb-4 shadow-2xs"
               style={{ color: '#6C0F37' }}
             >
-              Fikra Idiomas
+              Fikra
             </span>
             <h2
               className="text-2xl font-bold tracking-tight leading-snug !text-white"
@@ -233,7 +233,7 @@ export default function LoginPage() {
               <span>Caderno de aula sem distrações</span>
             </div>
             <p className="text-[11px] pt-2" style={{ color: 'rgba(255, 253, 247, 0.6)' }}>
-              © {new Date().getFullYear()} Fikra Idiomas • Todos os direitos reservados
+              © {new Date().getFullYear()} Fikra • Todos os direitos reservados
             </p>
           </div>
         </div>

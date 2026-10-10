@@ -1,6 +1,7 @@
 import { createClient } from '../../../src/lib/supabase/server';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
+import { PaginatedContent } from '../../../src/components/PaginatedContent';
 
 function getYouTubeEmbedUrl(url: string | null) {
   if (!url) return null;
@@ -31,22 +32,22 @@ export default async function StudentActivitiesPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+      <div className="border-b border-[#E6E1D8] pb-4">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
           Suas Atividades
         </span>
-        <h1 className="text-3xl font-serif font-bold text-stone-900 mt-1">
+        <h1 className="text-3xl font-bold text-[#6C0F37] tracking-tight mt-1">
           Materiais e Tarefas
         </h1>
-        <p className="text-sm text-stone-500 mt-1">
-          Acesse os conteúdos de estudo, assista aos vídeos e conclua as tarefas preparadas pela professora.
+        <p className="text-sm text-[#6F6865] mt-1">
+          Acesse os conteúdos de estudo, assista aos vídeos e conclua as tarefas preparadas pelo professor.
         </p>
       </div>
 
       {(!activities || activities.length === 0) ? (
         <EmptyState
           title="Nenhuma atividade liberada"
-          description="Seus materiais aparecerão aqui conforme forem publicados pela professora."
+          description="Seus materiais aparecerão aqui conforme forem publicados pelo professor."
         />
       ) : (
         <div className="space-y-6">
@@ -54,17 +55,19 @@ export default async function StudentActivitiesPage() {
             const embedUrl = getYouTubeEmbedUrl(act.video_url);
 
             return (
-              <Card key={act.id} className="p-6 border border-stone-200/90 rounded-2xl space-y-4">
+              <Card key={act.id} className="p-6 border-[#E6E1D8] rounded-2xl space-y-4 shadow-sm bg-white">
                 {/* Cabeçalho do Card */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E6E1D8] pb-3">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-stone-100 text-stone-700 rounded">
-                      {act.type}
-                    </span>
-                    <span className="text-xs text-stone-400 ml-2">
-                      Lição: {act.lessons?.title || 'Conteúdo geral'}
-                    </span>
-                    <h2 className="text-lg font-bold text-stone-900 mt-1">{act.title}</h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[#FFFDF7] text-[#6C0F37] border border-[#E6E1D8] rounded">
+                        {act.type}
+                      </span>
+                      <span className="text-xs text-[#6F6865]">
+                        Aula: {act.lessons?.title || 'Conteúdo geral'}
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-bold text-[#2B2426] mt-1.5">{act.title}</h2>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
@@ -73,7 +76,7 @@ export default async function StudentActivitiesPage() {
                         href={act.pdf_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 text-xs font-semibold bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition"
+                        className="px-3 py-1.5 text-xs font-semibold bg-[#6C0F37] text-white rounded-xl hover:bg-[#57102E] transition shadow-2xs"
                       >
                         Abrir PDF ↗
                       </a>
@@ -83,7 +86,7 @@ export default async function StudentActivitiesPage() {
                         href={act.link_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 text-xs font-semibold border border-stone-300 text-stone-800 rounded-lg hover:bg-stone-100 transition"
+                        className="px-3 py-1.5 text-xs font-semibold border border-[#E6E1D8] text-[#2B2426] rounded-xl hover:bg-[#FFFDF7] transition"
                       >
                         Acessar Link ↗
                       </a>
@@ -104,15 +107,16 @@ export default async function StudentActivitiesPage() {
                   </div>
                 )}
 
-                {/* Bloco de Descrição / Resumo / Instruções */}
+                {/* Bloco de Descrição / Instruções com Suporte a Paginação em Etapas */}
                 {act.content_markdown && (
-                  <div className="bg-stone-50/80 border border-stone-200/70 rounded-xl p-4 space-y-2">
-                    <span className="text-xs font-bold text-stone-700 uppercase tracking-wider block">
-                      Descrição / Instruções:
+                  <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl p-4 space-y-2">
+                    <span className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider block">
+                      Instruções & Conteúdo da Atividade:
                     </span>
-                    <div className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap font-sans">
-                      {act.content_markdown}
-                    </div>
+                    <PaginatedContent
+                      content={act.content_markdown}
+                      enableKeyboardNavigation={true}
+                    />
                   </div>
                 )}
               </Card>

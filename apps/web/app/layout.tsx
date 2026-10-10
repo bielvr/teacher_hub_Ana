@@ -10,8 +10,16 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Fikra Idiomas",
-  description: "Plataforma de ensino e gestão Fikra Idiomas",
+  title: {
+    default: "Fikra",
+    template: "%s | Fikra",
+  },
+  description: "Plataforma de ensino e gestão Fikra",
+  icons: {
+    icon: "/Logo.svg",
+    shortcut: "/Logo.svg",
+    apple: "/Logo.svg",
+  },
 };
 
 export default function RootLayout({
@@ -21,6 +29,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${poppins.variable} font-sans h-full antialiased`}>
+      <head>
+        <link rel="icon" href="/Logo.svg" type="image/svg+xml" />
+      </head>
       <body
         className={`${poppins.className} min-h-full flex flex-col font-sans`}
         suppressHydrationWarning

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createLessonNoteAction, updateLessonNoteAction } from '../actions/studies';
+import { PaginatedContent } from './PaginatedContent';
 
 export interface LessonNoteItem {
   id: string;
@@ -54,6 +55,7 @@ export function StudentNotesEditorClient({
   // Layout & Modo Aula
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isClassMode, setIsClassMode] = useState(false);
+  const [presentationView, setPresentationView] = useState<'slides' | 'raw'>('slides');
   const [fontSizeStep, setFontSizeStep] = useState(1); // 0 = normal, 1 = lg, 2 = xl, 3 = 2xl
   const [searchQuery, setSearchQuery] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
@@ -220,6 +222,13 @@ export function StudentNotesEditorClient({
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => setPresentationView(presentationView === 'slides' ? 'raw' : 'slides')}
+                className="px-3.5 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-semibold text-[#6C0F37] transition cursor-pointer"
+              >
+                {presentationView === 'slides' ? '✏️ Modo Digitação' : '📑 Modo Apresentação'}
+              </button>
+              <button
+                type="button"
                 onClick={() => setFontSizeStep((prev) => Math.max(0, prev - 1))}
                 className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-bold text-[#6C0F37] transition cursor-pointer"
                 title="Diminuir Fonte"
@@ -245,8 +254,8 @@ export function StudentNotesEditorClient({
           </div>
 
           {/* Área Central Expandida do Modo Aula */}
-          <div className="flex-1 bg-white border border-[#E6E1D8] rounded-3xl p-8 sm:p-12 overflow-y-auto shadow-xl max-w-5xl mx-auto w-full space-y-6">
-            <div className="border-b border-[#E6E1D8] pb-4 flex justify-between items-baseline">
+          <div className="flex-1 bg-white border border-[#E6E1D8] rounded-3xl p-8 sm:p-12 overflow-y-auto shadow-xl max-w-5xl mx-auto w-full space-y-6 flex flex-col">
+            <div className="border-b border-[#E6E1D8] pb-4 flex justify-between items-baseline shrink-0">
               <h1 className="text-2xl sm:text-3xl font-bold text-[#6C0F37]">
                 {noteTitle}
               </h1>
@@ -255,12 +264,22 @@ export function StudentNotesEditorClient({
               </span>
             </div>
 
-            <textarea
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              placeholder="Digite as anotações da aula ao vivo enquanto compartilha sua tela..."
-              className={`w-full h-[calc(100%-5rem)] resize-none border-0 focus:outline-none focus:ring-0 text-[#2B2426] leading-relaxed font-sans bg-transparent ${currentFontSizeClass}`}
-            />
+            {presentationView === 'slides' ? (
+              <div className="flex-1 overflow-y-auto">
+                <PaginatedContent
+                  content={noteContent}
+                  enableKeyboardNavigation={true}
+                  fontSizeClass={currentFontSizeClass}
+                />
+              </div>
+            ) : (
+              <textarea
+                value={noteContent}
+                onChange={(e) => setNoteContent(e.target.value)}
+                placeholder="Digite as anotações da aula ao vivo enquanto compartilha sua tela..."
+                className={`w-full flex-1 resize-none border-0 focus:outline-none focus:ring-0 text-[#2B2426] leading-relaxed font-sans bg-transparent ${currentFontSizeClass}`}
+              />
+            )}
           </div>
         </div>
       ) : (
@@ -541,15 +560,11 @@ export function StudentNotesEditorClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      insertFormatting(
-                        '\n\n═══════════════════════════════════════════════\n📑 TÓPICO SEGUINTE DA AULA:\n═══════════════════════════════════════════════\n\n'
-                      )
-                    }
+                    onClick={() => insertFormatting('\n\n<!--page-break-->\n\n', '')}
                     className="p-1.5 px-2 hover:bg-[#F3E8EC] text-[#6C0F37] rounded font-semibold flex items-center gap-1 ml-auto"
-                    title="Quebra Visual de Tópico"
+                    title="Inserir Quebra de Página / Etapa"
                   >
-                    <span>📄</span> Quebra de Tópico
+                    <span>📄</span> Quebra de Página
                   </button>
                 </div>
               </div>

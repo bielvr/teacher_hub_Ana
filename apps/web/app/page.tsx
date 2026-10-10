@@ -91,7 +91,7 @@ export default async function LandingPage() {
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-90">
             <Image
               src="/Logo.svg"
-              alt="Fikra Idiomas"
+              alt="Fikra"
               width={130}
               height={34}
               priority
@@ -419,7 +419,7 @@ export default async function LandingPage() {
           <div className="flex flex-col items-center md:items-start gap-2">
             <Image
               src="/Logo.svg"
-              alt="Fikra Idiomas"
+              alt="Fikra"
               width={120}
               height={30}
               className="h-7 w-auto object-contain"
@@ -437,7 +437,7 @@ export default async function LandingPage() {
           </div>
 
           <div className="text-xs text-[#6F6865] text-center md:text-right">
-            <p>© {new Date().getFullYear()} Fikra Idiomas. Todos os direitos reservados.</p>
+            <p>© {new Date().getFullYear()} Fikra. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>

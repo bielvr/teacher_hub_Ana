@@ -149,11 +149,11 @@ export function TeacherNavbar({
             <Link
               href={`/professor?org=${activeOrgId}`}
               className="flex items-center shrink-0 border-0 outline-none hover:opacity-95 transition-opacity"
-              title="Fikra Idiomas"
+              title="Fikra"
             >
               <Image
                 src="/Logo.svg"
-                alt="Fikra Idiomas"
+                alt="Fikra"
                 width={120}
                 height={32}
                 priority
