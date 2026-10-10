@@ -123,9 +123,9 @@ export function TeacherNavbar({
   ];
 
   const accountLinks = [
-    { href: `/professor/profile?org=${activeOrgId}`, path: '/professor/profile', label: 'Meu perfil' },
-    { href: `/professor/account?org=${activeOrgId}`, path: '/professor/account', label: 'Conta e equipe' },
-    { href: `/professor/settings?org=${activeOrgId}`, path: '/professor/settings', label: 'Configurações da plataforma' },
+    { href: `/professor/account?tab=profile&org=${activeOrgId}`, path: '/professor/account?tab=profile', label: 'Meu perfil' },
+    { href: `/professor/billing/team?org=${activeOrgId}`, path: '/professor/billing/team', label: 'Conta e equipe' },
+    { href: `/professor/account?org=${activeOrgId}`, path: '/professor/account', label: 'Configurações da plataforma' },
     { href: `/professor/tutorials?org=${activeOrgId}`, path: '/professor/tutorials', label: 'Central de ajuda' },
   ];
 
