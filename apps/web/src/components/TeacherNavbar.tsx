@@ -39,6 +39,14 @@ export function TeacherNavbar({
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setCurrentUserId(data.user.id);
+    });
+  }, []);
 
   // Alterna menu aberto ou fecha se for o mesmo
   const toggleMenu = (menuName: string) => {
@@ -602,6 +610,8 @@ export function TeacherNavbar({
         isOpen={messagesOpen}
         onClose={() => setMessagesOpen(false)}
         orgId={activeOrgId}
+        currentUserId={currentUserId}
+        isTeacher={true}
       />
       <NotificationsModal
         isOpen={notificationsOpen}

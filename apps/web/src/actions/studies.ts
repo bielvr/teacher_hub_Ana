@@ -193,30 +193,88 @@ export async function toggleReviewItemAction(
 
   revalidatePath('/student/review');
 }
-export async function getDirectMessagesAction(orgId: string) {
+
+export async function getOrgStudentsAction(orgId: string) {
   const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from('organization_members')
+    .select(`
+      id,
+      profile_id,
+      profiles (
+        id,
+        full_name,
+        email,
+        phone
+      )
+    `)
+    .eq('organization_id', orgId)
+    .eq('role', 'student');
+
+  if (error || !data) return [];
+  return data
+    .map((m: any) => ({
+      id: m.profiles?.id || m.profile_id,
+      full_name: m.profiles?.full_name || 'Aluno',
+      email: m.profiles?.email || '',
+      phone: m.profiles?.phone || '',
+    }))
+    .filter((s: any) => Boolean(s.id));
+}
+
+export async function getDirectMessagesAction(orgId: string, studentId?: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return [];
+
   const { data, error } = await (supabase as any)
     .from('direct_messages')
     .select('*')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: true });
 
-  if (error) return [];
-  return data || [];
+  if (error || !data) return [];
+
+  if (studentId) {
+    // Filtra mensagens entre o professor logado e o aluno selecionado
+    return data.filter(
+      (m: any) =>
+        (m.sender_id === user.id && m.receiver_id === studentId) ||
+        (m.sender_id === studentId && (m.receiver_id === user.id || !m.receiver_id)) ||
+        (m.receiver_id === studentId)
+    );
+  }
+
+  return data;
 }
 
-export async function sendDirectMessageAction(orgId: string, content: string) {
+export async function sendDirectMessageAction(orgId: string, content: string, receiverId?: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user || !content.trim()) return null;
+
+  let targetReceiverId = receiverId;
+
+  if (!targetReceiverId) {
+    // Se não especificado (ex: aluno enviando para professora), encontra o professor da organização
+    const { data: teacherMember } = await (supabase as any)
+      .from('organization_members')
+      .select('profile_id')
+      .eq('organization_id', orgId)
+      .eq('role', 'teacher')
+      .maybeSingle();
+
+    targetReceiverId = teacherMember?.profile_id || user.id;
+  }
 
   const { data, error } = await (supabase as any)
     .from('direct_messages')
     .insert({
       organization_id: orgId,
       sender_id: user.id,
-      receiver_id: user.id,
+      receiver_id: targetReceiverId,
       content: content.trim(),
     })
     .select()
@@ -241,4 +299,24 @@ export async function getNotificationsAction(orgId: string) {
 
   if (error) return [];
   return data || [];
+}
+
+export async function markAllNotificationsAsReadAction(orgId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  try {
+    await (supabase as any)
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('organization_id', orgId)
+      .eq('user_id', user.id);
+  } catch (err) {
+    console.warn('Erro ao marcar notificações como lidas:', err);
+  }
+
+  revalidatePath('/professor');
+  revalidatePath('/student');
 }

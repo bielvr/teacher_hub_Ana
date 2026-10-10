@@ -146,7 +146,7 @@ export function CreateLessonModal({
                   value={selectedModuleId}
                   onChange={(e) => setSelectedModuleId(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition"
+                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                 >
                   {modules.map((m) => (
                     <option key={m.id} value={m.id}>

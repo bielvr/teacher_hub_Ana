@@ -26,6 +26,14 @@ export function StudentNavbar({
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setCurrentUserId(data.user.id);
+    });
+  }, []);
 
   // Alterna menu aberto ou fecha se for o mesmo
   const toggleMenu = (menuName: string) => {
@@ -529,8 +537,13 @@ export function StudentNavbar({
         )}
       </header>
 
-      {/* Modais Flutuantes de Mensagens e Notificações */}
-      <MessagesModal isOpen={messagesOpen} onClose={() => setMessagesOpen(false)} orgId={orgId} />
+      <MessagesModal
+        isOpen={messagesOpen}
+        onClose={() => setMessagesOpen(false)}
+        orgId={orgId}
+        currentUserId={currentUserId}
+        isTeacher={false}
+      />
       <NotificationsModal isOpen={notificationsOpen} onClose={() => setNotificationsOpen(false)} orgId={orgId} />
     </>
   );

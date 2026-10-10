@@ -96,9 +96,9 @@ export function CreatePaymentModal({
                 <select
                   name="student_id"
                   required
-                  className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                 >
-                  <option value="">Selecione a aluna</option>
+                  <option value="">Selecione o aluno</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.full_name}
@@ -116,7 +116,7 @@ export function CreatePaymentModal({
                   name="description"
                   required
                   placeholder="Ex: Mensalidade - Outubro / Inglês VIP"
-                  className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                 />
               </div>
 
@@ -131,7 +131,7 @@ export function CreatePaymentModal({
                     name="amount"
                     required
                     placeholder="350.00"
-                    className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                   />
                 </div>
 
@@ -144,7 +144,7 @@ export function CreatePaymentModal({
                     name="due_date"
                     required
                     defaultValue={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                   />
                 </div>
               </div>
@@ -156,7 +156,7 @@ export function CreatePaymentModal({
                   </label>
                   <select
                     name="payment_method"
-                    className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426]"
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                   >
                     <option value="PIX">PIX</option>
                     <option value="Cartão de Crédito">Cartão de Crédito</option>
@@ -171,7 +171,7 @@ export function CreatePaymentModal({
                   </label>
                   <select
                     name="status"
-                    className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426]"
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                   >
                     <option value="pending">Pendente</option>
                     <option value="paid">Recebido / Pago</option>

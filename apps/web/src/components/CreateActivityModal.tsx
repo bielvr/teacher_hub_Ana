@@ -294,7 +294,7 @@ export function CreateActivityModal({
                       <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition"
+                        className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                       >
                         {CATEGORIES.map((cat) => (
                           <option key={cat} value={cat}>
@@ -311,7 +311,7 @@ export function CreateActivityModal({
                       <select
                         value={correctionType}
                         onChange={(e: any) => setCorrectionType(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition"
+                        className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                       >
                         <option value="auto">Automática (Gabarito fechado)</option>
                         <option value="manual">Manual (Avaliação pela professora)</option>
@@ -341,7 +341,7 @@ export function CreateActivityModal({
                             setSelectedModuleId('');
                             setSelectedLessonId('');
                           }}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
+                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                         >
                           <option value="">Atividade Geral</option>
                           {tracks.map((t) => (
@@ -363,7 +363,7 @@ export function CreateActivityModal({
                             setSelectedLessonId('');
                           }}
                           disabled={!selectedTrackId}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] disabled:opacity-50"
+                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer disabled:opacity-50"
                         >
                           <option value="">Selecione a unidade</option>
                           {availableModules.map((m) => (
@@ -382,7 +382,7 @@ export function CreateActivityModal({
                           value={selectedLessonId}
                           onChange={(e) => setSelectedLessonId(e.target.value)}
                           disabled={!selectedModuleId}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] disabled:opacity-50"
+                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer disabled:opacity-50"
                         >
                           <option value="">Selecione a aula</option>
                           {availableLessons.map((l) => (
@@ -460,7 +460,7 @@ export function CreateActivityModal({
                           <select
                             value={newResourceType}
                             onChange={(e: any) => setNewResourceType(e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
+                            className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                           >
                             <option value="pdf">Documento/PDF</option>
                             <option value="video">Vídeo (YouTube/Vimeo)</option>
