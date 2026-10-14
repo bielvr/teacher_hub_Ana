@@ -1,7 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createActivityAction } from '../actions/activities';
+import {
+  PedagogicalObjective,
+  TargetSkill,
+  PEDAGOGICAL_OBJECTIVES,
+  TARGET_SKILLS,
+  ActivityBlock,
+  QuestionBlock,
+  ResourceBlock,
+  QuestionBlockType,
+  ResourceBlockType,
+  computeCorrectionType,
+  CorrectionType,
+} from '../types/activities';
+import { ActivityBlockSelector } from './activities/ActivityBlockSelector';
+import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
 
 interface TrackOption {
   id: string;
@@ -16,140 +32,156 @@ interface TrackOption {
 interface CreateActivityModalProps {
   tracks: TrackOption[];
   triggerText?: string;
-}
-
-const CATEGORIES = [
-  // Categorias Gerais
-  'Exercício e prática',
-  'Avaliação ou quiz',
-  'Revisão',
-  'Leitura e interpretação',
-  'Produção escrita',
-  'Projeto ou entrega',
-  // Categorias Específicas de Idiomas
-  'Gramática',
-  'Vocabulário',
-  'Compreensão oral',
-  'Produção oral',
-  'Pronúncia',
-  'Shadowing',
-  'Leitura',
-  'Escrita',
-];
-
-const QUESTION_TYPES = [
-  { id: 'multiple_choice', label: 'Múltipla escolha', icon: '🔘' },
-  { id: 'true_false', label: 'Verdadeiro / Falso', icon: '⚖️' },
-  { id: 'fill_blank', label: 'Preencher lacuna', icon: '✏️' },
-  { id: 'short_answer', label: 'Resposta curta', icon: '📝' },
-  { id: 'translation', label: 'Tradução', icon: '🌐' },
-  { id: 'error_correction', label: 'Correção de erros', icon: '🔍' },
-];
-
-interface QuestionItem {
-  id: string;
-  type: string;
-  prompt: string;
-  options?: string[];
-  answer_key?: string;
-}
-
-interface ResourceItem {
-  id: string;
-  type: 'pdf' | 'video' | 'audio' | 'link' | 'image';
-  title: string;
-  url: string;
+  defaultOpen?: boolean;
 }
 
 export function CreateActivityModal({
   tracks,
   triggerText = '+ Nova atividade',
+  defaultOpen = false,
 }: CreateActivityModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const shouldOpenFromUrl = searchParams.get('new') === 'true';
+
+  const [isOpen, setIsOpen] = useState(defaultOpen || shouldOpenFromUrl);
   const [activeStep, setActiveStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Passo 1: Informações Básicas
+  // Modais auxiliares
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // ETAPA 1: Informações Básicas
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Exercício e prática');
+  const [category, setCategory] = useState<PedagogicalObjective>('Exercício e prática');
+  const [targetSkills, setTargetSkills] = useState<TargetSkill[]>(['Gramática']);
   const [selectedTrackId, setSelectedTrackId] = useState('');
   const [selectedModuleId, setSelectedModuleId] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState('');
   const [instructions, setInstructions] = useState('');
 
-  // Passo 2: Recursos e Perguntas
-  const [correctionType, setCorrectionType] = useState<'auto' | 'manual' | 'mixed'>('manual');
-  const [resources, setResources] = useState<ResourceItem[]>([]);
-  const [newResourceType, setNewResourceType] = useState<'pdf' | 'video' | 'audio' | 'link' | 'image'>('pdf');
-  const [newResourceTitle, setNewResourceTitle] = useState('');
-  const [newResourceUrl, setNewResourceUrl] = useState('');
+  // ETAPA 2: Blocos de Atividade
+  const [blocks, setBlocks] = useState<ActivityBlock[]>([]);
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
 
-  const [questions, setQuestions] = useState<QuestionItem[]>([]);
-  const [newQuestionType, setNewQuestionType] = useState('multiple_choice');
-  const [newQuestionPrompt, setNewQuestionPrompt] = useState('');
-  const [newQuestionOptions, setNewQuestionOptions] = useState('');
-  const [newQuestionAnswerKey, setNewQuestionAnswerKey] = useState('');
-
-  // Filtra módulos e lições pelo nível selecionado
+  // Filtros encadeados de Nível -> Unidade -> Aula
   const availableModules = tracks.find((t) => t.id === selectedTrackId)?.modules || [];
   const availableLessons = availableModules.find((m) => m.id === selectedModuleId)?.lessons || [];
 
+  // Motor de Correção Automático
+  const correctionType: CorrectionType = computeCorrectionType(blocks);
+
+  // Fecha no ESC
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && isOpen) setIsOpen(false);
+      if (event.key === 'Escape' && isOpen && !isSelectorOpen && !isPreviewOpen) {
+        setIsOpen(false);
+      }
     }
     if (isOpen) document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, isSelectorOpen, isPreviewOpen]);
 
-  const addResource = () => {
-    if (!newResourceUrl.trim()) return;
-    const item: ResourceItem = {
-      id: Date.now().toString(),
-      type: newResourceType,
-      title: newResourceTitle.trim() || `Recurso (${newResourceType})`,
-      url: newResourceUrl.trim(),
-    };
-    setResources([...resources, item]);
-    setNewResourceTitle('');
-    setNewResourceUrl('');
-  };
-
-  const removeResource = (id: string) => {
-    setResources(resources.filter((r) => r.id !== id));
-  };
-
-  const addQuestion = () => {
-    if (!newQuestionPrompt.trim()) return;
-    const opts = newQuestionOptions
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const q: QuestionItem = {
-      id: Date.now().toString(),
-      type: newQuestionType,
-      prompt: newQuestionPrompt.trim(),
-      options: opts.length > 0 ? opts : undefined,
-      answer_key: newQuestionAnswerKey.trim() || undefined,
-    };
-
-    setQuestions([...questions, q]);
-    setNewQuestionPrompt('');
-    setNewQuestionOptions('');
-    setNewQuestionAnswerKey('');
-
-    // Ajusta tipo de correção se adicionar perguntas com gabarito
-    if (newQuestionAnswerKey.trim() && correctionType === 'manual') {
-      setCorrectionType('mixed');
+  // Toggle de Habilidade
+  const toggleSkill = (skill: TargetSkill) => {
+    if (targetSkills.includes(skill)) {
+      setTargetSkills(targetSkills.filter((s) => s !== skill));
+    } else {
+      setTargetSkills([...targetSkills, skill]);
     }
   };
 
-  const removeQuestion = (id: string) => {
-    setQuestions(questions.filter((q) => q.id !== id));
+  // Barra de ferramentas rica do editor de instruções
+  const insertInstructionSnippet = (before: string, after: string = '') => {
+    const textarea = document.getElementById('instructions-textarea') as HTMLTextAreaElement | null;
+    if (!textarea) {
+      setInstructions((prev) => prev + before + after);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selection = text.substring(start, end);
+    const replacement = before + (selection || 'texto') + after;
+    setInstructions(text.substring(0, start) + replacement + text.substring(end));
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, start + before.length + (selection || 'texto').length);
+    }, 50);
   };
 
+  const insertPageBreak = () => {
+    const delimiter = '\n\n<!--page-break-->\n\n';
+    setInstructions((prev) => prev + delimiter);
+  };
+
+  // Adição de bloco via catálogo
+  const handleAddBlock = (type: QuestionBlockType | ResourceBlockType, kind: 'question' | 'resource') => {
+    const id = Date.now().toString();
+
+    if (kind === 'resource') {
+      const newResource: ResourceBlock = {
+        id,
+        kind: 'resource',
+        type: type as ResourceBlockType,
+        title: `Recurso (${type})`,
+        url: '',
+        content_markdown: '',
+      };
+      setBlocks([...blocks, newResource]);
+      setEditingBlockId(id);
+    } else {
+      const newQuestion: QuestionBlock = {
+        id,
+        kind: 'question',
+        type: type as QuestionBlockType,
+        prompt: 'Descreva a pergunta ou instrução aqui...',
+        options:
+          type === 'multiple_choice' || type === 'multiple_select'
+            ? ['Opção 1', 'Opção 2', 'Opção 3', 'Opção 4']
+            : undefined,
+        answer_key: type === 'true_false' ? 'Verdadeiro' : undefined,
+      };
+      setBlocks([...blocks, newQuestion]);
+      setEditingBlockId(id);
+    }
+  };
+
+  // Manipulação de Blocos
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === blocks.length - 1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const newBlocks = [...blocks];
+    const [removed] = newBlocks.splice(index, 1);
+    newBlocks.splice(targetIndex, 0, removed);
+    setBlocks(newBlocks);
+  };
+
+  const duplicateBlock = (index: number) => {
+    const blockToCopy = blocks[index];
+    const duplicated: ActivityBlock = {
+      ...JSON.parse(JSON.stringify(blockToCopy)),
+      id: Date.now().toString(),
+    };
+    const newBlocks = [...blocks];
+    newBlocks.splice(index + 1, 0, duplicated);
+    setBlocks(newBlocks);
+  };
+
+  const removeBlock = (id: string) => {
+    setBlocks(blocks.filter((b) => b.id !== id));
+    if (editingBlockId === id) setEditingBlockId(null);
+  };
+
+  const updateBlock = (id: string, updates: Partial<ActivityBlock>) => {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? ({ ...b, ...updates } as ActivityBlock) : b))
+    );
+  };
+
+  // Submissão
   const handleSubmit = async (status: 'published' | 'draft') => {
     if (!title.trim()) {
       setErrorMsg('Informe o título da atividade.');
@@ -163,29 +195,31 @@ export function CreateActivityModal({
     try {
       const formData = new FormData();
       formData.append('title', title.trim());
-      formData.append('type', resources.length > 0 && resources[0].type === 'video' ? 'video' : 'quiz');
+      formData.append('type', 'quiz');
       if (selectedLessonId) formData.append('lesson_id', selectedLessonId);
       formData.append('content_markdown', instructions.trim());
       formData.append('category', category);
+      formData.append('target_skills', JSON.stringify(targetSkills));
       formData.append('correction_type', correctionType);
       formData.append('status', status);
-      formData.append('items', JSON.stringify(questions));
+      formData.append('blocks', JSON.stringify(blocks));
+
+      // Compatibilidade legada com items e resources
+      const items = blocks.filter((b) => b.kind === 'question');
+      const resources = blocks.filter((b) => b.kind === 'resource');
+      formData.append('items', JSON.stringify(items));
       formData.append('resources', JSON.stringify(resources));
 
-      if (resources.length > 0) {
-        formData.append('content_url', resources[0].url);
-      }
-
       await createActivityAction(formData);
+
       setIsOpen(false);
-      // Reset form
+      // Reset
       setTitle('');
       setInstructions('');
-      setQuestions([]);
-      setResources([]);
+      setBlocks([]);
       setActiveStep(1);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao criar atividade.');
+      setErrorMsg(err.message || 'Erro ao salvar atividade.');
     } finally {
       setLoading(false);
     }
@@ -196,165 +230,161 @@ export function CreateActivityModal({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="px-4 py-2 text-sm font-semibold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+        className="px-4 py-2 text-sm font-semibold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D7CE36]/60"
       >
         <span>{triggerText}</span>
       </button>
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fadeIn"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsOpen(false);
+            if (e.target === e.currentTarget && !isSelectorOpen && !isPreviewOpen) setIsOpen(false);
           }}
         >
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Cabeçalho do Modal */}
-            <div className="px-6 py-4.5 border-b border-[#E6E1D8] flex items-center justify-between bg-[#F7F4ED]/40">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-white border border-[#E6E1D8] px-2 py-0.5 rounded">
-                  Banco de Atividades
+          <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col relative overflow-hidden animate-zoomIn">
+            {/* Topo do Modal */}
+            <div className="px-6 py-4 border-b border-[#E6E1D8] flex items-center justify-between bg-[#FAF8F5]">
+              <div className="flex items-center gap-3">
+                <span className="p-2 rounded-xl bg-white border border-[#E6E1D8] text-[#6C0F37] font-bold text-lg">
+                  📝
                 </span>
-                <h2 className="text-xl font-bold text-[#6C0F37] mt-1">
-                  Nova atividade pedagógica
-                </h2>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-white border border-[#E6E1D8] px-2 py-0.5 rounded">
+                      Construtor de Atividades
+                    </span>
+                    <span className="text-xs text-[#6F6865]">
+                      {activeStep === 1 ? 'Etapa 1: Organização' : 'Etapa 2: Montagem de Blocos'}
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-bold text-[#6C0F37] mt-0.5">
+                    {title ? title : 'Nova atividade pedagógica'}
+                  </h2>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="text-[#6F6865] hover:text-[#2B2426] p-1.5 rounded-lg text-sm font-bold transition-colors cursor-pointer"
-                aria-label="Fechar"
-              >
-                ✕
-              </button>
+
+              {/* Indicador de Etapas no Topo */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveStep(1)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    activeStep === 1
+                      ? 'bg-[#6C0F37] text-white'
+                      : 'bg-white text-[#6F6865] border border-[#E6E1D8] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  1. Informações Básicas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!title.trim()) {
+                      setErrorMsg('Informe o título antes de avançar para os blocos.');
+                      return;
+                    }
+                    setErrorMsg('');
+                    setActiveStep(2);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    activeStep === 2
+                      ? 'bg-[#6C0F37] text-white'
+                      : 'bg-white text-[#6F6865] border border-[#E6E1D8] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  2. Construtor por Blocos ({blocks.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 text-[#6F6865] hover:text-[#2B2426] hover:bg-white rounded-lg transition-colors ml-2"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            {/* Stepper / Abas de navegação */}
-            <div className="flex border-b border-[#E6E1D8] bg-white px-6">
-              <button
-                type="button"
-                onClick={() => setActiveStep(1)}
-                className={`py-3 px-4 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                  activeStep === 1
-                    ? 'border-[#6C0F37] text-[#6C0F37]'
-                    : 'border-transparent text-[#6F6865] hover:text-[#2B2426]'
-                }`}
-              >
-                <span className="w-5 h-5 rounded-full bg-[#6C0F37]/10 flex items-center justify-center text-[10px]">
-                  1
-                </span>
-                <span>1. Informações Básicas & Objetivo</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveStep(2)}
-                className={`py-3 px-4 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                  activeStep === 2
-                    ? 'border-[#6C0F37] text-[#6C0F37]'
-                    : 'border-transparent text-[#6F6865] hover:text-[#2B2426]'
-                }`}
-              >
-                <span className="w-5 h-5 rounded-full bg-[#6C0F37]/10 flex items-center justify-center text-[10px]">
-                  2
-                </span>
-                <span>2. Recursos, Perguntas & Gabarito</span>
-              </button>
-            </div>
-
-            {/* Erro se houver */}
+            {/* Mensagem de Erro Geral */}
             {errorMsg && (
-              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-800 text-xs font-medium rounded-xl">
                 {errorMsg}
               </div>
             )}
 
-            {/* Conteúdo com scroll */}
-            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+            {/* Conteúdo Dinâmico por Etapa */}
+            <div className="p-6 overflow-y-auto flex-1">
               {activeStep === 1 ? (
-                /* PASSO 1: Informações Básicas */
-                <div className="space-y-4">
+                /* ================= ETAPA 1 ================= */
+                <div className="space-y-6 max-w-4xl mx-auto">
+                  {/* Título da Atividade */}
                   <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                      Título da Atividade <span className="text-red-500">*</span>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
+                      Título da Atividade *
                     </label>
                     <input
                       type="text"
+                      required
+                      placeholder="Ex: Prática de Present Perfect vs Past Simple ou Diálogo no Restaurante"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Ex: C1.8 | Reading • The battle over where we work"
-                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition"
+                      className="w-full px-4 py-2.5 border border-[#E6E1D8] rounded-xl text-sm font-semibold text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#D7CE36]"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Objetivo Pedagógico Geral (Select Único) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                        Categoria / Objetivo Pedagógico
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
+                        Objetivo Pedagógico Geral *
                       </label>
                       <select
                         value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
+                        onChange={(e) => setCategory(e.target.value as PedagogicalObjective)}
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36]"
                       >
-                        {CATEGORIES.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
+                        {PEDAGOGICAL_OBJECTIVES.map((obj) => (
+                          <option key={obj} value={obj}>
+                            {obj}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-[#6F6865] mt-1">
+                        Define a finalidade principal pedagógica desta atividade.
+                      </p>
+                    </div>
+
+                    {/* Vínculo Curricular Opcional */}
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
+                        Nível / Trilha Curricular (Opcional)
+                      </label>
+                      <select
+                        value={selectedTrackId}
+                        onChange={(e) => {
+                          setSelectedTrackId(e.target.value);
+                          setSelectedModuleId('');
+                          setSelectedLessonId('');
+                        }}
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36]"
+                      >
+                        <option value="">Atividade Geral (Sem vínculo obrigatório)</option>
+                        {tracks.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.title}
                           </option>
                         ))}
                       </select>
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                        Formato de Correção
-                      </label>
-                      <select
-                        value={correctionType}
-                        onChange={(e: any) => setCorrectionType(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                      >
-                        <option value="auto">Automática (Gabarito fechado)</option>
-                        <option value="manual">Manual (Avaliação pela professora)</option>
-                        <option value="mixed">Mista (Gabarito + Dissertativas)</option>
-                      </select>
-                    </div>
                   </div>
 
-                  {/* Vínculo Curricular Opcional */}
-                  <div className="p-4 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl space-y-3">
-                    <span className="text-xs font-bold text-[#6C0F37] block">
-                      Vínculo Curricular (Opcional)
-                    </span>
-                    <p className="text-[11px] text-[#6F6865]">
-                      Você pode deixar como "Atividade Geral" ou associar a um nível e aula específica.
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Unidade e Aula (Se Nível selecionado) */}
+                  {selectedTrackId && availableModules.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8]">
                       <div>
-                        <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                          Nível
-                        </label>
-                        <select
-                          value={selectedTrackId}
-                          onChange={(e) => {
-                            setSelectedTrackId(e.target.value);
-                            setSelectedModuleId('');
-                            setSelectedLessonId('');
-                          }}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                        >
-                          <option value="">Atividade Geral</option>
-                          {tracks.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.title}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                          Unidade
+                        <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
+                          Unidade Curricular
                         </label>
                         <select
                           value={selectedModuleId}
@@ -362,8 +392,7 @@ export function CreateActivityModal({
                             setSelectedModuleId(e.target.value);
                             setSelectedLessonId('');
                           }}
-                          disabled={!selectedTrackId}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer disabled:opacity-50"
+                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426]"
                         >
                           <option value="">Selecione a unidade</option>
                           {availableModules.map((m) => (
@@ -375,16 +404,16 @@ export function CreateActivityModal({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                          Aula
+                        <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
+                          Aula Específica
                         </label>
                         <select
                           value={selectedLessonId}
                           onChange={(e) => setSelectedLessonId(e.target.value)}
                           disabled={!selectedModuleId}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer disabled:opacity-50"
+                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] disabled:opacity-50"
                         >
-                          <option value="">Selecione a aula</option>
+                          <option value="">Vincular a uma aula específica</option>
                           {availableLessons.map((l) => (
                             <option key={l.id} value={l.id}>
                               {l.title}
@@ -393,282 +422,595 @@ export function CreateActivityModal({
                         </select>
                       </div>
                     </div>
+                  )}
+
+                  {/* Habilidades / Áreas Trabalhadas (Múltipla Seleção) */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-2">
+                      Habilidades / Áreas Trabalhadas (Múltipla Seleção)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {TARGET_SKILLS.map((skill) => {
+                        const isSelected = targetSkills.includes(skill);
+                        return (
+                          <button
+                            key={skill}
+                            type="button"
+                            onClick={() => toggleSkill(skill)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isSelected
+                                ? 'bg-[#6C0F37] text-[#FFFDF7] shadow-xs'
+                                : 'bg-white text-[#2B2426] border border-[#E6E1D8] hover:bg-[#FAF8F5]'
+                            }`}
+                          >
+                            <span>{isSelected ? '✓' : '+'}</span>
+                            <span>{skill}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
+                  {/* Instruções Gerais para o Aluno com Barra de Ferramentas & Quebra de Página */}
                   <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                      Instruções e Enunciado para a Aluna
-                    </label>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
+                        Instruções Gerais para o Aluno
+                      </label>
+                      <button
+                        type="button"
+                        onClick={insertPageBreak}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-[#6C0F37] bg-[#D7CE36]/30 border border-[#D7CE36] hover:bg-[#D7CE36] transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Insere um delimitador de quebra de página <!--page-break--> para paginação por etapas"
+                      >
+                        <span>📄</span>
+                        <span>Inserir Quebra de Página</span>
+                      </button>
+                    </div>
+
+                    {/* Barra de Ferramentas Rica */}
+                    <div className="flex flex-wrap items-center gap-1 p-2 bg-[#FAF8F5] border border-b-0 border-[#E6E1D8] rounded-t-xl text-xs">
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('**', '**')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1]"
+                        title="Negrito"
+                      >
+                        B
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('*', '*')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] italic hover:bg-[#F0EBE1]"
+                        title="Itálico"
+                      >
+                        I
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('<u>', '</u>')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] underline hover:bg-[#F0EBE1]"
+                        title="Sublinhado"
+                      >
+                        U
+                      </button>
+                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('## ')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1]"
+                        title="Título"
+                      >
+                        H2
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('- ')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
+                        title="Lista com marcadores"
+                      >
+                        • Lista
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('1. ')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
+                        title="Lista numerada"
+                      >
+                        1. Lista
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('- [ ] ')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
+                        title="Checklist"
+                      >
+                        ☑ Checklist
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('\n---\n')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
+                        title="Divisória horizontal"
+                      >
+                        ― Divisória
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertInstructionSnippet('[Link](', ')')}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
+                        title="Inserir Link"
+                      >
+                        🔗 Link
+                      </button>
+                    </div>
+
                     <textarea
-                      rows={4}
+                      id="instructions-textarea"
+                      rows={5}
+                      placeholder="Instruções claras para os alunos. Você pode inserir <!--page-break--> para separar em etapas com botão 'Avançar'..."
                       value={instructions}
                       onChange={(e) => setInstructions(e.target.value)}
-                      placeholder="Explique o objetivo, como realizar o exercício ou adicione o texto de leitura..."
-                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition font-sans"
+                      className="w-full p-3.5 border border-[#E6E1D8] rounded-b-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] font-mono leading-relaxed resize-y"
                     />
+
+                    {instructions.includes('<!--page-break-->') && (
+                      <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg mt-2 font-medium">
+                        ✨ Quebra de página detectada: Esta atividade será dividida em etapas sequenciais para o aluno.
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
-                /* PASSO 2: Recursos & Perguntas */
+                /* ================= ETAPA 2 ================= */
                 <div className="space-y-6">
-                  {/* Bloco de Recursos Anexos */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-[#6C0F37] flex items-center gap-1.5">
-                        <span>📎</span> Recursos e Mídias de Apoio ({resources.length})
-                      </h4>
-                    </div>
-
-                    {/* Lista de Recursos Adicionados */}
-                    {resources.length > 0 && (
-                      <div className="space-y-2">
-                        {resources.map((res) => (
-                          <div
-                            key={res.id}
-                            className="flex items-center justify-between p-3 bg-[#F7F4ED] border border-[#E6E1D8] rounded-xl text-xs"
+                  {/* Resumo do Cabeçalho e Motor de Correção */}
+                  <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold text-[#6C0F37] bg-white px-2.5 py-0.5 rounded border border-[#E6E1D8]">
+                          {category}
+                        </span>
+                        {targetSkills.map((s) => (
+                          <span
+                            key={s}
+                            className="text-[11px] font-medium bg-white px-2 py-0.5 rounded text-[#6F6865] border border-[#E6E1D8]"
                           >
-                            <div className="flex items-center gap-2 truncate">
-                              <span className="font-semibold uppercase text-[10px] bg-white border border-[#E6E1D8] px-2 py-0.5 rounded">
-                                {res.type}
-                              </span>
-                              <span className="font-medium text-[#2B2426] truncate">
-                                {res.title}
-                              </span>
-                              <span className="text-[#6F6865] truncate max-w-xs">
-                                ({res.url})
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeResource(res.id)}
-                              className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1"
-                            >
-                              Remover
-                            </button>
-                          </div>
+                            {s}
+                          </span>
                         ))}
                       </div>
-                    )}
+                      <h3 className="text-base font-bold text-[#2B2426] mt-1">{title}</h3>
+                    </div>
 
-                    {/* Adicionar Novo Recurso */}
-                    <div className="p-3.5 bg-white border border-[#E6E1D8] rounded-xl space-y-2.5">
-                      <span className="text-xs font-semibold text-[#2B2426] block">
-                        + Anexar Recurso (PDF, Vídeo, Áudio ou Link)
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                        <div>
-                          <select
-                            value={newResourceType}
-                            onChange={(e: any) => setNewResourceType(e.target.value)}
-                            className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                          >
-                            <option value="pdf">Documento/PDF</option>
-                            <option value="video">Vídeo (YouTube/Vimeo)</option>
-                            <option value="audio">Áudio / Podcast</option>
-                            <option value="link">Link Externo</option>
-                            <option value="image">Imagem</option>
-                          </select>
-                        </div>
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="Nome (ex: Artigo BBC)"
-                            value={newResourceTitle}
-                            onChange={(e) => setNewResourceTitle(e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426]"
-                          >
-                          </input>
-                        </div>
-                        <div className="sm:col-span-2 flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="URL do arquivo ou link"
-                            value={newResourceUrl}
-                            onChange={(e) => setNewResourceUrl(e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426]"
-                          />
-                          <button
-                            type="button"
-                            onClick={addResource}
-                            className="px-3 py-1.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-lg shrink-0 cursor-pointer"
-                          >
-                            Anexar
-                          </button>
-                        </div>
+                    {/* Status do Motor de Correção */}
+                    <div className="flex items-center gap-2 self-start md:self-center">
+                      <div className="text-right">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6F6865] block">
+                          Motor de Correção:
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                            correctionType === 'auto'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : correctionType === 'mixed'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          {correctionType === 'auto'
+                            ? '⚡ Automática (Gabarito)'
+                            : correctionType === 'mixed'
+                            ? '🔀 Mista (Auto + Manual)'
+                            : '✍️ Manual (Pela Professora)'}
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Bloco de Perguntas e Gabarito */}
-                  <div className="space-y-3 pt-3 border-t border-[#E6E1D8]">
+                  {/* Lista de Blocos Inseridos */}
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-[#6C0F37] flex items-center gap-1.5">
-                        <span>❓</span> Questões, Itens e Gabarito ({questions.length})
-                      </h4>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
+                        Blocos de Conteúdo & Questões ({blocks.length})
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setIsSelectorOpen(true)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <span>+ Adicionar bloco</span>
+                      </button>
                     </div>
 
-                    {/* Lista de Questões Adicionadas */}
-                    {questions.length > 0 && (
-                      <div className="space-y-2.5">
-                        {questions.map((q, qIdx) => (
+                    {blocks.length === 0 ? (
+                      <div className="py-12 px-4 text-center rounded-2xl border-2 border-dashed border-[#E6E1D8] bg-[#FAF8F5]/40 space-y-3">
+                        <div className="w-12 h-12 mx-auto rounded-full bg-white border border-[#E6E1D8] flex items-center justify-center text-xl">
+                          🧩
+                        </div>
+                        <div className="max-w-md mx-auto space-y-1">
+                          <h4 className="text-sm font-bold text-[#2B2426]">
+                            Nenhum bloco inserido ainda
+                          </h4>
+                          <p className="text-xs text-[#6F6865]">
+                            Monte sua atividade combinando livremente mídias de apoio (vídeos, áudios, PDFs) e questões dos 14 formatos disponíveis.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsSelectorOpen(true)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs"
+                        >
+                          + Abrir Catálogo dos 14 Formatos
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {blocks.map((block, idx) => (
                           <div
-                            key={q.id}
-                            className="p-3.5 bg-white border border-[#E6E1D8] rounded-xl space-y-1.5 text-xs"
+                            key={block.id}
+                            className="p-4 rounded-xl border border-[#E6E1D8] bg-white shadow-xs space-y-3 transition-all"
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-[#6C0F37]">
-                                Questão {qIdx + 1} • {q.type}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeQuestion(q.id)}
-                                className="text-red-600 hover:text-red-800 font-semibold"
-                              >
-                                Excluir
-                              </button>
-                            </div>
-                            <p className="text-[#2B2426] font-medium">{q.prompt}</p>
-                            {q.options && (
-                              <div className="pl-3 border-l-2 border-[#E6E1D8] text-[11px] text-[#6F6865] space-y-0.5">
-                                {q.options.map((opt, i) => (
-                                  <div key={i}>• {opt}</div>
-                                ))}
+                            {/* Barra Superior do Bloco */}
+                            <div className="flex items-center justify-between gap-2 border-b border-[#E6E1D8]/60 pb-2.5">
+                              <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-md bg-[#FAF8F5] border border-[#E6E1D8] text-xs font-bold text-[#6C0F37] flex items-center justify-center">
+                                  {idx + 1}
+                                </span>
+                                <span className="text-xs font-bold text-[#2B2426]">
+                                  {block.kind === 'resource' ? 'Recurso' : 'Questão'}: {block.type}
+                                </span>
                               </div>
-                            )}
-                            {q.answer_key && (
-                              <div className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded w-fit">
-                                Gabarito: {q.answer_key}
+
+                              {/* Ações de Reordenação e Edição */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => moveBlock(idx, 'up')}
+                                  className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5]"
+                                  title="Mover para cima"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === blocks.length - 1}
+                                  onClick={() => moveBlock(idx, 'down')}
+                                  className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5]"
+                                  title="Mover para baixo"
+                                >
+                                  ▼
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => duplicateBlock(idx)}
+                                  className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] rounded hover:bg-[#FAF8F5]"
+                                  title="Duplicar bloco"
+                                >
+                                  📋
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditingBlockId(editingBlockId === block.id ? null : block.id)
+                                  }
+                                  className="px-2 py-0.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded hover:bg-[#F0EBE1]"
+                                >
+                                  {editingBlockId === block.id ? 'Recolher' : 'Editar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeBlock(block.id)}
+                                  className="p-1 text-xs text-red-600 hover:bg-red-50 rounded"
+                                  title="Excluir bloco"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Conteúdo / Edição do Bloco */}
+                            {editingBlockId === block.id ? (
+                              <div className="space-y-3 pt-2 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E6E1D8]">
+                                {block.kind === 'resource' ? (
+                                  <>
+                                    <div>
+                                      <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                        Título do Recurso
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={block.title}
+                                        onChange={(e) => updateBlock(block.id, { title: e.target.value })}
+                                        className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                      />
+                                    </div>
+                                    {block.type === 'text' ? (
+                                      <div>
+                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                          Conteúdo do Texto
+                                        </label>
+                                        <textarea
+                                          rows={3}
+                                          value={block.content_markdown || ''}
+                                          onChange={(e) =>
+                                            updateBlock(block.id, { content_markdown: e.target.value })
+                                          }
+                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                          URL da Mídia / Arquivo
+                                        </label>
+                                        <input
+                                          type="url"
+                                          placeholder="https://..."
+                                          value={block.url || ''}
+                                          onChange={(e) => updateBlock(block.id, { url: e.target.value })}
+                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                        />
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <div>
+                                      <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                        Enunciado da Questão
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={(block as QuestionBlock).prompt}
+                                        onChange={(e) =>
+                                          updateBlock(block.id, { prompt: e.target.value })
+                                        }
+                                        className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white font-medium"
+                                      />
+                                    </div>
+
+                                    {/* Configurações específicas conforme formato */}
+                                    {(block.type === 'multiple_choice' ||
+                                      block.type === 'multiple_select') && (
+                                      <div className="space-y-2">
+                                        <label className="block text-[11px] font-bold text-[#2B2426]">
+                                          Alternativas (uma por linha)
+                                        </label>
+                                        <textarea
+                                          rows={3}
+                                          value={((block as QuestionBlock).options || []).join('\n')}
+                                          onChange={(e) =>
+                                            updateBlock(block.id, {
+                                              options: e.target.value.split('\n').filter(Boolean),
+                                            })
+                                          }
+                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                        />
+
+                                        <div>
+                                          <label className="block text-[11px] font-bold text-[#6C0F37]">
+                                            Gabarito Correto (alternativa exata)
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={(block as QuestionBlock).answer_key || ''}
+                                            onChange={(e) =>
+                                              updateBlock(block.id, { answer_key: e.target.value })
+                                            }
+                                            placeholder="Digite o texto da alternativa correta..."
+                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {block.type === 'true_false' && (
+                                      <div>
+                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                          Chave de Resposta Correta
+                                        </label>
+                                        <select
+                                          value={(block as QuestionBlock).answer_key || 'Verdadeiro'}
+                                          onChange={(e) =>
+                                            updateBlock(block.id, { answer_key: e.target.value })
+                                          }
+                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                        >
+                                          <option value="Verdadeiro">Verdadeiro</option>
+                                          <option value="Falso">Falso</option>
+                                        </select>
+                                      </div>
+                                    )}
+
+                                    {(block.type === 'short_answer_auto' ||
+                                      block.type === 'fill_blank' ||
+                                      block.type === 'translation' ||
+                                      block.type === 'error_correction') && (
+                                      <div className="space-y-2">
+                                        <div>
+                                          <label className="block text-[11px] font-bold text-[#6C0F37]">
+                                            Resposta Esperada Principal (Gabarito)
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={(block as QuestionBlock).answer_key || ''}
+                                            onChange={(e) =>
+                                              updateBlock(block.id, { answer_key: e.target.value })
+                                            }
+                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-[11px] font-bold text-[#2B2426]">
+                                            Variantes Aceitas (separadas por vírgula)
+                                          </label>
+                                          <input
+                                            type="text"
+                                            placeholder="Ex: can't, cannot, can not"
+                                            value={(
+                                              (block as QuestionBlock).accepted_variants || []
+                                            ).join(', ')}
+                                            onChange={(e) =>
+                                              updateBlock(block.id, {
+                                                accepted_variants: e.target.value
+                                                  .split(',')
+                                                  .map((s) => s.trim())
+                                                  .filter(Boolean),
+                                              })
+                                            }
+                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {(block.type === 'ordering' ||
+                                      block.type === 'sequence_ranking') && (
+                                      <div>
+                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                          Itens na Ordem Correta (um por linha)
+                                        </label>
+                                        <textarea
+                                          rows={3}
+                                          value={(
+                                            (block as QuestionBlock).items_to_order || []
+                                          ).join('\n')}
+                                          onChange={(e) =>
+                                            updateBlock(block.id, {
+                                              items_to_order: e.target.value
+                                                .split('\n')
+                                                .filter(Boolean),
+                                            })
+                                          }
+                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                        />
+                                      </div>
+                                    )}
+
+                                    {block.type === 'open_production_manual' && (
+                                      <label className="flex items-center gap-2 text-xs font-semibold text-[#2B2426] cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            !!(block as QuestionBlock).allow_audio_submission
+                                          }
+                                          onChange={(e) =>
+                                            updateBlock(block.id, {
+                                              allow_audio_submission: e.target.checked,
+                                            })
+                                          }
+                                          className="accent-[#6C0F37]"
+                                        />
+                                        <span>Permitir envio de áudio gravado pelo aluno</span>
+                                      </label>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              /* Visão Sintética do Bloco */
+                              <div className="text-xs text-[#6F6865]">
+                                {block.kind === 'resource' ? (
+                                  <p className="truncate">{block.title} • {block.url || 'Texto complementar'}</p>
+                                ) : (
+                                  <p className="truncate font-medium text-[#2B2426]">{(block as QuestionBlock).prompt}</p>
+                                )}
                               </div>
                             )}
                           </div>
                         ))}
                       </div>
                     )}
-
-                    {/* Formulário de Adição de Pergunta */}
-                    <div className="p-4 bg-[#F7F4ED]/50 border border-[#E6E1D8] rounded-xl space-y-3">
-                      <span className="text-xs font-bold text-[#2B2426] block">
-                        + Nova Questão
-                      </span>
-
-                      {/* Seletor de Tipo de Pergunta */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {QUESTION_TYPES.map((qt) => (
-                          <button
-                            key={qt.id}
-                            type="button"
-                            onClick={() => setNewQuestionType(qt.id)}
-                            className={`px-2.5 py-1.5 text-xs rounded-lg border transition text-left flex items-center gap-1.5 cursor-pointer ${
-                              newQuestionType === qt.id
-                                ? 'bg-[#6C0F37] text-white border-[#6C0F37]'
-                                : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:bg-white'
-                            }`}
-                          >
-                            <span>{qt.icon}</span>
-                            <span className="truncate">{qt.label}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                          Enunciado da Questão
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Ex: Identifique o erro gramatical ou complete a sentença..."
-                          value={newQuestionPrompt}
-                          onChange={(e) => setNewQuestionPrompt(e.target.value)}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white"
-                        />
-                      </div>
-
-                      {newQuestionType === 'multiple_choice' && (
-                        <div>
-                          <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                            Opções de Resposta (uma por linha)
-                          </label>
-                          <textarea
-                            rows={3}
-                            placeholder="Opção A&#10;Opção B&#10;Opção C"
-                            value={newQuestionOptions}
-                            onChange={(e) => setNewQuestionOptions(e.target.value)}
-                            className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white font-mono"
-                          />
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                          Gabarito / Resposta Correta (para correção automática)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Ex: Opção correta ou palavra-chave exata"
-                          value={newQuestionAnswerKey}
-                          onChange={(e) => setNewQuestionAnswerKey(e.target.value)}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white"
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={addQuestion}
-                        className="px-4 py-2 text-xs font-semibold text-[#6C0F37] bg-white border border-[#6C0F37] hover:bg-[#F3E8EC] rounded-xl transition cursor-pointer"
-                      >
-                        + Adicionar Questão à Atividade
-                      </button>
-                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Rodapé de Ações Guiadas */}
-            <div className="px-6 py-4 border-t border-[#E6E1D8] bg-[#F7F4ED]/40 flex flex-wrap items-center justify-between gap-3">
+            {/* Rodapé do Modal */}
+            <div className="px-6 py-4 border-t border-[#E6E1D8] bg-[#FAF8F5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <span>👁️</span>
+                  <span>Pré-visualizar Atividade</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2.5 self-end sm:self-center">
                 {activeStep === 2 && (
                   <button
                     type="button"
                     onClick={() => setActiveStep(1)}
-                    className="px-3.5 py-2 text-xs font-medium text-[#6F6865] hover:text-[#2B2426] bg-white border border-[#E6E1D8] rounded-xl transition cursor-pointer"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-[#6F6865] hover:bg-white border border-[#E6E1D8]"
                   >
-                    ← Voltar para Informações
+                    ← Voltar
                   </button>
                 )}
-                {activeStep === 1 && (
+
+                {activeStep === 1 ? (
                   <button
                     type="button"
-                    onClick={() => setActiveStep(2)}
-                    className="px-4 py-2 text-xs font-semibold text-[#6C0F37] bg-white border border-[#6C0F37] hover:bg-[#F3E8EC] rounded-xl transition cursor-pointer"
+                    onClick={() => {
+                      if (!title.trim()) {
+                        setErrorMsg('Informe o título da atividade.');
+                        return;
+                      }
+                      setErrorMsg('');
+                      setActiveStep(2);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs cursor-pointer"
                   >
-                    Próximo: Recursos e Perguntas →
+                    Avançar para Construtor de Blocos →
                   </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleSubmit('draft')}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] disabled:opacity-50"
+                    >
+                      Salvar como Rascunho
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleSubmit('published')}
+                      className="px-5 py-2 rounded-xl text-xs font-bold text-[#FFFDF7] bg-[#6C0F37] hover:bg-[#57102E] transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      {loading ? 'Salvando...' : 'Salvar no Banco de Atividades'}
+                    </button>
+                  </>
                 )}
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => handleSubmit('draft')}
-                  disabled={loading}
-                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] hover:bg-[#E6E1D8]/50 rounded-xl transition cursor-pointer"
-                >
-                  Salvar como Rascunho
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSubmit('published')}
-                  disabled={loading}
-                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer"
-                >
-                  {loading ? 'Salvando...' : 'Salvar no Banco de Atividades'}
-                </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Catálogo dos 14 Formatos e Mídias */}
+      <ActivityBlockSelector
+        isOpen={isSelectorOpen}
+        onClose={() => setIsSelectorOpen(false)}
+        onSelectBlock={handleAddBlock}
+      />
+
+      {/* Simulador da Visão do Aluno com Etapas */}
+      <ActivityPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        title={title}
+        category={category}
+        targetSkills={targetSkills}
+        instructions={instructions}
+        blocks={blocks}
+        correctionType={correctionType}
+      />
     </>
   );
 }

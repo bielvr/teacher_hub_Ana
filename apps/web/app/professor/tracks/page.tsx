@@ -5,6 +5,7 @@ import { PageHeader } from '../../../src/components/PageHeader';
 import { CreateTrackModal } from '../../../src/components/CreateTrackModal';
 import { CreateUnitModal } from '../../../src/components/CreateUnitModal';
 import { TrackCardMenu } from '../../../src/components/TrackCardMenu';
+import { AssignTrackModal } from '../../../src/components/AssignTrackModal';
 
 export default async function TracksPage({
   searchParams,
@@ -61,6 +62,36 @@ export default async function TracksPage({
 
     modules = modulesData || [];
   }
+
+  // 3. Busca turmas ativas da organização para vinculação rápida
+  const { data: classesData } = await supabase
+    .from('classes')
+    .select('id, name, level')
+    .eq('organization_id', activeOrgId)
+    .order('name', { ascending: true });
+
+  const classes = classesData || [];
+
+  // 4. Busca alunos da organização para vinculação rápida
+  const { data: rawMembers } = await supabase
+    .from('organization_members')
+    .select(`
+      id,
+      profile_id,
+      profiles (
+        id,
+        full_name,
+        email
+      )
+    `)
+    .eq('organization_id', activeOrgId)
+    .eq('role', 'student');
+
+  const students = (rawMembers || []).map((m: any) => ({
+    id: m.profiles?.id || m.profile_id,
+    full_name: m.profiles?.full_name || 'Aluno',
+    email: m.profiles?.email || null,
+  }));
 
   // Agrupa e calcula as contagens reais para cada nível
   const tracksWithStats = tracks.map((track: any) => {
@@ -159,13 +190,23 @@ export default async function TracksPage({
               </div>
 
               {/* Rodapé do Card com Ações */}
-              <div className="pt-4 border-t border-[#E6E1D8] flex items-center justify-between gap-3">
-                <Link
-                  href={`/professor/tracks/${track.id}?org=${activeOrgId}`}
-                  className="px-4 py-2 text-xs font-semibold text-[#6C0F37] bg-white border border-[#6C0F37] rounded-xl hover:bg-[#F3E8EC] transition-colors flex items-center gap-1.5"
-                >
-                  <span>Ver unidades e aulas →</span>
-                </Link>
+              <div className="pt-4 border-t border-[#E6E1D8] flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/professor/tracks/${track.id}?org=${activeOrgId}`}
+                    className="px-3.5 py-2 text-xs font-semibold text-[#6C0F37] bg-white border border-[#6C0F37] rounded-xl hover:bg-[#F3E8EC] transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Ver unidades e aulas →</span>
+                  </Link>
+
+                  <AssignTrackModal
+                    track={{ id: track.id, title: track.title }}
+                    organizationId={activeOrgId}
+                    classes={classes}
+                    students={students}
+                    triggerText="Atribuir a aluno/turma"
+                  />
+                </div>
 
                 <CreateUnitModal
                   trackId={track.id}

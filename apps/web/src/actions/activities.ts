@@ -19,8 +19,28 @@ export async function createActivityAction(formData: FormData) {
   const category = (formData.get('category') as string)?.trim() || 'Exercício e prática';
   const correction_type = (formData.get('correction_type') as string)?.trim() || 'manual';
   const status = (formData.get('status') as string)?.trim() || 'published';
+  const rawTargetSkills = formData.get('target_skills') as string;
+  const rawBlocks = formData.get('blocks') as string;
   const rawItems = formData.get('items') as string;
   const rawResources = formData.get('resources') as string;
+
+  let target_skills: string[] = [];
+  if (rawTargetSkills) {
+    try {
+      target_skills = JSON.parse(rawTargetSkills);
+    } catch {
+      target_skills = [];
+    }
+  }
+
+  let blocks: any[] = [];
+  if (rawBlocks) {
+    try {
+      blocks = JSON.parse(rawBlocks);
+    } catch {
+      blocks = [];
+    }
+  }
 
   let items: any[] = [];
   if (rawItems) {
@@ -40,6 +60,16 @@ export async function createActivityAction(formData: FormData) {
     }
   }
 
+  // Se blocks foi fornecido, sincroniza items e resources a partir de blocks
+  if (blocks.length > 0) {
+    items = blocks.filter((b: any) => b.kind === 'question');
+    resources = blocks.filter((b: any) => b.kind === 'resource');
+  }
+
+  const manualTypes = ['short_answer_manual', 'long_answer_manual', 'open_production_manual'];
+  const manualCount = items.filter((q: any) => manualTypes.includes(q.type)).length;
+  const autoCount = items.length - manualCount;
+
   if (!rawTitle) {
     throw new Error('O título da atividade é obrigatório.');
   }
@@ -53,12 +83,16 @@ export async function createActivityAction(formData: FormData) {
 
   const metadata: any = {
     category,
+    target_skills,
     correction_type,
     status,
+    blocks,
     items,
     resources,
     item_count: items.length,
     resource_count: resources.length + (content_url ? 1 : 0),
+    auto_count: autoCount,
+    manual_count: manualCount,
   };
 
   const payload: any = {
@@ -94,6 +128,8 @@ export async function updateActivityAction(formData: FormData) {
   const content_markdown = (formData.get('content_markdown') as string)?.trim() || null;
   const category = (formData.get('category') as string)?.trim();
   const correction_type = (formData.get('correction_type') as string)?.trim();
+  const rawTargetSkills = formData.get('target_skills') as string;
+  const rawBlocks = formData.get('blocks') as string;
 
   if (!activityId || !rawTitle) {
     throw new Error('ID e título da atividade são obrigatórios.');
@@ -109,6 +145,26 @@ export async function updateActivityAction(formData: FormData) {
   const currentMetadata: any = existing?.metadata || {};
   if (category) currentMetadata.category = category;
   if (correction_type) currentMetadata.correction_type = correction_type;
+  if (rawTargetSkills) {
+    try {
+      currentMetadata.target_skills = JSON.parse(rawTargetSkills);
+    } catch {}
+  }
+  if (rawBlocks) {
+    try {
+      const parsedBlocks = JSON.parse(rawBlocks);
+      currentMetadata.blocks = parsedBlocks;
+      const items = parsedBlocks.filter((b: any) => b.kind === 'question');
+      const resources = parsedBlocks.filter((b: any) => b.kind === 'resource');
+      currentMetadata.items = items;
+      currentMetadata.resources = resources;
+      currentMetadata.item_count = items.length;
+      currentMetadata.resource_count = resources.length;
+      const manualTypes = ['short_answer_manual', 'long_answer_manual', 'open_production_manual'];
+      currentMetadata.manual_count = items.filter((q: any) => manualTypes.includes(q.type)).length;
+      currentMetadata.auto_count = items.length - currentMetadata.manual_count;
+    } catch {}
+  }
 
   const updatePayload: any = {
     title: rawTitle,

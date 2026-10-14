@@ -90,9 +90,19 @@ export default async function CalendarPage({
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-base text-[#2B2426]">
-                      {session.title}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-base text-[#2B2426]">
+                        {session.title}
+                      </h3>
+                      {(session.meet_url?.includes('meet.google.com') || session.title?.toLowerCase().includes('google')) && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z" />
+                          </svg>
+                          Sincronizado via Google
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-[#6F6865] mt-0.5">
                       {session.classes?.name || 'Geral'} • {timeFormatted} ({session.duration_minutes} min)
                     </p>

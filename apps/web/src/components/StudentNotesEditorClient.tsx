@@ -1,22 +1,30 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { createLessonNoteAction, updateLessonNoteAction } from '../actions/studies';
+import {
+  createLessonNoteAction,
+  updateLessonNoteAction,
+  deleteLessonNoteAction,
+  duplicateLessonNoteAction,
+} from '../actions/studies';
 import { PaginatedContent } from './PaginatedContent';
 
 export interface LessonNoteItem {
   id: string;
+  organization_id?: string;
   student_id: string;
   author_role: string;
   title: string;
   content: string;
   lesson_date: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface StudentProfile {
   id: string;
   full_name: string;
+  email?: string;
 }
 
 interface StudentNotesEditorClientProps {
@@ -26,31 +34,194 @@ interface StudentNotesEditorClientProps {
   defaultStudentId?: string;
 }
 
+// Helpers para identificar notas privadas e limpar títulos
+function isNotePrivate(note: { title: string; content?: string }): boolean {
+  return note.title.startsWith('[Privado]') || (note.content?.includes('<!--private-->') ?? false);
+}
+
+function cleanTitle(title: string): string {
+  return title.replace(/^\[Privado\]\s*/i, '').trim() || 'Anotações da Aula';
+}
+
+function stripMarkdown(content: string): string {
+  if (!content) return '';
+  return content
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<\/?[^>]+(>|$)/g, '')
+    .replace(/[#*`_~[\]()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Renderizador de Conteúdo Rico / WYSIWYG limpo
+ * Converte marcações comuns (H2, H3, negrito, itálico, listas, tabelas, etc.) em elementos visuais elegantes
+ */
+function RichMarkdownViewer({
+  content,
+  fontSizeClass = 'text-sm',
+}: {
+  content: string;
+  fontSizeClass?: string;
+}) {
+  const cleanContent = useMemo(() => {
+    return content.replace(/<!--private-->/g, '').trim();
+  }, [content]);
+
+  // Se o conteúdo possuir quebra de páginas, utiliza o PaginatedContent com visualização por slides
+  if (cleanContent.includes('<!--page-break-->') || cleanContent.includes('<hr data-page-break="true"')) {
+    return (
+      <PaginatedContent
+        content={cleanContent}
+        enableKeyboardNavigation={true}
+        fontSizeClass={fontSizeClass}
+      />
+    );
+  }
+
+  // Renderização simples e elegante de blocos markdown
+  const lines = cleanContent.split('\n');
+
+  return (
+    <div className={`space-y-3 leading-relaxed text-[#2B2426] font-sans ${fontSizeClass}`}>
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+
+        // Linha vazia
+        if (!trimmed) {
+          return <div key={idx} className="h-2" />;
+        }
+
+        // Título H2 (##)
+        if (trimmed.startsWith('## ')) {
+          return (
+            <h2 key={idx} className="text-xl sm:text-2xl font-bold text-[#6C0F37] pt-2 pb-1 border-b border-[#E6E1D8]">
+              {trimmed.replace(/^##\s+/, '')}
+            </h2>
+          );
+        }
+
+        // Título H3 (###)
+        if (trimmed.startsWith('### ')) {
+          return (
+            <h3 key={idx} className="text-base sm:text-lg font-bold text-[#2B2426] pt-1">
+              {trimmed.replace(/^###\s+/, '')}
+            </h3>
+          );
+        }
+
+        // Divisória (---)
+        if (trimmed === '---' || trimmed === '***') {
+          return <hr key={idx} className="border-[#E6E1D8] my-3" />;
+        }
+
+        // Checklist desmarcado (- [ ])
+        if (trimmed.startsWith('- [ ] ')) {
+          return (
+            <div key={idx} className="flex items-start gap-2.5 my-1 text-xs sm:text-sm">
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded border border-[#6C0F37] text-white shrink-0 mt-0.5 bg-white"></span>
+              <span className="text-[#2B2426]">{trimmed.replace(/^- \[\s\]\s*/, '')}</span>
+            </div>
+          );
+        }
+
+        // Checklist marcado (- [x])
+        if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ')) {
+          return (
+            <div key={idx} className="flex items-start gap-2.5 my-1 text-xs sm:text-sm">
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-[#6C0F37] text-white shrink-0 mt-0.5 text-[10px]">
+                ✓
+              </span>
+              <span className="line-through text-[#6F6865]">{trimmed.replace(/^- \[[xX]\]\s*/, '')}</span>
+            </div>
+          );
+        }
+
+        // Lista com marcadores (• ou -)
+        if (trimmed.startsWith('• ') || trimmed.startsWith('- ')) {
+          return (
+            <div key={idx} className="flex items-start gap-2 ml-2 my-1">
+              <span className="text-[#6C0F37] font-bold shrink-0 leading-tight">•</span>
+              <span>{trimmed.replace(/^[•\-]\s+/, '')}</span>
+            </div>
+          );
+        }
+
+        // Tabela simples (linhas com '|')
+        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+          if (trimmed.includes('---')) return null; // Linha divisória de tabela
+          const cells = trimmed
+            .split('|')
+            .slice(1, -1)
+            .map((c) => c.trim());
+          return (
+            <div key={idx} className="overflow-x-auto my-1">
+              <div className="flex border border-[#E6E1D8] rounded-lg divide-x divide-[#E6E1D8] bg-[#FFFDF7]">
+                {cells.map((cell, cIdx) => (
+                  <div key={cIdx} className="px-3 py-1.5 text-xs font-medium text-[#2B2426] flex-1">
+                    {cell}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        // Imagem (![alt](url))
+        const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+        if (imgMatch) {
+          return (
+            <div key={idx} className="my-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imgMatch[2]}
+                alt={imgMatch[1] || 'Imagem da aula'}
+                className="max-h-72 rounded-xl border border-[#E6E1D8] shadow-xs object-contain"
+              />
+              {imgMatch[1] && <span className="block text-[11px] text-[#6F6865] mt-1">{imgMatch[1]}</span>}
+            </div>
+          );
+        }
+
+        // Parágrafo comum
+        return (
+          <p key={idx} className="leading-relaxed whitespace-pre-wrap">
+            {line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export function StudentNotesEditorClient({
   organizationId,
   students,
   initialNotes,
   defaultStudentId,
 }: StudentNotesEditorClientProps) {
-  // Estado de seleção e dados
-  const [selectedStudentId, setSelectedStudentId] = useState(
-    defaultStudentId || students[0]?.id || ''
-  );
-  const [notes, setNotes] = useState<LessonNoteItem[]>(initialNotes);
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(
-    initialNotes[0]?.id || null
+  // Se defaultStudentId for informado na URL (?student_id=...), entra direto no aluno. Caso contrário, entra na Visão Geral.
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
+    defaultStudentId || null
   );
 
+  const [notes, setNotes] = useState<LessonNoteItem[]>(initialNotes);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+
+  // Tab de Modo de Registro no Aluno: 'shared' (Caderno Compartilhado) vs 'private' (Registros Pedagógicos)
+  const [activeTab, setActiveTab] = useState<'shared' | 'private'>('shared');
+
   // Editor states
-  const [noteTitle, setNoteTitle] = useState(
-    initialNotes[0]?.title || 'Anotações da Aula'
-  );
-  const [noteDate, setNoteDate] = useState(
-    initialNotes[0]?.lesson_date || new Date().toISOString().split('T')[0]
-  );
-  const [noteContent, setNoteContent] = useState(
-    initialNotes[0]?.content || ''
-  );
+  const [noteTitle, setNoteTitle] = useState('Anotações da Aula');
+  const [noteDate, setNoteDate] = useState(new Date().toISOString().split('T')[0]);
+  const [noteContent, setNoteContent] = useState('');
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+
+  // Modal "+ Nova Página" na Visão Geral
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [modalStudentId, setModalStudentId] = useState<string>(students[0]?.id || '');
+  const [modalNoteType, setModalNoteType] = useState<'shared' | 'private'>('shared');
+  const [modalTitle, setModalTitle] = useState('');
 
   // Layout & Modo Aula
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -59,45 +230,44 @@ export function StudentNotesEditorClient({
   const [fontSizeStep, setFontSizeStep] = useState(1); // 0 = normal, 1 = lg, 2 = xl, 3 = 2xl
   const [searchQuery, setSearchQuery] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'shared' | 'private'>('all');
+  const [overviewStudentSearch, setOverviewStudentSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Atualiza editor quando seleciona outra anotação
-  const handleSelectNote = (n: LessonNoteItem) => {
-    setActiveNoteId(n.id);
-    setNoteTitle(n.title);
-    setNoteDate(n.lesson_date);
-    setNoteContent(n.content);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Cria uma nova página em branco no caderno
-  const handleNewPage = () => {
-    setActiveNoteId(null);
-    setNoteTitle(`Anotações da Aula - ${new Date().toLocaleDateString('pt-BR')}`);
-    setNoteDate(new Date().toISOString().split('T')[0]);
-    setNoteContent('');
-  };
+  // Aluno atualmente selecionado
+  const selectedStudent = useMemo(() => {
+    return students.find((s) => s.id === selectedStudentId) || null;
+  }, [students, selectedStudentId]);
 
-  // Escuta tecla ESC para sair do Modo Aula
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && isClassMode) {
-        setIsClassMode(false);
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isClassMode]);
-
-  // Lista de anotações da aluna filtradas
-  const studentNotes = useMemo(() => {
+  // Lista de anotações do aluno selecionado
+  const currentStudentNotes = useMemo(() => {
+    if (!selectedStudentId) return [];
     return notes.filter((n) => n.student_id === selectedStudentId);
   }, [notes, selectedStudentId]);
 
-  const filteredNotes = useMemo(() => {
-    return studentNotes.filter((n) => {
+  // Separadas por tipo para o aluno atual
+  const studentSharedNotes = useMemo(() => {
+    return currentStudentNotes.filter((n) => !isNotePrivate(n));
+  }, [currentStudentNotes]);
+
+  const studentPrivateNotes = useMemo(() => {
+    return currentStudentNotes.filter((n) => isNotePrivate(n));
+  }, [currentStudentNotes]);
+
+  // Notas a exibir na sidebar do aluno atual
+  const currentTabNotes = useMemo(() => {
+    const list = activeTab === 'shared' ? studentSharedNotes : studentPrivateNotes;
+    return list.filter((n) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchTitle = n.title.toLowerCase().includes(q);
@@ -109,9 +279,163 @@ export function StudentNotesEditorClient({
       }
       return true;
     });
-  }, [studentNotes, searchQuery, monthFilter]);
+  }, [activeTab, studentSharedNotes, studentPrivateNotes, searchQuery, monthFilter]);
 
-  // Ferramentas de Formatação
+  // Quando seleciona um aluno, inicializa com a primeira anotação disponível da aba ou cria nova página
+  const handleOpenStudentNotebook = (studentId: string, initialTab: 'shared' | 'private' = 'shared') => {
+    setSelectedStudentId(studentId);
+    setActiveTab(initialTab);
+    setSearchQuery('');
+    setMonthFilter('');
+
+    const targetNotes = notes.filter((n) => n.student_id === studentId);
+    const tabNotes = targetNotes.filter((n) => (initialTab === 'private' ? isNotePrivate(n) : !isNotePrivate(n)));
+
+    if (tabNotes.length > 0) {
+      const firstNote = tabNotes[0];
+      setActiveNoteId(firstNote.id);
+      setNoteTitle(cleanTitle(firstNote.title));
+      setNoteDate(firstNote.lesson_date);
+      setNoteContent(firstNote.content.replace(/<!--private-->/g, '').trim());
+    } else {
+      setActiveNoteId(null);
+      setNoteTitle(initialTab === 'private' ? 'Registro Pedagógico' : `Anotações da Aula - ${new Date().toLocaleDateString('pt-BR')}`);
+      setNoteDate(new Date().toISOString().split('T')[0]);
+      setNoteContent('');
+    }
+  };
+
+  // Alterna a anotação ativa
+  const handleSelectNote = (n: LessonNoteItem) => {
+    setActiveNoteId(n.id);
+    setNoteTitle(cleanTitle(n.title));
+    setNoteDate(n.lesson_date);
+    setNoteContent(n.content.replace(/<!--private-->/g, '').trim());
+    setViewMode('edit');
+  };
+
+  // Cria uma nova página em branco no caderno / registro
+  const handleNewPage = (type: 'shared' | 'private' = activeTab) => {
+    setActiveNoteId(null);
+    setActiveTab(type);
+    setNoteTitle(type === 'private' ? 'Novo Registro Pedagógico' : `Anotações da Aula - ${new Date().toLocaleDateString('pt-BR')}`);
+    setNoteDate(new Date().toISOString().split('T')[0]);
+    setNoteContent('');
+    setViewMode('edit');
+  };
+
+  // Duplicar anotação
+  const handleDuplicateNote = async (note: LessonNoteItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setActionLoadingId(note.id);
+      const duplicated = await duplicateLessonNoteAction(note.id);
+      setNotes((prev) => [duplicated, ...prev]);
+      showToast(`Anotação "${cleanTitle(note.title)}" duplicada com sucesso!`);
+
+      // Se estiver no caderno do aluno, abre a cópia
+      if (selectedStudentId === note.student_id) {
+        handleSelectNote(duplicated);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Erro ao duplicar anotação.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Excluir anotação
+  const handleDeleteNote = async (noteId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Tem certeza que deseja excluir esta página? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      setActionLoadingId(noteId);
+      await deleteLessonNoteAction(noteId);
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      showToast('Página excluída com sucesso.');
+
+      if (activeNoteId === noteId) {
+        handleNewPage();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Erro ao excluir página.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Salvar / Publicar anotação
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudentId) return;
+
+    if (!noteTitle.trim() || !noteContent.trim()) {
+      alert('Preencha o título e o conteúdo da anotação.');
+      return;
+    }
+
+    setLoading(true);
+    setSaveSuccess(false);
+
+    try {
+      const isPrivate = activeTab === 'private';
+      const formattedTitle = isPrivate ? `[Privado] ${noteTitle.trim().replace(/^\[Privado\]\s*/i, '')}` : noteTitle.trim().replace(/^\[Privado\]\s*/i, '');
+      const formattedContent = isPrivate ? `<!--private-->\n${noteContent.trim()}` : noteContent.trim().replace(/<!--private-->/g, '');
+
+      const formData = new FormData();
+      formData.append('organization_id', organizationId);
+      formData.append('student_id', selectedStudentId);
+      formData.append('author_role', 'teacher');
+      formData.append('title', formattedTitle);
+      formData.append('content', formattedContent);
+      formData.append('lesson_date', noteDate);
+
+      if (activeNoteId) {
+        formData.append('note_id', activeNoteId);
+        await updateLessonNoteAction(formData);
+        setNotes((prev) =>
+          prev.map((n) =>
+            n.id === activeNoteId
+              ? {
+                  ...n,
+                  title: formattedTitle,
+                  content: formattedContent,
+                  lesson_date: noteDate,
+                }
+              : n
+          )
+        );
+      } else {
+        await createLessonNoteAction(formData);
+        const tempId = `temp-${Date.now()}`;
+        const newNote: LessonNoteItem = {
+          id: tempId,
+          organization_id: organizationId,
+          student_id: selectedStudentId,
+          author_role: 'teacher',
+          title: formattedTitle,
+          content: formattedContent,
+          lesson_date: noteDate,
+          created_at: new Date().toISOString(),
+        };
+        setNotes([newNote, ...notes]);
+        setActiveNoteId(tempId);
+      }
+
+      setSaveSuccess(true);
+      showToast(isPrivate ? 'Registro pedagógico privado salvo!' : 'Anotação publicada no caderno compartilhado!');
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Erro ao salvar anotação.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Ferramentas de formatação no editor
   const insertFormatting = (prefix: string, suffix: string = '') => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -137,71 +461,75 @@ export function StudentNotesEditorClient({
     }, 50);
   };
 
-  // Publicar no caderno
-  const handlePublish = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!noteTitle.trim() || !noteContent.trim()) {
-      alert('Preencha o título e o conteúdo da anotação.');
-      return;
-    }
-
-    setLoading(true);
-    setSaveSuccess(false);
-
-    try {
-      const formData = new FormData();
-      formData.append('organization_id', organizationId);
-      formData.append('student_id', selectedStudentId);
-      formData.append('author_role', 'teacher');
-      formData.append('title', noteTitle.trim());
-      formData.append('content', noteContent.trim());
-      formData.append('lesson_date', noteDate);
-
-      if (activeNoteId) {
-        formData.append('note_id', activeNoteId);
-        await updateLessonNoteAction(formData);
-        setNotes((prev) =>
-          prev.map((n) =>
-            n.id === activeNoteId
-              ? { ...n, title: noteTitle.trim(), content: noteContent.trim(), lesson_date: noteDate }
-              : n
-          )
-        );
-      } else {
-        await createLessonNoteAction(formData);
-        // Cria nota local temporária para feedback imediato
-        const newNote: LessonNoteItem = {
-          id: Date.now().toString(),
-          student_id: selectedStudentId,
-          author_role: 'teacher',
-          title: noteTitle.trim(),
-          content: noteContent.trim(),
-          lesson_date: noteDate,
-          created_at: new Date().toISOString(),
-        };
-        setNotes([newNote, ...notes]);
-        setActiveNoteId(newNote.id);
+  // Tecla ESC para fechar Modo Aula
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && isClassMode) {
+        setIsClassMode(false);
       }
-
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
-      alert(err.message || 'Erro ao publicar anotação.');
-    } finally {
-      setLoading(false);
     }
-  };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isClassMode]);
 
   // Classes de fonte no modo aula
   const fontSizes = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl'];
   const currentFontSizeClass = fontSizes[fontSizeStep] || 'text-xl';
 
-  // Obter nome da aluna selecionada
-  const selectedStudentName =
-    students.find((s) => s.id === selectedStudentId)?.full_name || 'Aluna';
+  // Alunos filtrados na busca da Visão Geral
+  const filteredStudents = useMemo(() => {
+    if (!overviewStudentSearch.trim()) return students;
+    const q = overviewStudentSearch.toLowerCase();
+    return students.filter((s) => s.full_name.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q));
+  }, [students, overviewStudentSearch]);
+
+  // Feed de Páginas Recentes na Visão Geral (ordenado da mais nova para a mais antiga)
+  const recentOverviewNotes = useMemo(() => {
+    return notes
+      .filter((n) => {
+        const isPriv = isNotePrivate(n);
+        if (typeFilter === 'shared' && isPriv) return false;
+        if (typeFilter === 'private' && !isPriv) return false;
+        if (monthFilter && !n.lesson_date.startsWith(monthFilter)) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const studentObj = students.find((s) => s.id === n.student_id);
+          const studentName = studentObj?.full_name?.toLowerCase() || '';
+          const matchTitle = n.title.toLowerCase().includes(q);
+          const matchContent = n.content.toLowerCase().includes(q);
+          const matchStudent = studentName.includes(q);
+          if (!matchTitle && !matchContent && !matchStudent) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.lesson_date).getTime() - new Date(a.lesson_date).getTime());
+  }, [notes, typeFilter, monthFilter, searchQuery, students]);
+
+  // Totais de KPIs para a Visão Geral
+  const stats = useMemo(() => {
+    const totalShared = notes.filter((n) => !isNotePrivate(n)).length;
+    const totalPrivate = notes.filter((n) => isNotePrivate(n)).length;
+    const currentMonthPrefix = new Date().toISOString().substring(0, 7);
+    const thisMonth = notes.filter((n) => n.lesson_date.startsWith(currentMonthPrefix)).length;
+
+    return {
+      totalStudents: students.length,
+      totalShared,
+      totalPrivate,
+      thisMonth,
+    };
+  }, [notes, students]);
 
   return (
     <>
+      {/* Toast Notification Flutuante */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#6C0F37] text-white px-5 py-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2 border border-[#D7CE36]/30 animate-in fade-in slide-in-from-bottom-3">
+          <span>✓</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* ============================================================== */}
       {/* MODO AULA / APRESENTAÇÃO (FULLSCREEN TELA LIMPA PARA ZOOM/MEET) */}
       {/* ============================================================== */}
@@ -210,12 +538,17 @@ export function StudentNotesEditorClient({
           {/* Barra Superior do Modo Aula */}
           <div className="flex items-center justify-between pb-4 border-b border-[#E6E1D8] mb-6 shrink-0">
             <div className="flex items-center gap-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-white bg-[#6C0F37] px-3 py-1 rounded-full">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-white bg-[#6C0F37] px-3 py-1 rounded-full shadow-xs">
                 Modo Aula • Compartilhamento de Tela
               </span>
               <span className="text-sm font-semibold text-[#2B2426]">
-                Caderno de: {selectedStudentName}
+                Caderno de: <strong className="text-[#6C0F37]">{selectedStudent?.full_name}</strong>
               </span>
+              {activeTab === 'private' && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                  🔒 Registro Privado
+                </span>
+              )}
             </div>
 
             {/* Controles Flutuantes de Acessibilidade */}
@@ -223,23 +556,23 @@ export function StudentNotesEditorClient({
               <button
                 type="button"
                 onClick={() => setPresentationView(presentationView === 'slides' ? 'raw' : 'slides')}
-                className="px-3.5 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-semibold text-[#6C0F37] transition cursor-pointer"
+                className="px-3.5 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-semibold text-[#6C0F37] transition cursor-pointer shadow-xs"
               >
-                {presentationView === 'slides' ? '✏️ Modo Digitação' : '📑 Modo Apresentação'}
+                {presentationView === 'slides' ? '✏️ Modo Digitação ao Vivo' : '📑 Modo Apresentação (Slides)'}
               </button>
               <button
                 type="button"
                 onClick={() => setFontSizeStep((prev) => Math.max(0, prev - 1))}
-                className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-bold text-[#6C0F37] transition cursor-pointer"
-                title="Diminuir Fonte"
+                className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-bold text-[#6C0F37] transition cursor-pointer shadow-xs"
+                title="Diminuir Fonte (A-)"
               >
                 A-
               </button>
               <button
                 type="button"
                 onClick={() => setFontSizeStep((prev) => Math.min(4, prev + 1))}
-                className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-bold text-[#6C0F37] transition cursor-pointer"
-                title="Aumentar Fonte"
+                className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-bold text-[#6C0F37] transition cursor-pointer shadow-xs"
+                title="Aumentar Fonte (A+)"
               >
                 A+
               </button>
@@ -259,16 +592,15 @@ export function StudentNotesEditorClient({
               <h1 className="text-2xl sm:text-3xl font-bold text-[#6C0F37]">
                 {noteTitle}
               </h1>
-              <span className="text-xs text-[#6F6865]">
+              <span className="text-xs text-[#6F6865] font-medium">
                 Aula de {new Date(noteDate + 'T00:00:00').toLocaleDateString('pt-BR')}
               </span>
             </div>
 
             {presentationView === 'slides' ? (
               <div className="flex-1 overflow-y-auto">
-                <PaginatedContent
+                <RichMarkdownViewer
                   content={noteContent}
-                  enableKeyboardNavigation={true}
                   fontSizeClass={currentFontSizeClass}
                 />
               </div>
@@ -282,36 +614,478 @@ export function StudentNotesEditorClient({
             )}
           </div>
         </div>
-      ) : (
+      ) : !selectedStudentId ? (
         /* ============================================================== */
-        /* MODO NORMAL DO CADERNO (BARRA LATERAL RECOLHÍVEL + EDITOR)     */
+        /* MODO 1: VISÃO GERAL DE CADERNOS (NENHUM ALUNO SELECIONADO)      */
         /* ============================================================== */
-        <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-[0_2px_8px_rgba(44,30,34,0.06)] overflow-hidden flex flex-col min-h-[750px]">
-          {/* Topo da Aplicação: Ações Globais e Botão Modo Aula */}
-          <div className="px-6 py-4 border-b border-[#E6E1D8] bg-[#F7F4ED]/40 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 text-[#6F6865] hover:text-[#2B2426] hover:bg-white rounded-xl transition cursor-pointer border border-[#E6E1D8]"
-                title={sidebarOpen ? 'Recolher lateral' : 'Expandir lateral'}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                </svg>
-              </button>
+        <div className="space-y-8 animate-in fade-in duration-150">
+          {/* Header da Seção */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E6E1D8]">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
+                Pedagógico • Gestão de Cadernos
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#6C0F37] tracking-tight mt-0.5">
+                Caderno & Registros Pedagógicos
+              </h1>
+              <p className="text-xs sm:text-sm text-[#6F6865] mt-1 max-w-2xl">
+                Selecione um aluno para acessar o caderno colaborativo de aula ou registrar anotações pedagógicas privadas de acompanhamento.
+              </p>
+            </div>
 
+            <button
+              type="button"
+              onClick={() => {
+                setModalStudentId(students[0]?.id || '');
+                setModalNoteType('shared');
+                setModalTitle('');
+                setCreateModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] shadow-xs transition cursor-pointer self-start sm:self-auto"
+            >
+              <span className="text-sm font-bold">+</span>
+              <span>Nova página de caderno</span>
+            </button>
+          </div>
+
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-[#E6E1D8] p-5 rounded-2xl shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">Total de Alunos</span>
+              <p className="text-2xl sm:text-3xl font-bold text-[#2B2426] mt-1">{stats.totalStudents}</p>
+              <span className="text-[11px] text-[#6F6865] mt-0.5 block">Com acesso a cadernos</span>
+            </div>
+
+            <div className="bg-white border border-[#E6E1D8] p-5 rounded-2xl shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">Cadernos Compartilhados</span>
+              <p className="text-2xl sm:text-3xl font-bold text-[#6C0F37] mt-1">{stats.totalShared}</p>
+              <span className="text-[11px] text-[#6F6865] mt-0.5 block">Páginas de aula mútuas</span>
+            </div>
+
+            <div className="bg-white border border-[#E6E1D8] p-5 rounded-2xl shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Registros Pedagógicos</span>
+              <p className="text-2xl sm:text-3xl font-bold text-amber-900 mt-1">{stats.totalPrivate}</p>
+              <span className="text-[11px] text-[#6F6865] mt-0.5 block">🔒 Privados da professora</span>
+            </div>
+
+            <div className="bg-white border border-[#E6E1D8] p-5 rounded-2xl shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">Editadas este Mês</span>
+              <p className="text-2xl sm:text-3xl font-bold text-[#2B2426] mt-1">{stats.thisMonth}</p>
+              <span className="text-[11px] text-[#6F6865] mt-0.5 block">Aulas registradas</span>
+            </div>
+          </div>
+
+          {/* Seção 1: Seleção Rápida de Alunos */}
+          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37]">
-                  Caderno de Anotações
-                </span>
-                <h2 className="text-base font-bold text-[#2B2426]">
-                  {selectedStudentName}
-                </h2>
+                <h2 className="text-base font-bold text-[#2B2426]">Alunos e Cadernos de Aula</h2>
+                <p className="text-xs text-[#6F6865]">Clique em um aluno para abrir seu caderno compartilhado e anotações privadas.</p>
+              </div>
+
+              <div className="w-full sm:w-72">
+                <input
+                  type="text"
+                  placeholder="Buscar aluno por nome..."
+                  value={overviewStudentSearch}
+                  onChange={(e) => setOverviewStudentSearch(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-[#FFFDF7] text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                />
               </div>
             </div>
 
-            {/* Ações: Modo Aula e Publicar */}
+            {filteredStudents.length === 0 ? (
+              <div className="p-8 text-center text-xs text-[#6F6865] italic border border-dashed border-[#E6E1D8] rounded-xl">
+                Nenhum aluno encontrado para &quot;{overviewStudentSearch}&quot;.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredStudents.map((st) => {
+                  const studentNotesList = notes.filter((n) => n.student_id === st.id);
+                  const sharedCount = studentNotesList.filter((n) => !isNotePrivate(n)).length;
+                  const privCount = studentNotesList.filter((n) => isNotePrivate(n)).length;
+                  const latestNote = [...studentNotesList].sort((a, b) => new Date(b.lesson_date).getTime() - new Date(a.lesson_date).getTime())[0];
+
+                  const initials = st.full_name
+                    .split(' ')
+                    .slice(0, 2)
+                    .map((p) => p[0])
+                    .join('')
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={st.id}
+                      className="border border-[#E6E1D8] rounded-2xl p-4 bg-[#FFFDF7] hover:border-[#6C0F37] hover:shadow-md transition flex flex-col justify-between space-y-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#6C0F37] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                          {initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-bold text-[#2B2426] truncate">{st.full_name}</h3>
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-[#6F6865]">
+                            <span className="inline-flex items-center gap-1 font-semibold text-[#6C0F37]">
+                              <span>📖</span> {sharedCount} {sharedCount === 1 ? 'página' : 'páginas'}
+                            </span>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1 font-semibold text-amber-800">
+                              <span>🔒</span> {privCount} {privCount === 1 ? 'registro' : 'registros'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-[#E6E1D8]/60 flex items-center justify-between text-[11px]">
+                        <span className="text-[#6F6865]">
+                          {latestNote ? `Última: ${new Date(latestNote.lesson_date + 'T00:00:00').toLocaleDateString('pt-BR')}` : 'Sem anotações'}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStudentNotebook(st.id, 'shared')}
+                          className="px-3 py-1.5 bg-white border border-[#6C0F37] text-[#6C0F37] hover:bg-[#6C0F37] hover:text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-2xs"
+                        >
+                          Abrir caderno →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Seção 2: Feed Global de Páginas Recentes (Todas as Turmas) */}
+          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-xs space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold text-[#2B2426]">Páginas Recentes de Caderno e Registros</h2>
+                <p className="text-xs text-[#6F6865]">Histórico completo ordenado das lições mais recentes para as mais antigas.</p>
+              </div>
+
+              {/* Filtros */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <input
+                  type="text"
+                  placeholder="Filtrar por título, aluno..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-[#FFFDF7] text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                />
+
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as any)}
+                  className="px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                >
+                  <option value="all">Todos os tipos</option>
+                  <option value="shared">📖 Caderno Compartilhado</option>
+                  <option value="private">🔒 Registros Pedagógicos</option>
+                </select>
+
+                <input
+                  type="month"
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                />
+              </div>
+            </div>
+
+            {recentOverviewNotes.length === 0 ? (
+              <div className="p-8 text-center text-xs text-[#6F6865] italic border border-dashed border-[#E6E1D8] rounded-xl">
+                Nenhuma página encontrada com os filtros selecionados.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentOverviewNotes.map((note) => {
+                  const studentObj = students.find((s) => s.id === note.student_id);
+                  const isPriv = isNotePrivate(note);
+                  const isBusy = actionLoadingId === note.id;
+
+                  return (
+                    <div
+                      key={note.id}
+                      className="p-4 sm:p-5 rounded-2xl border border-[#E6E1D8] bg-[#FFFDF7] hover:border-[#6C0F37] transition flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isPriv ? (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                              🔒 Registro Pedagógico
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#6C0F37]/10 text-[#6C0F37] border border-[#6C0F37]/20">
+                              📖 Caderno Compartilhado
+                            </span>
+                          )}
+
+                          <span className="text-xs font-semibold text-[#2B2426]">
+                            Aluno: <strong className="text-[#6C0F37]">{studentObj?.full_name || 'Aluno'}</strong>
+                          </span>
+
+                          <span className="text-[11px] text-[#6F6865]">
+                            • {new Date(note.lesson_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          </span>
+
+                          <span className="text-[10px] font-medium text-[#6F6865] bg-white px-2 py-0.5 rounded border border-[#E6E1D8]">
+                            Autor: {note.author_role === 'teacher' ? 'Professor' : 'Aluno'}
+                          </span>
+                        </div>
+
+                        <h3 className="text-sm font-bold text-[#2B2426]">{cleanTitle(note.title)}</h3>
+                        <p className="text-xs text-[#6F6865] line-clamp-2 max-w-3xl">
+                          {stripMarkdown(note.content) || 'Sem conteúdo adicional.'}
+                        </p>
+                      </div>
+
+                      {/* Ações */}
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedStudentId(note.student_id);
+                            setActiveTab(isPriv ? 'private' : 'shared');
+                            handleSelectNote(note);
+                          }}
+                          className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:border-[#6C0F37] hover:text-[#6C0F37] rounded-xl text-xs font-semibold text-[#2B2426] transition cursor-pointer shadow-2xs"
+                        >
+                          Abrir / Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={(e) => handleDuplicateNote(note, e)}
+                          className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] rounded-xl text-xs font-semibold text-[#6C0F37] transition cursor-pointer shadow-2xs disabled:opacity-50"
+                          title="Duplicar esta anotação"
+                        >
+                          Duplicar
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={(e) => handleDeleteNote(note.id, e)}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer border border-transparent hover:border-rose-200"
+                          title="Excluir página"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Modal "+ Nova Página" na Visão Geral */}
+          {createModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white border border-[#E6E1D8] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-[#E6E1D8] pb-3">
+                  <h3 className="text-base font-bold text-[#6C0F37]">Criar Nova Página</h3>
+                  <button
+                    type="button"
+                    onClick={() => setCreateModalOpen(false)}
+                    className="text-[#6F6865] hover:text-[#2B2426] text-lg font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1.5">
+                      Selecione o Aluno
+                    </label>
+                    <select
+                      value={modalStudentId}
+                      onChange={(e) => setModalStudentId(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                    >
+                      {students.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1.5">
+                      Tipo de Anotação
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setModalNoteType('shared')}
+                        className={`p-3 rounded-xl border text-left cursor-pointer transition ${
+                          modalNoteType === 'shared'
+                            ? 'bg-[#FFFDF7] border-[#6C0F37] ring-1 ring-[#6C0F37]'
+                            : 'bg-white border-[#E6E1D8] hover:bg-[#F7F4ED]'
+                        }`}
+                      >
+                        <span className="font-bold text-[#6C0F37] block">📖 Caderno Compartilhado</span>
+                        <span className="text-[11px] text-[#6F6865] mt-1 block">Espaço mútuo de aula. O aluno tem acesso.</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setModalNoteType('private')}
+                        className={`p-3 rounded-xl border text-left cursor-pointer transition ${
+                          modalNoteType === 'private'
+                            ? 'bg-amber-50 border-amber-600 ring-1 ring-amber-600'
+                            : 'bg-white border-[#E6E1D8] hover:bg-[#F7F4ED]'
+                        }`}
+                      >
+                        <span className="font-bold text-amber-900 block">🔒 Registro Pedagógico</span>
+                        <span className="text-[11px] text-[#6F6865] mt-1 block">Privado da professora. O aluno NÃO tem acesso.</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1.5">
+                      Título Inicial (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={modalNoteType === 'private' ? 'Ex: Acompanhamento de pronúncia e ritmo' : 'Ex: Lição de Gramática e Vocabulário'}
+                      value={modalTitle}
+                      onChange={(e) => setModalTitle(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E6E1D8]">
+                  <button
+                    type="button"
+                    onClick={() => setCreateModalOpen(false)}
+                    className="px-4 py-2 border border-[#E6E1D8] rounded-xl text-xs font-semibold text-[#6F6865] hover:bg-[#F7F4ED] cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateModalOpen(false);
+                      setSelectedStudentId(modalStudentId);
+                      setActiveTab(modalNoteType);
+                      setActiveNoteId(null);
+                      setNoteTitle(modalTitle.trim() || (modalNoteType === 'private' ? 'Novo Registro Pedagógico' : `Anotações da Aula - ${new Date().toLocaleDateString('pt-BR')}`));
+                      setNoteDate(new Date().toISOString().split('T')[0]);
+                      setNoteContent('');
+                      setViewMode('edit');
+                    }}
+                    className="px-5 py-2 bg-[#6C0F37] hover:bg-[#57102E] text-white rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs"
+                  >
+                    Abrir Editor
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ============================================================== */
+        /* MODO 2: VISUALIZAÇÃO DO CADERNO DO ALUNO SELECIONADO            */
+        /* ============================================================== */
+        <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-[0_2px_8px_rgba(44,30,34,0.06)] overflow-hidden flex flex-col min-h-[780px] animate-in fade-in duration-150">
+          {/* Topo da Aplicação: Ações Globais e Botão Modo Aula */}
+          <div className="px-6 py-4 border-b border-[#E6E1D8] bg-[#F7F4ED]/40 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setSelectedStudentId(null)}
+                className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:border-[#6C0F37] hover:text-[#6C0F37] rounded-xl text-xs font-semibold text-[#6F6865] transition cursor-pointer shadow-2xs flex items-center gap-1.5"
+                title="Voltar para a Visão Geral de todos os alunos"
+              >
+                <span>←</span>
+                <span>Visão Geral</span>
+              </button>
+
+              <div className="h-5 w-px bg-[#E6E1D8] hidden sm:block" />
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="p-2 text-[#6F6865] hover:text-[#2B2426] hover:bg-white rounded-xl transition cursor-pointer border border-[#E6E1D8]"
+                  title={sidebarOpen ? 'Recolher lateral' : 'Expandir lateral'}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                  </svg>
+                </button>
+
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] block">
+                    Caderno do Aluno
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedStudentId}
+                      onChange={(e) => handleOpenStudentNotebook(e.target.value, activeTab)}
+                      className="text-sm font-bold text-[#2B2426] bg-transparent border-0 focus:outline-none focus:ring-0 p-0 cursor-pointer pr-5 hover:text-[#6C0F37]"
+                    >
+                      {students.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Alternador de Abas: Caderno Compartilhado vs Registros Pedagógicos */}
+            <div className="flex items-center gap-1.5 bg-[#FFFDF7] p-1 border border-[#E6E1D8] rounded-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('shared');
+                  handleNewPage('shared');
+                }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'shared'
+                    ? 'bg-[#6C0F37] text-white shadow-xs'
+                    : 'text-[#6F6865] hover:text-[#2B2426] hover:bg-white'
+                }`}
+              >
+                <span>📖 Caderno Compartilhado</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'shared' ? 'bg-white/20 text-white' : 'bg-[#E6E1D8] text-[#6F6865]'}`}>
+                  {studentSharedNotes.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('private');
+                  handleNewPage('private');
+                }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'private'
+                    ? 'bg-amber-800 text-white shadow-xs'
+                    : 'text-[#6F6865] hover:text-[#2B2426] hover:bg-white'
+                }`}
+              >
+                <span>🔒 Registros Pedagógicos</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'private' ? 'bg-white/20 text-white' : 'bg-[#E6E1D8] text-[#6F6865]'}`}>
+                  {studentPrivateNotes.length}
+                </span>
+              </button>
+            </div>
+
+            {/* Ações: Modo Aula e Salvar */}
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -324,54 +1098,59 @@ export function StudentNotesEditorClient({
 
               <button
                 type="button"
-                onClick={handlePublish}
+                onClick={handleSave}
                 disabled={loading}
-                className="px-5 py-2 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className={`px-5 py-2 text-xs font-semibold text-white rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 ${
+                  activeTab === 'private' ? 'bg-amber-800 hover:bg-amber-900' : 'bg-[#6C0F37] hover:bg-[#57102E]'
+                }`}
               >
-                <span>{loading ? 'Salvando...' : 'Publicar no Caderno'}</span>
+                <span>
+                  {loading
+                    ? 'Salvando...'
+                    : activeTab === 'private'
+                    ? 'Salvar Registro Privado'
+                    : 'Publicar no Caderno'}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* Feedback de sucesso */}
-          {saveSuccess && (
-            <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs px-6 py-2 text-center font-medium animate-in fade-in">
-              ✓ Anotação publicada com sucesso no caderno da aluna!
+          {/* Banner de Privacidade Exclusivo para Registros Pedagógicos */}
+          {activeTab === 'private' && (
+            <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-3 text-xs text-amber-900 animate-in fade-in">
+              <span className="text-base">🔒</span>
+              <p>
+                <strong>Área Privada do Professor:</strong> Estas anotações são exclusivas para seu acompanhamento pedagógico interno (desempenho, dificuldades e evolução) e <strong>NÃO</strong> são visíveis para o aluno.
+              </p>
             </div>
           )}
 
-          <div className="flex flex-1 min-h-[650px] relative overflow-hidden">
+          {/* Feedback de sucesso */}
+          {saveSuccess && (
+            <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs px-6 py-2 text-center font-medium animate-in fade-in">
+              ✓ Anotação salva com sucesso!
+            </div>
+          )}
+
+          <div className="flex flex-1 min-h-[660px] relative overflow-hidden">
             {/* ========================================================== */}
-            {/* BARRA LATERAL RECOLHÍVEL                                   */}
+            {/* BARRA LATERAL RECOLHÍVEL DO ALUNO                          */}
             {/* ========================================================== */}
             {sidebarOpen && (
               <aside className="w-80 border-r border-[#E6E1D8] bg-[#F7F4ED]/30 flex flex-col shrink-0 animate-in slide-in-from-left-2 duration-150">
-                {/* 1. Seletor de Aluna */}
+                {/* 1. Botão Nova Página */}
                 <div className="p-4 border-b border-[#E6E1D8] space-y-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">
-                    Aluna Selecionada
-                  </label>
-                  <select
-                    value={selectedStudentId}
-                    onChange={(e) => {
-                      setSelectedStudentId(e.target.value);
-                      setActiveNoteId(null);
-                    }}
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  >
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.full_name}
-                      </option>
-                    ))}
-                  </select>
-
                   <button
                     type="button"
-                    onClick={handleNewPage}
-                    className="w-full py-2 text-xs font-semibold text-[#6C0F37] bg-white border border-[#E6E1D8] hover:border-[#6C0F37] rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                    onClick={() => handleNewPage(activeTab)}
+                    className={`w-full py-2.5 text-xs font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs ${
+                      activeTab === 'private'
+                        ? 'bg-amber-800 hover:bg-amber-900 text-white'
+                        : 'bg-white border border-[#6C0F37] text-[#6C0F37] hover:bg-[#6C0F37] hover:text-white'
+                    }`}
                   >
-                    <span>+ Nova Página de Aula</span>
+                    <span>+</span>
+                    <span>{activeTab === 'private' ? 'Novo Registro Pedagógico' : 'Nova Página de Aula'}</span>
                   </button>
                 </div>
 
@@ -393,28 +1172,28 @@ export function StudentNotesEditorClient({
                   />
                 </div>
 
-                {/* 3. Lista de Páginas do Caderno */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                {/* 3. Lista de Páginas */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#6F6865] px-2 block mb-1">
-                    Páginas Registradas ({filteredNotes.length})
+                    {activeTab === 'private' ? 'Registros Privados' : 'Páginas do Caderno'} ({currentTabNotes.length})
                   </span>
 
-                  {filteredNotes.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-[#6F6865] italic">
-                      Nenhuma página cadastrada.
+                  {currentTabNotes.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-[#6F6865] italic">
+                      {activeTab === 'private' ? 'Nenhum registro privado para este aluno.' : 'Nenhuma página compartilhada cadastrada.'}
                     </div>
                   ) : (
-                    filteredNotes.map((note) => {
+                    currentTabNotes.map((note) => {
                       const isSelected = activeNoteId === note.id;
+                      const isBusy = actionLoadingId === note.id;
 
                       return (
-                        <button
+                        <div
                           key={note.id}
-                          type="button"
                           onClick={() => handleSelectNote(note)}
-                          className={`w-full text-left p-3 rounded-xl transition border cursor-pointer block ${
+                          className={`w-full text-left p-3 rounded-xl transition border cursor-pointer group relative ${
                             isSelected
-                              ? 'bg-white border-[#6C0F37] shadow-xs'
+                              ? 'bg-white border-[#6C0F37] shadow-xs ring-1 ring-[#6C0F37]/20'
                               : 'bg-transparent border-transparent hover:bg-white hover:border-[#E6E1D8]'
                           }`}
                         >
@@ -422,14 +1201,37 @@ export function StudentNotesEditorClient({
                             <span className="font-semibold text-[#6C0F37]">
                               {new Date(note.lesson_date + 'T00:00:00').toLocaleDateString('pt-BR')}
                             </span>
+
+                            {/* Ações rápidas no hover do item */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={(e) => handleDuplicateNote(note, e)}
+                                className="p-1 hover:text-[#6C0F37] rounded"
+                                title="Duplicar"
+                              >
+                                📋
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={(e) => handleDeleteNote(note.id, e)}
+                                className="p-1 text-rose-600 hover:text-rose-800 rounded"
+                                title="Excluir"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
+
                           <h4 className="text-xs font-bold text-[#2B2426] truncate">
-                            {note.title}
+                            {cleanTitle(note.title)}
                           </h4>
                           <p className="text-[11px] text-[#6F6865] line-clamp-1 mt-0.5">
-                            {note.content}
+                            {stripMarkdown(note.content) || 'Sem conteúdo.'}
                           </p>
-                        </button>
+                        </div>
                       );
                     })
                   )}
@@ -452,132 +1254,196 @@ export function StudentNotesEditorClient({
                     className="text-lg sm:text-xl font-bold text-[#2B2426] border-0 focus:outline-none focus:ring-0 p-0 placeholder:text-[#6F6865]/40 flex-1"
                   />
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <label className="text-xs font-semibold text-[#6F6865]">Data:</label>
-                    <input
-                      type="date"
-                      value={noteDate}
-                      onChange={(e) => setNoteDate(e.target.value)}
-                      className="px-2.5 py-1 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                    />
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs font-semibold text-[#6F6865]">Data:</label>
+                      <input
+                        type="date"
+                        value={noteDate}
+                        onChange={(e) => setNoteDate(e.target.value)}
+                        className="px-2.5 py-1 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                      />
+                    </div>
+
+                    {/* Alternador Editor vs Pré-visualização Limpa */}
+                    <div className="flex items-center bg-[#F7F4ED] p-0.5 rounded-lg border border-[#E6E1D8]">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('edit')}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
+                          viewMode === 'edit'
+                            ? 'bg-white text-[#6C0F37] shadow-2xs'
+                            : 'text-[#6F6865] hover:text-[#2B2426]'
+                        }`}
+                      >
+                        ✏️ Editor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('preview')}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
+                          viewMode === 'preview'
+                            ? 'bg-white text-[#6C0F37] shadow-2xs'
+                            : 'text-[#6F6865] hover:text-[#2B2426]'
+                        }`}
+                      >
+                        👁️ Visualizar
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Barra de Ferramentas de Formatação */}
-                <div className="flex flex-wrap items-center gap-1 pt-2 border-t border-[#E6E1D8] text-xs">
-                  {/* Formatação Básica */}
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('**', '**')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-bold text-[#2B2426]"
-                    title="Negrito"
-                  >
-                    B
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('*', '*')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded italic text-[#2B2426]"
-                    title="Itálico"
-                  >
-                    I
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('<u>', '</u>')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded underline text-[#2B2426]"
-                    title="Sublinhado"
-                  >
-                    U
-                  </button>
+                {/* Barra de Ferramentas de Formatação (ativa no modo editor) */}
+                {viewMode === 'edit' && (
+                  <div className="flex flex-wrap items-center gap-1 pt-2 border-t border-[#E6E1D8] text-xs">
+                    {/* Formatação Básica */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('**', '**')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-bold text-[#2B2426] cursor-pointer"
+                      title="Negrito (**)"
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('*', '*')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded italic text-[#2B2426] cursor-pointer"
+                      title="Itálico (*)"
+                    >
+                      I
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('<u>', '</u>')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded underline text-[#2B2426] cursor-pointer"
+                      title="Sublinhado"
+                    >
+                      U
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('~~', '~~')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded line-through text-[#2B2426] cursor-pointer"
+                      title="Tachado"
+                    >
+                      S
+                    </button>
 
-                  <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
+                    <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
 
-                  {/* Títulos */}
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('\n## ', '\n')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-semibold text-[#6C0F37]"
-                    title="Título H2"
-                  >
-                    H2
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('\n### ', '\n')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-semibold text-[#6C0F37]"
-                    title="Título H3"
-                  >
-                    H3
-                  </button>
+                    {/* Títulos */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n## ', '\n')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-semibold text-[#6C0F37] cursor-pointer"
+                      title="Título H2"
+                    >
+                      H2
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n### ', '\n')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-semibold text-[#6C0F37] cursor-pointer"
+                      title="Título H3"
+                    >
+                      H3
+                    </button>
 
-                  <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
+                    <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
 
-                  {/* Listas & Checklist */}
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('\n• ', '')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426]"
-                    title="Lista com marcadores"
-                  >
-                    • Lista
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('\n- [ ] ', '')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426]"
-                    title="Checklist"
-                  >
-                    ☑ Tarefa
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('\n---\n', '')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426]"
-                    title="Divisória"
-                  >
-                    ― Linha
-                  </button>
+                    {/* Listas & Checklist */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n• ', '')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
+                      title="Lista com marcadores"
+                    >
+                      • Lista
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n1. ', '')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
+                      title="Lista numerada"
+                    >
+                      1. Num
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n- [ ] ', '')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
+                      title="Checklist de tarefas"
+                    >
+                      ☑ Tarefa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n---\n', '')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
+                      title="Divisória"
+                    >
+                      ― Linha
+                    </button>
 
-                  <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
+                    <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
 
-                  {/* Recursos de Aula */}
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('[Link](', ')')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1"
-                    title="Inserir Link"
-                  >
-                    <span>🔗</span> Link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('![Imagem](', ')')}
-                    className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1"
-                    title="Inserir Imagem"
-                  >
-                    <span>🖼️</span> Imagem
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('\n\n<!--page-break-->\n\n', '')}
-                    className="p-1.5 px-2 hover:bg-[#F3E8EC] text-[#6C0F37] rounded font-semibold flex items-center gap-1 ml-auto"
-                    title="Inserir Quebra de Página / Etapa"
-                  >
-                    <span>📄</span> Quebra de Página
-                  </button>
-                </div>
+                    {/* Recursos de Aula */}
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('[Link](', ')')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1 cursor-pointer"
+                      title="Inserir Link"
+                    >
+                      <span>🔗</span> Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('![Imagem](', ')')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1 cursor-pointer"
+                      title="Inserir Imagem"
+                    >
+                      <span>🖼️</span> Imagem
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n| Coluna 1 | Coluna 2 |\n|---|---|\n| Item 1 | Item 2 |\n', '')}
+                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1 cursor-pointer"
+                      title="Inserir Tabela"
+                    >
+                      <span>📊</span> Tabela
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertFormatting('\n\n<!--page-break-->\n\n', '')}
+                      className="p-1.5 px-2.5 hover:bg-[#F3E8EC] text-[#6C0F37] rounded font-semibold flex items-center gap-1 ml-auto cursor-pointer"
+                      title="Inserir Quebra de Página / Etapa de Aula"
+                    >
+                      <span>📄</span> Quebra de Página
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Área de Texto Rico do Caderno */}
+              {/* Área de Conteúdo: Editor ou Pré-visualização Limpa */}
               <div className="flex-1 p-6 overflow-y-auto">
-                <textarea
-                  ref={textareaRef}
-                  value={noteContent}
-                  onChange={(e) => setNoteContent(e.target.value)}
-                  placeholder="Escreva as anotações, correções fonéticas, vocabulário novo e pontos de estudo da aula..."
-                  className="w-full h-full min-h-[450px] resize-none border-0 focus:outline-none focus:ring-0 text-sm leading-relaxed text-[#2B2426] font-sans"
-                />
+                {viewMode === 'edit' ? (
+                  <textarea
+                    ref={textareaRef}
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                    placeholder={
+                      activeTab === 'private'
+                        ? 'Escreva os registros pedagógicos confidenciais da aula (dificuldades recorrentes, evolução do vocabulário, engajamento e feedbacks internos)...'
+                        : 'Escreva as anotações, correções fonéticas, vocabulário novo e pontos de estudo da aula compartilhada...'
+                    }
+                    className="w-full h-full min-h-[480px] resize-none border-0 focus:outline-none focus:ring-0 text-sm leading-relaxed text-[#2B2426] font-sans"
+                  />
+                ) : (
+                  <div className="max-w-4xl mx-auto py-2">
+                    <RichMarkdownViewer content={noteContent} fontSizeClass="text-base" />
+                  </div>
+                )}
               </div>
             </main>
           </div>

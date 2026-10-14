@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { CreateActivityModal } from './CreateActivityModal';
 import { ActivityCardMenu } from './ActivityCardMenu';
+import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
 
 interface ActivityItem {
   id: string;
@@ -46,6 +47,7 @@ export function ActivityBankClient({
   const [trackFilter, setTrackFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [correctionFilter, setCorrectionFilter] = useState('all');
+  const [previewActivity, setPreviewActivity] = useState<ActivityItem | null>(null);
 
   // Filtra as atividades na memória em tempo real
   const filteredActivities = useMemo(() => {
@@ -196,11 +198,21 @@ export function ActivityBankClient({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredActivities.map((act) => {
             const meta = act.metadata || {};
-            const itemsCount = meta.items?.length || 0;
+            const itemsCount = meta.item_count ?? (meta.items?.length || 0);
             const resourcesCount =
-              (meta.resources?.length || 0) +
-              (act.pdf_url || act.video_url || act.link_url || act.audio_url ? 1 : 0);
-            const correctionType = meta.correction_type || 'manual';
+              meta.resource_count ??
+              ((meta.resources?.length || 0) +
+                (act.pdf_url || act.video_url || act.link_url || act.audio_url ? 1 : 0));
+
+            const manualTypes = ['short_answer_manual', 'long_answer_manual', 'open_production_manual'];
+            const manualCount =
+              meta.manual_count ??
+              (meta.items?.filter((q: any) => manualTypes.includes(q.type)).length || 0);
+            const autoCount =
+              meta.auto_count ?? Math.max(0, itemsCount - manualCount);
+
+            const correctionType = meta.correction_type || (itemsCount > 0 && manualCount === 0 ? 'auto' : 'manual');
+            const targetSkills: string[] = meta.target_skills || [];
 
             // Vínculo curricular
             const trackName = act.lessons?.modules?.tracks?.title;
@@ -215,16 +227,19 @@ export function ActivityBankClient({
             return (
               <div
                 key={act.id}
-                className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-[0_2px_8px_rgba(44,30,34,0.06)] hover:border-[#6C0F37]/40 transition-colors flex flex-col justify-between gap-4"
+                className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-[0_2px_8px_rgba(44,30,34,0.06)] hover:border-[#6C0F37]/50 hover:shadow-md transition-all flex flex-col justify-between gap-4"
               >
                 <div className="space-y-3">
-                  {/* Topo do Card: Categoria, Vínculo e Menu de Ações */}
+                  {/* Topo do Card: Categoria, Correção e Menu de Ações */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
+                        {/* Badge de Objetivo Geral */}
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8]">
                           {meta.category || act.type}
                         </span>
+
+                        {/* Badge de Status de Correção */}
                         <span
                           className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
                             correctionType === 'auto'
@@ -235,12 +250,32 @@ export function ActivityBankClient({
                           }`}
                         >
                           {correctionType === 'auto'
-                            ? 'Automática'
+                            ? '⚡ Automática'
                             : correctionType === 'mixed'
-                            ? 'Mista'
-                            : 'Manual'}
+                            ? '🔀 Mista'
+                            : '✍️ Manual'}
                         </span>
                       </div>
+
+                      {/* Badges Secundárias das Habilidades Trabalhadas */}
+                      {targetSkills.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {targetSkills.slice(0, 3).map((skill) => (
+                            <span
+                              key={skill}
+                              className="text-[9.5px] font-medium bg-[#FAF8F5] text-[#6F6865] px-1.5 py-0.5 rounded border border-[#E6E1D8]"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                          {targetSkills.length > 3 && (
+                            <span className="text-[9.5px] text-[#6F6865] font-semibold self-center">
+                              +{targetSkills.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       <p className="text-[11px] text-[#6F6865] font-medium truncate pt-0.5" title={curricularPath}>
                         {curricularPath}
                       </p>
@@ -260,31 +295,58 @@ export function ActivityBankClient({
 
                   {act.content_markdown && (
                     <p className="text-xs text-[#6F6865] line-clamp-2 leading-relaxed">
-                      {act.content_markdown}
+                      {act.content_markdown.replace(/<!--page-break-->/g, ' ')}
                     </p>
                   )}
                 </div>
 
-                {/* Rodapé do Card com Contadores de Itens e Recursos */}
-                <div className="pt-3 border-t border-[#E6E1D8] flex items-center justify-between text-xs text-[#6F6865]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-[#2B2426]">
+                {/* Rodapé do Card com Resumo de Blocos e Botão Visualizar */}
+                <div className="pt-3 border-t border-[#E6E1D8] flex flex-col gap-2 text-xs">
+                  <div className="text-[#6F6865] text-[11px] leading-tight">
+                    <span className="font-semibold text-[#2B2426]">
                       {itemsCount} {itemsCount === 1 ? 'questão' : 'questões'}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      {resourcesCount} {resourcesCount === 1 ? 'recurso' : 'recursos'}
-                    </span>
+                    </span>{' '}
+                    {itemsCount > 0 && (
+                      <span>
+                        ({autoCount} {autoCount === 1 ? 'automática' : 'automáticas'}, {manualCount} {manualCount === 1 ? 'manual' : 'manuais'})
+                      </span>
+                    )}{' '}
+                    • <span>{resourcesCount} {resourcesCount === 1 ? 'mídia de apoio' : 'mídias de apoio'}</span>
                   </div>
 
-                  <span className="text-[11px] text-[#6C0F37] font-semibold hover:underline">
-                    Ver detalhes →
-                  </span>
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewActivity(act)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#6C0F37] hover:underline cursor-pointer"
+                    >
+                      <span>👁️ Visualizar atividade</span>
+                      <span>→</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Modal de Pré-visualização da Atividade */}
+      {previewActivity && (
+        <ActivityPreviewModal
+          isOpen={true}
+          onClose={() => setPreviewActivity(null)}
+          title={previewActivity.title}
+          category={previewActivity.metadata?.category || 'Exercício e prática'}
+          targetSkills={previewActivity.metadata?.target_skills || []}
+          instructions={previewActivity.content_markdown || ''}
+          blocks={
+            previewActivity.metadata?.blocks ||
+            previewActivity.metadata?.items ||
+            []
+          }
+          correctionType={previewActivity.metadata?.correction_type || 'manual'}
+        />
       )}
     </div>
   );

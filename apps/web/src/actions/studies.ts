@@ -128,6 +128,41 @@ export async function deleteLessonNoteAction(noteId: string) {
   revalidatePath('/student/notes');
 }
 
+export async function duplicateLessonNoteAction(noteId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Não autenticado');
+
+  const { data: note, error: fetchErr } = await supabase
+    .from('lesson_notes')
+    .select('*')
+    .eq('id', noteId)
+    .single();
+
+  if (fetchErr || !note) throw new Error('Anotação não encontrada.');
+
+  const duplicatedTitle = `${note.title} (Cópia)`;
+  const { data: newNote, error: insertErr } = await supabase
+    .from('lesson_notes')
+    .insert({
+      organization_id: note.organization_id,
+      student_id: note.student_id,
+      author_role: note.author_role,
+      title: duplicatedTitle,
+      content: note.content,
+      lesson_id: note.lesson_id,
+      lesson_date: new Date().toISOString().split('T')[0],
+    })
+    .select()
+    .single();
+
+  if (insertErr) throw new Error(insertErr.message);
+
+  revalidatePath('/professor/notes');
+  revalidatePath('/student/notes');
+  return newNote;
+}
+
 export async function reviewActivitySubmissionAction(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -320,3 +355,38 @@ export async function markAllNotificationsAsReadAction(orgId: string) {
   revalidatePath('/professor');
   revalidatePath('/student');
 }
+
+export async function sendNoticeAction(orgId: string, title: string, content: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user || !title.trim() || !content.trim()) {
+    return { success: false, error: 'Título e conteúdo são obrigatórios.' };
+  }
+
+  try {
+    const { data: members } = await (supabase as any)
+      .from('organization_members')
+      .select('profile_id')
+      .eq('organization_id', orgId)
+      .eq('role', 'student');
+
+    if (members && members.length > 0) {
+      const rows = members.map((m: any) => ({
+        organization_id: orgId,
+        user_id: m.profile_id,
+        title: title.trim(),
+        description: content.trim(),
+        type: 'announcement',
+        is_read: false,
+      }));
+      await (supabase as any).from('notifications').insert(rows);
+    }
+
+    revalidatePath('/professor');
+    revalidatePath('/student');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Falha ao enviar aviso.' };
+  }
+}

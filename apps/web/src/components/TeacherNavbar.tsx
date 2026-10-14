@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MessagesModal } from './MessagesModal';
 import { NotificationsModal } from './NotificationsModal';
+import { CreateStudentModal } from './CreateStudentModal';
 import { createClient } from '../lib/supabase/client';
 
 interface OrganizationItem {
@@ -38,6 +39,7 @@ export function TeacherNavbar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [createStudentOpen, setCreateStudentOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
 
@@ -113,7 +115,7 @@ export function TeacherNavbar({
     { href: `/professor/activities?org=${activeOrgId}`, path: '/professor/activities', label: 'Banco de atividades' },
     { href: `/professor/corrections?org=${activeOrgId}`, path: '/professor/corrections', label: 'Atividades e correções' },
     { href: `/professor/free-submissions?org=${activeOrgId}`, path: '/professor/free-submissions', label: 'Produções' },
-    { href: `/professor/notes?org=${activeOrgId}`, path: '/professor/notes', label: 'Registros pedagógicos' },
+    { href: `/professor/notes?org=${activeOrgId}`, path: '/professor/notes', label: 'Caderno compartilhado' },
   ];
 
   const managementLinks = [
@@ -132,8 +134,8 @@ export function TeacherNavbar({
 
   const accountLinks = [
     { href: `/professor/account?tab=profile&org=${activeOrgId}`, path: '/professor/account?tab=profile', label: 'Meu perfil' },
-    { href: `/professor/billing/team?org=${activeOrgId}`, path: '/professor/billing/team', label: 'Conta e equipe' },
-    { href: `/professor/account?org=${activeOrgId}`, path: '/professor/account', label: 'Configurações da plataforma' },
+    { href: `/professor/account?tab=team&org=${activeOrgId}`, path: '/professor/account?tab=team', label: 'Conta e equipe' },
+    { href: `/professor/account?tab=settings&org=${activeOrgId}`, path: '/professor/account?tab=settings', label: 'Configurações da plataforma' },
     { href: `/professor/tutorials?org=${activeOrgId}`, path: '/professor/tutorials', label: 'Central de ajuda' },
   ];
 
@@ -181,7 +183,7 @@ export function TeacherNavbar({
                     : 'text-[#FFFDF7] hover:text-[#D7CE36]'
                 }`}
               >
-                <span>Dashboard</span>
+                <span>Início</span>
                 {isDashboardActive && (
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D7CE36]" />
                 )}
@@ -349,7 +351,20 @@ export function TeacherNavbar({
           </div>
 
           {/* Canto Direito: Ações Globais */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Botão de Destaque Global: + Cadastrar aluno */}
+            <button
+              type="button"
+              onClick={() => {
+                setOpenMenu(null);
+                setCreateStudentOpen(true);
+              }}
+              className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-[#D7CE36] hover:bg-[#C2B92F] text-[#6C0F37] text-xs font-semibold rounded-full transition shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
+              title="Cadastrar novo aluno"
+            >
+              <span>+ Cadastrar aluno</span>
+            </button>
+
             {/* Sino de Notificações */}
             <button
               type="button"
@@ -502,7 +517,7 @@ export function TeacherNavbar({
                   isDashboardActive ? 'bg-[#57102E] text-[#D7CE36]' : 'text-[#FFFDF7] hover:text-[#D7CE36]'
                 }`}
               >
-                Dashboard
+                Início
               </Link>
             </div>
 
@@ -601,11 +616,30 @@ export function TeacherNavbar({
                 </button>
               </div>
             </div>
+
+            <div className="pt-2 border-t border-[#57102E]">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setCreateStudentOpen(true);
+                }}
+                className="w-full py-2.5 text-xs font-semibold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>+ Cadastrar aluno</span>
+              </button>
+            </div>
           </div>
         )}
       </header>
 
-      {/* Modais Flutuantes de Mensagens e Notificações */}
+      {/* Modais Flutuantes de Mensagens, Notificações e Cadastro Rápido de Aluno */}
+      <CreateStudentModal
+        organizationId={activeOrgId}
+        isOpen={createStudentOpen}
+        onClose={() => setCreateStudentOpen(false)}
+        showTrigger={false}
+      />
       <MessagesModal
         isOpen={messagesOpen}
         onClose={() => setMessagesOpen(false)}

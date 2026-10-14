@@ -140,7 +140,7 @@ export function ActivityCardMenu({ activity, students, classes }: ActivityCardMe
             }}
             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-[#6C0F37] hover:bg-[#F7F4ED] transition-colors flex items-center gap-2 cursor-pointer"
           >
-            <span>🎯</span> Atribuir à Aluna/Turma
+            <span>🎯</span> Atribuir a Aluno/Turma
           </button>
 
           <button

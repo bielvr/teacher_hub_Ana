@@ -28,7 +28,12 @@ export default async function StudentNotesPage({
     .order('lesson_date', { ascending: false });
 
   const list: any[] = notes || [];
-  const teacherNotes = list.filter((n) => n.author_role === 'teacher');
+  const teacherNotes = list.filter(
+    (n) =>
+      n.author_role === 'teacher' &&
+      !n.title?.startsWith('[Privado]') &&
+      !n.content?.includes('<!--private-->')
+  );
   const studentNotes = list.filter((n) => n.author_role === 'student');
   const displayNotes = activeTab === 'teacher' ? teacherNotes : studentNotes;
 

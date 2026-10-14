@@ -80,7 +80,7 @@ export default async function ProfessorStudentsPage({
     <div className="space-y-6">
       <PageHeader
         title="Alunos"
-        description="Acompanhe as alunas matriculadas, status das turmas, histórico de estudos e dados de contato."
+        description="Acompanhe os alunos matriculados, status das turmas, histórico de estudos e dados de contato."
       />
 
       <StudentsClient

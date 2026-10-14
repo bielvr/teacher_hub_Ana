@@ -4,39 +4,7 @@ import { createClient } from '../../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../../src/services/organizations';
 import { CreateUnitModal } from '../../../../src/components/CreateUnitModal';
 import { CreateLessonModal } from '../../../../src/components/CreateLessonModal';
-
-function formatUnitTitle(index: number, title: string): string {
-  const raw = (title || '').trim();
-  if (/^(unidade|unit)\s*\d+/i.test(raw)) {
-    return raw;
-  }
-  return `Unidade ${index + 1} - ${raw}`;
-}
-
-function formatLessonTitle(index: number, title: string): string {
-  const raw = (title || '').trim();
-  if (/^aula\s*\d+/i.test(raw)) {
-    return raw;
-  }
-  return `Aula ${index + 1} - ${raw}`;
-}
-
-function getMaterialIcon(type: string): string {
-  switch (type) {
-    case 'pdf':
-      return '📄';
-    case 'video':
-      return '▶️';
-    case 'audio':
-      return '🎧';
-    case 'external_link':
-      return '🔗';
-    case 'text':
-      return '📝';
-    default:
-      return '📎';
-  }
-}
+import { TrackUnitsList } from '../../../../src/components/TrackUnitsList';
 
 export default async function ProfessorTrackDetailPage({
   params,
@@ -64,7 +32,7 @@ export default async function ProfessorTrackDetailPage({
   // 2. Busca unidades (modules)
   const { data: modules } = await supabase
     .from('modules')
-    .select('id, title, order_index')
+    .select('id, track_id, title, order_index')
     .eq('track_id', trackId)
     .order('order_index', { ascending: true });
 
@@ -81,6 +49,7 @@ export default async function ProfessorTrackDetailPage({
         title,
         order_index,
         release_type,
+        description,
         activities (
           id,
           title,
@@ -102,6 +71,8 @@ export default async function ProfessorTrackDetailPage({
     ...m,
     lessons: lessons.filter((l) => l.module_id === m.id),
   }));
+
+  const allModulesOptions = modulesWithLessons.map((m) => ({ id: m.id, title: m.title }));
 
   return (
     <div className="space-y-8">
@@ -146,7 +117,7 @@ export default async function ProfessorTrackDetailPage({
             {modulesWithLessons.length > 0 && (
               <CreateLessonModal
                 trackId={track.id}
-                modules={modulesWithLessons.map((m) => ({ id: m.id, title: m.title }))}
+                modules={allModulesOptions}
                 triggerText="+ Nova aula"
                 variant="secondary"
               />
@@ -155,7 +126,7 @@ export default async function ProfessorTrackDetailPage({
         </div>
       </div>
 
-      {/* Conteúdo Principal Centralizado (Sem formulário lateral) */}
+      {/* Conteúdo Principal */}
       <div className="space-y-6">
         {modulesWithLessons.length === 0 ? (
           <div className="bg-white border border-[#E6E1D8] rounded-2xl p-12 text-center shadow-[0_2px_8px_rgba(44,30,34,0.06)]">
@@ -175,135 +146,11 @@ export default async function ProfessorTrackDetailPage({
             />
           </div>
         ) : (
-          modulesWithLessons.map((unit: any, uIdx: number) => {
-            const formattedUnitTitle = formatUnitTitle(uIdx, unit.title);
-            const unitLessons = unit.lessons || [];
-            const totalMaterialsInUnit = unitLessons.reduce(
-              (acc: number, l: any) => acc + (l.activities?.length || 0),
-              0
-            );
-
-            return (
-              <div
-                key={unit.id}
-                className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-[0_2px_8px_rgba(44,30,34,0.06)] space-y-5"
-              >
-                {/* Cabeçalho Semântico da Unidade */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E6E1D8]">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8]">
-                      Unidade {uIdx + 1}
-                    </span>
-                    <h2 className="text-lg font-bold text-[#2B2426]">
-                      {formattedUnitTitle}
-                    </h2>
-                    <p className="text-xs text-[#6F6865]">
-                      {unitLessons.length}{' '}
-                      {unitLessons.length === 1 ? 'aula' : 'aulas'} •{' '}
-                      {totalMaterialsInUnit}{' '}
-                      {totalMaterialsInUnit === 1 ? 'material' : 'materiais'} anexados
-                    </p>
-                  </div>
-
-                  {/* Botão Contextual para Nova Aula na Unidade */}
-                  <CreateLessonModal
-                    trackId={track.id}
-                    modules={modulesWithLessons.map((m) => ({ id: m.id, title: m.title }))}
-                    defaultModuleId={unit.id}
-                    triggerText="+ Nova aula"
-                    variant="inline"
-                  />
-                </div>
-
-                {/* Grade de Aulas da Unidade */}
-                {unitLessons.length === 0 ? (
-                  <div className="p-6 bg-[#F7F4ED]/50 border border-dashed border-[#E6E1D8] rounded-xl text-center">
-                    <p className="text-xs text-[#6F6865]">
-                      Nenhuma aula cadastrada nesta unidade.
-                    </p>
-                    <div className="mt-2.5">
-                      <CreateLessonModal
-                        trackId={track.id}
-                        modules={modulesWithLessons.map((m) => ({ id: m.id, title: m.title }))}
-                        defaultModuleId={unit.id}
-                        triggerText="+ Adicionar primeira aula"
-                        variant="inline"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {unitLessons.map((lesson: any, lIdx: number) => {
-                      const formattedLessonTitle = formatLessonTitle(lIdx, lesson.title);
-                      const activities = lesson.activities || [];
-
-                      return (
-                        <div
-                          key={lesson.id}
-                          className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl p-4 hover:border-[#6C0F37]/30 transition-colors flex flex-col justify-between gap-3 shadow-xs"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between text-[11px] text-[#6F6865] mb-1">
-                              <span className="font-semibold text-[#6C0F37]">
-                                Aula {lIdx + 1}
-                              </span>
-                              <span>
-                                {activities.length}{' '}
-                                {activities.length === 1
-                                  ? 'material anexado'
-                                  : 'materiais anexados'}
-                              </span>
-                            </div>
-                            <h3 className="text-sm font-semibold text-[#2B2426]">
-                              {formattedLessonTitle}
-                            </h3>
-                          </div>
-
-                          {/* Materiais Anexados na Aula */}
-                          {activities.length > 0 && (
-                            <div className="pt-2.5 border-t border-[#E6E1D8] space-y-1.5">
-                              {activities.map((act: any) => {
-                                const url =
-                                  act.pdf_url ||
-                                  act.video_url ||
-                                  act.link_url ||
-                                  act.audio_url;
-                                const icon = getMaterialIcon(act.type);
-
-                                return (
-                                  <div
-                                    key={act.id}
-                                    className="flex items-center justify-between gap-2 text-xs bg-white border border-[#E6E1D8] px-2.5 py-1.5 rounded-lg"
-                                  >
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span>{icon}</span>
-                                      <span className="truncate text-[#2B2426] font-medium">
-                                        {act.title}
-                                      </span>
-                                    </div>
-                                    {url && (
-                                      <a
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-[11px] font-semibold text-[#6C0F37] hover:text-[#57102E] hover:underline shrink-0 ml-1"
-                                      >
-                                        Acessar ↗
-                                      </a>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })
+          <TrackUnitsList
+            trackId={track.id}
+            units={modulesWithLessons}
+            allModulesOptions={allModulesOptions}
+          />
         )}
       </div>
     </div>

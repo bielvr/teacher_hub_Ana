@@ -65,7 +65,7 @@ export function StudentsClient({
             </span>
             <input
               type="text"
-              placeholder="Buscar por nome ou e-mail da aluna..."
+              placeholder="Buscar por nome ou e-mail do aluno..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
@@ -79,7 +79,7 @@ export function StudentsClient({
             className="px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
           >
             <option value="">Todos os status</option>
-            <option value="active">Ativa</option>
+            <option value="active">Ativo</option>
             <option value="pending">Pendente</option>
           </select>
         </div>
@@ -89,29 +89,29 @@ export function StudentsClient({
           <CreateStudentModal
             organizationId={organizationId}
             classes={classes}
-            triggerText="+ Cadastrar aluna"
+            triggerText="+ Cadastrar aluno"
           />
         </div>
       </div>
 
-      {/* Tabela de Alunas */}
+      {/* Tabela de Alunos */}
       {filteredStudents.length === 0 ? (
         <div className="bg-white border border-[#E6E1D8] rounded-2xl p-12 text-center shadow-[0_2px_8px_rgba(44,30,34,0.06)]">
           <div className="w-12 h-12 rounded-full bg-[#F7F4ED] text-[#6C0F37] flex items-center justify-center mx-auto mb-3 text-xl font-bold">
-            👩‍🎓
+            🎓
           </div>
           <h3 className="text-base font-bold text-[#2B2426]">
-            Nenhuma aluna encontrada
+            Nenhum aluno encontrado
           </h3>
           <p className="text-xs text-[#6F6865] mt-1 max-w-sm mx-auto mb-4">
             {search || statusFilter
-              ? 'Nenhuma aluna corresponde à busca. Tente outros termos.'
-              : 'Cadastre suas alunas para acompanhar histórico, cadernos e turmas.'}
+              ? 'Nenhum aluno corresponde à busca. Tente outros termos.'
+              : 'Cadastre seus alunos para acompanhar histórico, cadernos e turmas.'}
           </p>
           <CreateStudentModal
             organizationId={organizationId}
             classes={classes}
-            triggerText="+ Cadastrar aluna"
+            triggerText="+ Cadastrar aluno"
           />
         </div>
       ) : (
@@ -120,7 +120,7 @@ export function StudentsClient({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#E6E1D8] bg-[#F7F4ED]/50 text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">
-                  <th className="py-3.5 px-5">Aluna</th>
+                  <th className="py-3.5 px-5">Aluno</th>
                   <th className="py-3.5 px-5">Turma / Nível</th>
                   <th className="py-3.5 px-5">Contato</th>
                   <th className="py-3.5 px-5">Status</th>
