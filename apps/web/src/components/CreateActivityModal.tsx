@@ -33,12 +33,14 @@ interface CreateActivityModalProps {
   tracks: TrackOption[];
   triggerText?: string;
   defaultOpen?: boolean;
+  organizationId?: string;
 }
 
 export function CreateActivityModal({
   tracks,
   triggerText = '+ Nova atividade',
   defaultOpen = false,
+  organizationId,
 }: CreateActivityModalProps) {
   const searchParams = useSearchParams();
   const shouldOpenFromUrl = searchParams.get('new') === 'true';
@@ -197,6 +199,7 @@ export function CreateActivityModal({
       formData.append('title', title.trim());
       formData.append('type', 'quiz');
       if (selectedLessonId) formData.append('lesson_id', selectedLessonId);
+      if (organizationId) formData.append('organization_id', organizationId);
       formData.append('content_markdown', instructions.trim());
       formData.append('category', category);
       formData.append('target_skills', JSON.stringify(targetSkills));

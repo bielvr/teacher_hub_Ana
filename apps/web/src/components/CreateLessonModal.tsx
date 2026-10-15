@@ -79,6 +79,8 @@ export function CreateLessonModal({
             setIsOpen(false);
             setSuccessMsg('');
           }, 1000);
+        } else {
+          setErrorMsg(res?.error || 'Erro ao criar aula.');
         }
       } catch (err: any) {
         setErrorMsg(err.message || 'Erro ao criar aula.');

@@ -73,7 +73,7 @@ export function TrackUnitsList({
   const [lessonToEdit, setLessonToEdit] = useState<LessonItem | null>(null);
 
   return (
-    <div className="space-y-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
       {units.map((unit, uIdx) => {
         const formattedUnitTitle = formatUnitTitle(uIdx, unit.title);
         const unitLessons = unit.lessons || [];
@@ -85,7 +85,7 @@ export function TrackUnitsList({
         return (
           <div
             key={unit.id}
-            className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-5 sm:p-6 shadow-[0_2px_8px_rgba(44,30,34,0.04)] space-y-5 transition-all"
+            className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-5 sm:p-6 shadow-[0_2px_8px_rgba(44,30,34,0.04)] space-y-5 transition-all flex flex-col justify-between"
           >
             {/* Cabeçalho da Unidade com Contraste Definido e Ações Explícitas */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E6E1D8]">
@@ -126,7 +126,7 @@ export function TrackUnitsList({
               </div>
             </div>
 
-            {/* Grade de Lições: 5 cards por linha no desktop */}
+            {/* Grade de Lições da Unidade */}
             {unitLessons.length === 0 ? (
               <div className="p-8 bg-white border border-dashed border-[#E6E1D8] rounded-xl text-center space-y-2">
                 <p className="text-xs text-[#6F6865]">
@@ -143,7 +143,7 @@ export function TrackUnitsList({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {unitLessons.map((lesson, lIdx) => {
                   const formattedLessonTitle = formatLessonTitle(lIdx, lesson.title);
                   const activities = lesson.activities || [];

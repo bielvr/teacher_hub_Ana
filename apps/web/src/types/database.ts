@@ -319,6 +319,7 @@ export interface Database {
         Row: {
           id: string;
           lesson_id: string | null;
+          organization_id?: string | null;
           type: ActivityType;
           title: string;
           description: string | null;
@@ -334,6 +335,7 @@ export interface Database {
         Insert: {
           id?: string;
           lesson_id?: string | null;
+          organization_id?: string | null;
           type: ActivityType;
           title: string;
           description?: string | null;
@@ -349,6 +351,7 @@ export interface Database {
         Update: {
           id?: string;
           lesson_id?: string | null;
+          organization_id?: string | null;
           type?: ActivityType;
           title?: string;
           description?: string | null;

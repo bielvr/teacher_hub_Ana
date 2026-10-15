@@ -27,7 +27,8 @@ export default async function ProfessorNotesPage({
       )
     `)
     .eq('organization_id', activeOrgId)
-    .eq('role', 'student');
+    .eq('role', 'student')
+    .eq('status', 'active');
 
   let students: StudentProfile[] = [];
   if (membersData && membersData.length > 0) {
@@ -39,12 +40,6 @@ export default async function ProfessorNotesPage({
       }))
       .filter((s: any) => Boolean(s.id))
       .sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
-  } else {
-    const { data: studentsData } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .order('full_name', { ascending: true });
-    students = (studentsData as any[]) || [];
   }
 
   const selectedStudentId = resolvedParams.student_id || undefined;

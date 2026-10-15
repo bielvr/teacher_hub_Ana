@@ -23,11 +23,16 @@ export default async function ProfessorTrackDetailPage({
   // 1. Busca o nível (track)
   const { data: track, error: trackError } = await supabase
     .from('tracks')
-    .select('id, title, description')
+    .select('id, title, description, organization_id')
     .eq('id', trackId)
     .single();
 
   if (trackError || !track) return notFound();
+
+  // Validação estrita de multi-tenant: se o nível pertence a outra organização, bloqueia
+  if (activeOrgId && track.organization_id && track.organization_id !== activeOrgId) {
+    return notFound();
+  }
 
   // 2. Busca unidades (modules)
   const { data: modules } = await supabase

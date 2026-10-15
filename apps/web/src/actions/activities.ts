@@ -2,12 +2,20 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../lib/supabase/server';
+import { getUserOrganizations } from '../services/organizations';
 import { Database } from '../types/database';
 
 type ActivityType = Database['public']['Enums']['activity_type'];
 
 export async function createActivityAction(formData: FormData) {
   const supabase = await createClient();
+
+  const rawOrgId = (formData.get('organization_id') as string)?.trim();
+  let organizationId = rawOrgId || null;
+  if (!organizationId) {
+    const memberships = await getUserOrganizations(supabase);
+    organizationId = memberships[0]?.organizations?.id || null;
+  }
 
   const rawLessonId = (formData.get('lesson_id') as string)?.trim();
   const rawTitle = (formData.get('title') as string)?.trim();
@@ -93,6 +101,7 @@ export async function createActivityAction(formData: FormData) {
     resource_count: resources.length + (content_url ? 1 : 0),
     auto_count: autoCount,
     manual_count: manualCount,
+    organization_id: organizationId || null,
   };
 
   const payload: any = {
@@ -105,11 +114,9 @@ export async function createActivityAction(formData: FormData) {
     content_markdown: content_markdown || null,
     order_index: 0,
     metadata,
+    lesson_id: rawLessonId || null,
+    organization_id: organizationId || null,
   };
-
-  if (rawLessonId) {
-    payload.lesson_id = rawLessonId;
-  }
 
   const { error } = await supabase.from('activities').insert(payload);
 
@@ -199,17 +206,26 @@ export async function duplicateActivityAction(activityId: string) {
     throw new Error('Atividade original não encontrada.');
   }
 
+  const originalMeta = (original.metadata && typeof original.metadata === 'object' && !Array.isArray(original.metadata))
+    ? (original.metadata as Record<string, any>)
+    : {};
+  const orgId = original.organization_id || originalMeta.organization_id || null;
+
   const duplicatePayload: any = {
     title: `${original.title} (Cópia)`,
     type: original.type,
     lesson_id: original.lesson_id,
+    organization_id: orgId,
     video_url: original.video_url,
     pdf_url: original.pdf_url,
     link_url: original.link_url,
     audio_url: original.audio_url,
     content_markdown: original.content_markdown,
     order_index: original.order_index,
-    metadata: original.metadata || {},
+    metadata: {
+      ...originalMeta,
+      organization_id: orgId,
+    },
   };
 
   const { error: insertErr } = await supabase.from('activities').insert(duplicatePayload);
@@ -228,7 +244,7 @@ export async function assignActivityAction(formData: FormData) {
   const targetId = formData.get('target_id') as string;
 
   if (!activityId || !targetId) {
-    throw new Error('Selecione a atividade e a aluna/turma de destino.');
+    throw new Error('Selecione a atividade e o aluno/turma de destino.');
   }
 
   // Registra no metadata da atividade ou em notifications

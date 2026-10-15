@@ -9,26 +9,77 @@ function getYouTubeEmbedUrl(url: string | null) {
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 }
 
-export default async function StudentActivitiesPage() {
+export default async function StudentActivitiesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ org?: string }>;
+}) {
   const supabase = await createClient();
+  const resolvedParams = searchParams ? await searchParams : {};
 
-  const { data: activities } = await supabase
-    .from('activities')
-    .select(`
-      id,
-      title,
-      type,
-      description,
-      content_markdown,
-      pdf_url,
-      video_url,
-      link_url,
-      lessons (
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const userId = user?.id || '';
+
+  const { data: member } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('profile_id', userId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  const activeOrgId = resolvedParams.org || member?.organization_id || '';
+
+  let activities: any[] = [];
+  if (activeOrgId) {
+    const { data: tracksData } = await supabase
+      .from('tracks')
+      .select(`
         id,
-        title
+        modules (
+          id,
+          lessons (
+            id
+          )
+        )
+      `)
+      .eq('organization_id', activeOrgId);
+
+    const orgLessonIds = (tracksData || []).flatMap((t: any) =>
+      (t.modules || []).flatMap((m: any) =>
+        (m.lessons || []).map((l: any) => l.id)
       )
-    `)
-    .order('created_at', { ascending: false });
+    ).filter(Boolean);
+
+    const orCondition = orgLessonIds.length > 0
+      ? `organization_id.eq.${activeOrgId},lesson_id.in.(${orgLessonIds.join(',')})`
+      : `organization_id.eq.${activeOrgId}`;
+
+    const { data: acts } = await supabase
+      .from('activities')
+      .select(`
+        id,
+        title,
+        type,
+        description,
+        content_markdown,
+        pdf_url,
+        video_url,
+        link_url,
+        organization_id,
+        lesson_id,
+        lessons (
+          id,
+          title
+        )
+      `)
+      .or(orCondition)
+      .order('created_at', { ascending: false });
+
+    activities = acts || [];
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

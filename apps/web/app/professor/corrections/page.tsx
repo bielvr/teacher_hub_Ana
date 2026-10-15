@@ -41,11 +41,27 @@ export default async function ProfessorCorrectionsPage({
     .eq('organization_id', activeOrgId)
     .order('submitted_at', { ascending: false });
 
-  // 2. Busca alunas cadastradas
-  const { data: studentsData } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .order('full_name', { ascending: true });
+  // 2. Busca alunos cadastrados na organização ativa
+  const { data: membersData } = await (supabase as any)
+    .from('organization_members')
+    .select(`
+      profile_id,
+      profiles (
+        id,
+        full_name
+      )
+    `)
+    .eq('organization_id', activeOrgId)
+    .eq('role', 'student')
+    .eq('status', 'active');
+
+  const students: { id: string; full_name: string }[] = (membersData || [])
+    .map((m: any) => ({
+      id: m.profiles?.id || m.profile_id,
+      full_name: m.profiles?.full_name || 'Aluno',
+    }))
+    .filter((s: any) => Boolean(s.id))
+    .sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
 
   // 3. Busca níveis (tracks)
   const { data: tracksData } = await supabase
@@ -61,7 +77,6 @@ export default async function ProfessorCorrectionsPage({
     .eq('organization_id', activeOrgId)
     .order('name', { ascending: true });
 
-  const students = (studentsData as any[]) || [];
   const tracks = (tracksData as any[]) || [];
   const classes = (classesData as any[]) || [];
 
@@ -71,7 +86,7 @@ export default async function ProfessorCorrectionsPage({
     return {
       id: sub.id,
       student_id: sub.student_id,
-      student_name: sub.profiles?.full_name || 'Aluna Fikra',
+      student_name: sub.profiles?.full_name || 'Aluno Fikra',
       activity_title: sub.title,
       level_name: tracks[0]?.title || 'Geral',
       class_name: classes[0]?.name || 'Individual',
@@ -87,7 +102,7 @@ export default async function ProfessorCorrectionsPage({
     <div className="space-y-6">
       <PageHeader
         title="Atividades e correções"
-        description="Acompanhe as atividades já atribuídas, as entregas das alunas e tudo o que ainda precisa de correção ou feedback."
+        description="Acompanhe as atividades já atribuídas, as entregas dos alunos e tudo o que ainda precisa de correção ou feedback."
       />
 
       <CorrectionsClient

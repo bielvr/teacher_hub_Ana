@@ -21,36 +21,7 @@ export default async function TeacherActivitiesPage({
     );
   }
 
-  // 1. Busca todas as atividades com árvore curricular vinculada
-  const { data: activitiesData } = await supabase
-    .from('activities')
-    .select(`
-      id,
-      title,
-      type,
-      description,
-      content_markdown,
-      pdf_url,
-      video_url,
-      link_url,
-      audio_url,
-      metadata,
-      lessons (
-        id,
-        title,
-        modules (
-          id,
-          title,
-          tracks (
-            id,
-            title
-          )
-        )
-      )
-    `)
-    .order('created_at', { ascending: false });
-
-  // 2. Busca níveis, unidades e aulas para hierarquia
+  // 1. Busca níveis, unidades e aulas para hierarquia da organização
   const { data: tracksData } = await supabase
     .from('tracks')
     .select(`
@@ -68,22 +39,88 @@ export default async function TeacherActivitiesPage({
     .eq('organization_id', activeOrgId)
     .order('created_at', { ascending: true });
 
-  // 3. Busca alunas cadastradas
-  const { data: studentsData } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .order('full_name', { ascending: true });
+  const tracks = (tracksData as any[]) || [];
 
-  // 4. Busca turmas ativas
+  // Mapeia IDs das lições pertencentes a esta organização para isolamento curricular
+  const orgLessonIds = tracks.flatMap((t: any) =>
+    (t.modules || []).flatMap((m: any) =>
+      (m.lessons || []).map((l: any) => l.id)
+    )
+  ).filter(Boolean);
+
+  // 2. Busca atividades da organização (gerais ou vinculadas às aulas da organização)
+  const orCondition = orgLessonIds.length > 0
+    ? `organization_id.eq.${activeOrgId},lesson_id.in.(${orgLessonIds.join(',')})`
+    : `organization_id.eq.${activeOrgId}`;
+
+  const { data: activitiesData } = await supabase
+    .from('activities')
+    .select(`
+      id,
+      title,
+      type,
+      description,
+      content_markdown,
+      pdf_url,
+      video_url,
+      link_url,
+      audio_url,
+      metadata,
+      organization_id,
+      lesson_id,
+      lessons (
+        id,
+        title,
+        modules (
+          id,
+          title,
+          tracks (
+            id,
+            title
+          )
+        )
+      )
+    `)
+    .or(orCondition)
+    .order('created_at', { ascending: false });
+
+  // Blindagem adicional de multi-tenant em memória
+  const activities = ((activitiesData as any[]) || []).filter((act) => {
+    if (act.organization_id === activeOrgId) return true;
+    if (act.metadata?.organization_id === activeOrgId) return true;
+    if (act.lesson_id && orgLessonIds.includes(act.lesson_id)) return true;
+    return false;
+  });
+
+  // 3. Busca alunos cadastrados na organização ativa (sem vazamento multi-tenant)
+  const { data: membersData } = await (supabase as any)
+    .from('organization_members')
+    .select(`
+      profile_id,
+      profiles (
+        id,
+        full_name
+      )
+    `)
+    .eq('organization_id', activeOrgId)
+    .eq('role', 'student')
+    .eq('status', 'active');
+
+  const students: { id: string; full_name: string }[] = (membersData || [])
+    .map((m: any) => ({
+      id: m.profiles?.id || m.profile_id,
+      full_name: m.profiles?.full_name || 'Aluno',
+    }))
+    .filter((s: any) => Boolean(s.id))
+    .sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
+
+  // 4. Busca turmas ativas da organização
   const { data: classesData } = await supabase
     .from('classes')
     .select('id, name')
     .eq('organization_id', activeOrgId)
     .order('name', { ascending: true });
 
-  const activities = (activitiesData as any[]) || [];
-  const tracks = (tracksData as any[]) || [];
-  const students = (studentsData as any[]) || [];
   const classes = (classesData as any[]) || [];
 
   return (
@@ -98,6 +135,7 @@ export default async function TeacherActivitiesPage({
         tracks={tracks}
         students={students}
         classes={classes}
+        organizationId={activeOrgId}
       />
     </div>
   );

@@ -189,7 +189,7 @@ export function LessonDetailModal({
                     {vocabularyList.map((voc: string, i: number) => (
                       <span
                         key={i}
-                        className="text-[11px] font-medium bg-[#F7F4ED] border border-[#E6E1D8] text-[#2B2426] px-2 py-0.5 rounded-lg"
+                        className="bg-[#F7F4ED] text-[#6C0F37] border border-[#E6E1D8] text-xs px-2.5 py-1 rounded-md"
                       >
                         {voc}
                       </span>
@@ -203,71 +203,96 @@ export function LessonDetailModal({
                   <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
                     <span>📝</span> Gramática
                   </h3>
-                  <ul className="space-y-1 pl-4 list-disc text-xs text-[#2B2426]">
+                  <div className="flex flex-wrap gap-1.5">
                     {grammarList.map((gr: string, i: number) => (
-                      <li key={i}>{gr}</li>
+                      <span
+                        key={i}
+                        className="bg-[#F7F4ED] text-[#6C0F37] border border-[#E6E1D8] text-xs px-2.5 py-1 rounded-md"
+                      >
+                        {gr}
+                      </span>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {/* Materiais Anexados */}
-          <div className="space-y-3 pt-4 border-t border-[#E6E1D8]">
-            <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
-              <span>📎</span> Materiais de Apoio & Exercícios ({activities.length})
-            </h3>
+          {(() => {
+            const supportMaterials = [
+              ...activities.map((act) => ({
+                id: act.id,
+                title: act.title,
+                type: act.type,
+                url: act.pdf_url || act.video_url || act.link_url || act.audio_url,
+              })),
+              ...(metadata.material_url &&
+              activities.every(
+                (a) =>
+                  (a.pdf_url || a.link_url || a.video_url || a.audio_url) !== metadata.material_url
+              )
+                ? [
+                    {
+                      id: 'metadata-material',
+                      title: metadata.material_title || 'Material de Apoio',
+                      type: metadata.material_type || 'Documento/PDF',
+                      url: metadata.material_url,
+                    },
+                  ]
+                : []),
+            ];
 
-            {activities.length === 0 ? (
-              <p className="text-xs text-[#6F6865] italic bg-[#F7F4ED]/50 p-3 rounded-xl border border-[#E6E1D8]">
-                Nenhum material didático anexado a esta aula ainda.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {activities.map((act) => {
-                  const url =
-                    act.pdf_url ||
-                    act.video_url ||
-                    act.link_url ||
-                    act.audio_url;
+            return (
+              <div className="space-y-3 pt-4 border-t border-[#E6E1D8]">
+                <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📎</span> Materiais de Apoio & Exercícios ({supportMaterials.length})
+                </h3>
 
-                  return (
-                    <div
-                      key={act.id}
-                      className="flex items-center justify-between p-3 bg-[#F7F4ED] border border-[#E6E1D8] rounded-xl text-xs hover:border-[#6C0F37]/30 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="text-base">
-                          {act.type === 'pdf'
-                            ? '📄'
-                            : act.type === 'video'
-                            ? '▶️'
-                            : act.type === 'audio'
-                            ? '🎧'
-                            : '🔗'}
-                        </span>
-                        <span className="font-semibold text-[#2B2426] truncate">
-                          {act.title}
-                        </span>
+                {supportMaterials.length === 0 ? (
+                  <p className="text-xs text-[#6F6865] italic bg-[#F7F4ED]/50 p-3 rounded-xl border border-[#E6E1D8]">
+                    Nenhum material didático anexado a esta aula ainda.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {supportMaterials.map((act) => (
+                      <div
+                        key={act.id}
+                        className="flex items-center justify-between p-3 bg-[#F7F4ED] border border-[#E6E1D8] rounded-xl text-xs hover:border-[#6C0F37]/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="text-base">
+                            {act.type?.toLowerCase().includes('pdf') || act.type === 'Documento/PDF'
+                              ? '📄'
+                              : act.type?.toLowerCase().includes('video') || act.type === 'Vídeo'
+                              ? '▶️'
+                              : act.type?.toLowerCase().includes('audio') || act.type === 'Áudio'
+                              ? '🎧'
+                              : '🔗'}
+                          </span>
+                          <span className="font-semibold text-[#2B2426] truncate">
+                            {act.title}
+                          </span>
+                        </div>
+
+                        {act.url && (
+                          <a
+                            href={act.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-lg transition shrink-0 ml-2 shadow-xs flex items-center gap-1"
+                          >
+                            <span>Acessar</span>
+                            <span>↗</span>
+                          </a>
+                        )}
                       </div>
-
-                      {url && (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-lg transition shrink-0 ml-2 shadow-xs"
-                        >
-                          Acessar ↗
-                        </a>
-                      )}
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Rodapé com Ações */}
           <div className="flex items-center justify-between pt-4 border-t border-[#E6E1D8]">

@@ -8,6 +8,7 @@ import { MessagesModal } from './MessagesModal';
 import { NotificationsModal } from './NotificationsModal';
 import { CreateStudentModal } from './CreateStudentModal';
 import { createClient } from '../lib/supabase/client';
+import { getNotificationsAction } from '../actions/studies';
 
 interface OrganizationItem {
   id: string;
@@ -42,6 +43,7 @@ export function TeacherNavbar({
   const [createStudentOpen, setCreateStudentOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -49,6 +51,16 @@ export function TeacherNavbar({
       if (data?.user) setCurrentUserId(data.user.id);
     });
   }, []);
+
+  useEffect(() => {
+    if (!activeOrgId) return;
+    getNotificationsAction(activeOrgId)
+      .then((data) => {
+        const unread = (data || []).filter((n: any) => !n.is_read).length;
+        setUnreadNotificationsCount(unread);
+      })
+      .catch((err) => console.warn('Erro ao verificar notificações:', err));
+  }, [activeOrgId, notificationsOpen]);
 
   // Alterna menu aberto ou fecha se for o mesmo
   const toggleMenu = (menuName: string) => {
@@ -352,19 +364,6 @@ export function TeacherNavbar({
 
           {/* Canto Direito: Ações Globais */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Botão de Destaque Global: + Cadastrar aluno */}
-            <button
-              type="button"
-              onClick={() => {
-                setOpenMenu(null);
-                setCreateStudentOpen(true);
-              }}
-              className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-[#D7CE36] hover:bg-[#C2B92F] text-[#6C0F37] text-xs font-semibold rounded-full transition shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
-              title="Cadastrar novo aluno"
-            >
-              <span>+ Cadastrar aluno</span>
-            </button>
-
             {/* Sino de Notificações */}
             <button
               type="button"
@@ -372,7 +371,7 @@ export function TeacherNavbar({
                 setOpenMenu(null);
                 setNotificationsOpen(true);
               }}
-              className="relative p-2 text-[#FFFDF7] hover:text-[#D7CE36] transition-colors rounded-full focus:outline-none focus:ring-1 focus:ring-[#D7CE36]"
+              className="relative p-2 text-[#FFFDF7] hover:text-[#D7CE36] transition-colors rounded-full focus:outline-none focus:ring-1 focus:ring-[#D7CE36] cursor-pointer"
               title="Notificações"
               aria-label="Abrir notificações"
             >
@@ -384,8 +383,10 @@ export function TeacherNavbar({
                   d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
                 />
               </svg>
-              {/* Indicador de novidades */}
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#D7CE36] ring-2 ring-[#6C0F37]" />
+              {/* Indicador de novidades apenas se houver notificações não lidas */}
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#6C0F37]" />
+              )}
             </button>
 
             {/* Botão de Mensagens */}
@@ -615,19 +616,6 @@ export function TeacherNavbar({
                   {isLoggingOut ? 'Saindo...' : 'Sair da Conta'}
                 </button>
               </div>
-            </div>
-
-            <div className="pt-2 border-t border-[#57102E]">
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setCreateStudentOpen(true);
-                }}
-                className="w-full py-2.5 text-xs font-semibold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>+ Cadastrar aluno</span>
-              </button>
             </div>
           </div>
         )}

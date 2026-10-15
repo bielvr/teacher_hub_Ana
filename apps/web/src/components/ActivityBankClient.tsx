@@ -35,6 +35,7 @@ interface ActivityBankClientProps {
   tracks: any[];
   students: { id: string; full_name: string }[];
   classes: { id: string; name: string }[];
+  organizationId?: string;
 }
 
 export function ActivityBankClient({
@@ -42,6 +43,7 @@ export function ActivityBankClient({
   tracks,
   students,
   classes,
+  organizationId,
 }: ActivityBankClientProps) {
   const [search, setSearch] = useState('');
   const [trackFilter, setTrackFilter] = useState('');
@@ -115,7 +117,11 @@ export function ActivityBankClient({
 
           {/* Botão de Destaque no Topo */}
           <div className="shrink-0">
-            <CreateActivityModal tracks={tracks} triggerText="+ Nova atividade" />
+            <CreateActivityModal
+              tracks={tracks}
+              triggerText="+ Nova atividade"
+              organizationId={organizationId}
+            />
           </div>
         </div>
 

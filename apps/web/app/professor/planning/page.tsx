@@ -21,26 +21,31 @@ export default async function ProfessorPlanningPage({
     );
   }
 
-  // 1. Busca tracks, módulos, aulas e regras de liberação
+  // 1. Busca tracks, módulos, aulas e metadados pedagógicos
   const { data: tracksData } = await supabase
     .from('tracks')
     .select(`
       id,
       title,
+      description,
       modules (
         id,
         title,
         order_index,
         lessons (
           id,
+          module_id,
           title,
           order_index,
-          release_type,
-          release_date,
+          description,
           activities (
             id,
             title,
-            type
+            type,
+            pdf_url,
+            video_url,
+            link_url,
+            audio_url
           )
         )
       )
@@ -48,35 +53,16 @@ export default async function ProfessorPlanningPage({
     .eq('organization_id', activeOrgId)
     .order('created_at', { ascending: true });
 
-  // 2. Busca turmas
-  const { data: classesData } = await supabase
-    .from('classes')
-    .select('id, name')
-    .eq('organization_id', activeOrgId)
-    .order('name', { ascending: true });
-
-  // 3. Busca alunas
-  const { data: studentsData } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .order('full_name', { ascending: true });
-
   const tracks = (tracksData as any[]) || [];
-  const classes = (classesData as any[]) || [];
-  const students = (studentsData as any[]) || [];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Planejamento"
-        description="Organização do ensino por semanas, unidades, módulos ou etapas, definindo o cronograma de liberação para cada aluna ou turma."
+        title="Planejamento Pedagógico"
+        description="Gestão e acompanhamento do status de preparo interno de aulas, unidades e materiais didáticos por nível de ensino."
       />
 
-      <PlanningClient
-        tracks={tracks}
-        students={students}
-        classes={classes}
-      />
+      <PlanningClient tracks={tracks} />
     </div>
   );
 }
