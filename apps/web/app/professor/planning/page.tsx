@@ -14,6 +14,18 @@ interface PlanningPageProps {
   }>;
 }
 
+interface FlatLessonItem {
+  id: string;
+  title: string;
+  trackTitle: string;
+  trackId: string;
+  moduleTitle: string;
+  orderIndex: number;
+  prepStatus: 'need_prep' | 'in_progress' | 'ready';
+  communicativeGoals?: string;
+  materialsCount: number;
+}
+
 export default async function ProfessorPlanningPage({ searchParams }: PlanningPageProps) {
   const supabase = await createClient();
   const resolvedParams = await searchParams;
@@ -29,15 +41,11 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
     );
   }
 
-<<<<<<< HEAD
-  // 1. Busca tracks, módulos, aulas e metadados pedagógicos
-=======
   const filterQuery = (resolvedParams.q || '').toLowerCase();
   const filterLevel = resolvedParams.level || 'all';
   const filterStatus = resolvedParams.status || 'all';
 
   // 1. Busca tracks (níveis), módulos (unidades) e lições da organização
->>>>>>> 017e2351fc7abbd421d681161fc1db26f16a460c
   const { data: tracksData } = await supabase
     .from('tracks')
     .select(`
@@ -54,12 +62,8 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
           title,
           description,
           order_index,
-<<<<<<< HEAD
-          description,
-=======
           release_type,
           created_at,
->>>>>>> 017e2351fc7abbd421d681161fc1db26f16a460c
           activities (
             id,
             title,
@@ -76,21 +80,9 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
     .order('created_at', { ascending: true });
 
   const tracks = (tracksData as any[]) || [];
-<<<<<<< HEAD
-=======
 
   // 2. Mapeamento plano de lições para cálculo de contadores e filtros de preparação
-  const allLessons: Array<{
-    id: string;
-    title: string;
-    trackTitle: string;
-    trackId: string;
-    moduleTitle: string;
-    orderIndex: number;
-    prepStatus: 'need_prep' | 'in_progress' | 'ready';
-    communicativeGoals?: string;
-    materialsCount: number;
-  }> = [];
+  const allLessons: FlatLessonItem[] = [];
 
   tracks.forEach((t) => {
     (t.modules || []).forEach((m: any) => {
@@ -141,9 +133,9 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
   const countReady = allLessons.filter((l) => l.prepStatus === 'ready').length;
 
   // Filtragem dos cards
-  const filteredTracks = tracks
-    .map((t) => {
-      const trackLessons = allLessons.filter((l) => {
+  const filteredTracks: Array<any & { filteredLessons: FlatLessonItem[] }> = tracks
+    .map((t: any) => {
+      const trackLessons: FlatLessonItem[] = allLessons.filter((l) => {
         if (l.trackId !== t.id) return false;
         if (filterLevel !== 'all' && t.id !== filterLevel) return false;
         if (filterStatus !== 'all' && l.prepStatus !== filterStatus) return false;
@@ -163,19 +155,12 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
         filteredLessons: trackLessons,
       };
     })
-    .filter((t) => filterLevel === 'all' || t.id === filterLevel);
->>>>>>> 017e2351fc7abbd421d681161fc1db26f16a460c
+    .filter((t: any) => filterLevel === 'all' || t.id === filterLevel);
 
   return (
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Planejamento Pedagógico"
-<<<<<<< HEAD
-        description="Gestão e acompanhamento do status de preparo interno de aulas, unidades e materiais didáticos por nível de ensino."
-      />
-
-      <PlanningClient tracks={tracks} />
-=======
         description="Organize o conteúdo didático e enxergue imediatamente o que ainda precisa ser preparado antes das aulas."
         action={
           <Link
@@ -323,7 +308,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
 
                 {/* Grade padronizada com 5 cards por linha no desktop */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {track.filteredLessons.map((lesson) => {
+                  {track.filteredLessons.map((lesson: FlatLessonItem) => {
                     const statusConfig = {
                       need_prep: {
                         label: 'PRECISA PREPARAR',
@@ -340,7 +325,11 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
                         badgeClass: 'bg-[#F0FDF4] text-[#198754] border-[#B9F5D0]',
                         dotClass: 'bg-[#198754]',
                       },
-                    }[lesson.prepStatus];
+                    }[lesson.prepStatus] || {
+                      label: 'EM PREPARAÇÃO',
+                      badgeClass: 'bg-[#FFFDF0] text-[#B78103] border-[#FEEBAA]',
+                      dotClass: 'bg-[#B78103]',
+                    };
 
                     return (
                       <div
@@ -406,9 +395,6 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
           })}
         </div>
       )}
->>>>>>> 017e2351fc7abbd421d681161fc1db26f16a460c
     </div>
   );
-}
- );
 }
