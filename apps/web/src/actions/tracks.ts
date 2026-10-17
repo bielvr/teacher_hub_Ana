@@ -380,10 +380,12 @@ export async function createLessonWithActivityAction(
 
     const lessonMetadata = {
       communicative_objectives,
+      communicative_goals: communicative_objectives,
       vocabulary,
       grammar,
       status,
       preparation_status,
+      published_to_materials: true,
       cover_image_url,
       material_type: rawType,
       material_title: activity_title,
@@ -437,6 +439,7 @@ export async function createLessonWithActivityAction(
       }
     }
 
+    revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
     if (track_id) {
       revalidatePath(`/professor/tracks/${track_id}`);
@@ -468,6 +471,24 @@ export async function updateLessonAction(
       return { success: false, error: 'ID e título da aula são obrigatórios.' };
     }
 
+    // Preserva metadados existentes (notes, checklist, published_to_materials, etc.)
+    let existingMeta: Record<string, any> = {};
+    const { data: existingLesson } = await supabase
+      .from('lessons')
+      .select('description')
+      .eq('id', lesson_id)
+      .single();
+
+    if (existingLesson?.description) {
+      try {
+        if (existingLesson.description.trim().startsWith('{')) {
+          existingMeta = JSON.parse(existingLesson.description);
+        }
+      } catch {
+        // Ignora erro de parse
+      }
+    }
+
     // Upload de imagem de capa se fornecido
     const coverUpload = formData.get('cover_image_file') as File | null;
     if (coverUpload && coverUpload.size > 0 && typeof coverUpload.name === 'string') {
@@ -480,12 +501,14 @@ export async function updateLessonAction(
     }
 
     const lessonMetadata = {
+      ...existingMeta,
       communicative_objectives,
+      communicative_goals: communicative_objectives,
       vocabulary,
       grammar,
       status,
       preparation_status,
-      cover_image_url,
+      cover_image_url: cover_image_url || existingMeta.cover_image_url || '',
     };
 
     const { error: lessonError } = await supabase
@@ -498,6 +521,7 @@ export async function updateLessonAction(
 
     if (lessonError) return { success: false, error: lessonError.message };
 
+    revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
     if (track_id) {
       revalidatePath(`/professor/tracks/${track_id}`);
@@ -505,6 +529,295 @@ export async function updateLessonAction(
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || 'Erro ao atualizar lição.' };
+  }
+}
+
+export async function createPlanningLessonAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string; lessonId?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const organization_id = (formData.get('organization_id') as string)?.trim();
+    let track_id = (formData.get('track_id') as string)?.trim();
+    const new_track_title = (formData.get('new_track_title') as string)?.trim();
+    let module_id = (formData.get('module_id') as string)?.trim();
+    const new_module_title = (formData.get('new_module_title') as string)?.trim();
+    const lesson_title = (formData.get('lesson_title') as string)?.trim();
+
+    const preparation_status =
+      ((formData.get('preparation_status') as string) as 'need_prep' | 'in_progress' | 'ready') ||
+      'need_prep';
+    const communicative_objectives = (formData.get('communicative_objectives') as string)?.trim() || '';
+    const notes = (formData.get('notes') as string)?.trim() || '';
+    const checklistRaw = (formData.get('checklist') as string) || '[]';
+    const vocabulary = (formData.get('vocabulary') as string)?.trim() || '';
+    const grammar = (formData.get('grammar') as string)?.trim() || '';
+    const publish_immediately = formData.get('publish_immediately') === 'true';
+
+    if (!lesson_title) {
+      return { success: false, error: 'Informe o título da lesson.' };
+    }
+
+    // Se o professor escolheu criar um novo nível
+    if ((!track_id || track_id === '__new__') && new_track_title && organization_id) {
+      const { data: createdTrack, error: trackErr } = await supabase
+        .from('tracks')
+        .insert({
+          organization_id,
+          title: new_track_title,
+        })
+        .select('id')
+        .single();
+      if (trackErr || !createdTrack) {
+        return { success: false, error: trackErr?.message || 'Erro ao criar nível.' };
+      }
+      track_id = createdTrack.id;
+    }
+
+    if (!track_id) {
+      return { success: false, error: 'Selecione ou crie um nível para a lesson.' };
+    }
+
+    // Se o professor escolheu criar uma nova unidade ou o nível ainda não possui unidades
+    if (!module_id || module_id === '__new__') {
+      const unitTitle = new_module_title || 'Unidade 1';
+      const { count: modCount } = await supabase
+        .from('modules')
+        .select('*', { count: 'exact', head: true })
+        .eq('track_id', track_id);
+
+      const { data: createdModule, error: modErr } = await supabase
+        .from('modules')
+        .insert({
+          track_id,
+          title: unitTitle,
+          order_index: (modCount || 0) + 1,
+        })
+        .select('id')
+        .single();
+
+      if (modErr || !createdModule) {
+        return { success: false, error: modErr?.message || 'Erro ao criar unidade.' };
+      }
+      module_id = createdModule.id;
+    }
+
+    let checklist: Array<{ text: string; done: boolean }> = [];
+    try {
+      checklist = JSON.parse(checklistRaw);
+    } catch {
+      checklist = [];
+    }
+
+    const status =
+      preparation_status === 'ready'
+        ? 'done'
+        : preparation_status === 'in_progress'
+        ? 'in_progress'
+        : 'todo';
+
+    const lessonMetadata = {
+      communicative_objectives,
+      communicative_goals: communicative_objectives,
+      notes,
+      checklist,
+      vocabulary,
+      grammar,
+      status,
+      preparation_status,
+      published_to_materials: publish_immediately,
+      published_at: publish_immediately ? new Date().toISOString() : null,
+    };
+
+    const { count: lessonCount } = await supabase
+      .from('lessons')
+      .select('*', { count: 'exact', head: true })
+      .eq('module_id', module_id);
+
+    const { data: lesson, error: lessonError } = await supabase
+      .from('lessons')
+      .insert({
+        module_id,
+        title: lesson_title,
+        description: JSON.stringify(lessonMetadata),
+        order_index: (lessonCount || 0) + 1,
+        release_type: 'immediate',
+      })
+      .select('id')
+      .single();
+
+    if (lessonError || !lesson) {
+      return { success: false, error: lessonError?.message || 'Erro ao criar lesson no planejamento.' };
+    }
+
+    revalidatePath('/professor/planning');
+    revalidatePath('/professor/tracks');
+    revalidatePath(`/professor/tracks/${track_id}`);
+
+    return { success: true, lessonId: lesson.id };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao salvar lesson.' };
+  }
+}
+
+export async function updatePlanningLessonAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const lesson_id = (formData.get('lesson_id') as string)?.trim();
+    const track_id = (formData.get('track_id') as string)?.trim();
+    const module_id = (formData.get('module_id') as string)?.trim();
+    const lesson_title = (formData.get('lesson_title') as string)?.trim();
+    const preparation_status =
+      ((formData.get('preparation_status') as string) as 'need_prep' | 'in_progress' | 'ready') ||
+      'need_prep';
+    const communicative_objectives = (formData.get('communicative_objectives') as string)?.trim() || '';
+    const notes = (formData.get('notes') as string)?.trim() || '';
+    const checklistRaw = (formData.get('checklist') as string) || '[]';
+    const vocabulary = (formData.get('vocabulary') as string)?.trim() || '';
+    const grammar = (formData.get('grammar') as string)?.trim() || '';
+
+    if (!lesson_id || !lesson_title) {
+      return { success: false, error: 'ID e título da lesson são obrigatórios.' };
+    }
+
+    let existingMeta: Record<string, any> = {};
+    const { data: existingLesson } = await supabase
+      .from('lessons')
+      .select('description')
+      .eq('id', lesson_id)
+      .single();
+
+    if (existingLesson?.description) {
+      try {
+        if (existingLesson.description.trim().startsWith('{')) {
+          existingMeta = JSON.parse(existingLesson.description);
+        } else {
+          existingMeta = { communicative_objectives: existingLesson.description };
+        }
+      } catch {
+        existingMeta = { communicative_objectives: existingLesson.description };
+      }
+    }
+
+    let checklist: Array<{ text: string; done: boolean }> = existingMeta.checklist || [];
+    try {
+      checklist = JSON.parse(checklistRaw);
+    } catch {
+      // mantém existente
+    }
+
+    const status =
+      preparation_status === 'ready'
+        ? 'done'
+        : preparation_status === 'in_progress'
+        ? 'in_progress'
+        : 'todo';
+
+    const updatedMeta = {
+      ...existingMeta,
+      communicative_objectives,
+      communicative_goals: communicative_objectives,
+      notes,
+      checklist,
+      vocabulary,
+      grammar,
+      status,
+      preparation_status,
+    };
+
+    const updatePayload: { title: string; description: string; module_id?: string } = {
+      title: lesson_title,
+      description: JSON.stringify(updatedMeta),
+    };
+    if (module_id) {
+      updatePayload.module_id = module_id;
+    }
+
+    const { error } = await supabase
+      .from('lessons')
+      .update(updatePayload)
+      .eq('id', lesson_id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/professor/planning');
+    revalidatePath('/professor/tracks');
+    if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao atualizar planejamento da lesson.' };
+  }
+}
+
+export async function sendLessonToMaterialsAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const lesson_id = (formData.get('lesson_id') as string)?.trim();
+    const track_id = (formData.get('track_id') as string)?.trim();
+
+    if (!lesson_id) {
+      return { success: false, error: 'ID da lesson é obrigatório.' };
+    }
+
+    const { data: existingLesson, error: fetchErr } = await supabase
+      .from('lessons')
+      .select('title, description')
+      .eq('id', lesson_id)
+      .single();
+
+    if (fetchErr || !existingLesson) {
+      return { success: false, error: 'Lesson não encontrada.' };
+    }
+
+    let existingMeta: Record<string, any> = {};
+    if (existingLesson.description) {
+      try {
+        if (existingLesson.description.trim().startsWith('{')) {
+          existingMeta = JSON.parse(existingLesson.description);
+        } else {
+          existingMeta = { communicative_objectives: existingLesson.description };
+        }
+      } catch {
+        existingMeta = { communicative_objectives: existingLesson.description };
+      }
+    }
+
+    const updatedMeta = {
+      ...existingMeta,
+      status: 'done',
+      preparation_status: 'ready',
+      published_to_materials: true,
+      published_at: new Date().toISOString(),
+    };
+
+    const { error: updateErr } = await supabase
+      .from('lessons')
+      .update({
+        description: JSON.stringify(updatedMeta),
+        release_type: 'immediate',
+      })
+      .eq('id', lesson_id);
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message };
+    }
+
+    revalidatePath('/professor/planning');
+    revalidatePath('/professor/tracks');
+    if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao disponibilizar lesson em Materiais Didáticos.' };
   }
 }
 
@@ -518,6 +831,7 @@ export async function deleteLessonAction(formData: FormData) {
   const { error } = await supabase.from('lessons').delete().eq('id', lesson_id);
   if (error) throw new Error(error.message);
 
+  revalidatePath('/professor/planning');
   revalidatePath('/professor/tracks');
   if (track_id) {
     revalidatePath(`/professor/tracks/${track_id}`);

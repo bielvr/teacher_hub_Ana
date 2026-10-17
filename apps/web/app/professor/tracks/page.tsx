@@ -49,6 +49,7 @@ export default async function TracksPage({
         lessons (
           id,
           title,
+          description,
           order_index,
           activities (
             id,
@@ -93,6 +94,20 @@ export default async function TracksPage({
     email: m.profiles?.email || null,
   }));
 
+  // Filtra apenas aulas disponibilizadas no acervo finalizado (exclui rascunhos exclusivos do Planejamento)
+  const isLessonInMaterialsLibrary = (lesson: any): boolean => {
+    if (!lesson?.description || typeof lesson.description !== 'string') return true;
+    try {
+      if (lesson.description.trim().startsWith('{')) {
+        const parsed = JSON.parse(lesson.description);
+        if (parsed.published_to_materials === false) return false;
+      }
+    } catch {
+      return true;
+    }
+    return true;
+  };
+
   // Agrupa e calcula as contagens reais para cada nível
   const tracksWithStats = tracks.map((track: any) => {
     const trackModules = modules.filter((m: any) => m.track_id === track.id);
@@ -101,7 +116,7 @@ export default async function TracksPage({
     let materialsCount = 0;
 
     trackModules.forEach((m: any) => {
-      const mLessons = m.lessons || [];
+      const mLessons = (m.lessons || []).filter(isLessonInMaterialsLibrary);
       lessonsCount += mLessons.length;
       mLessons.forEach((l: any) => {
         materialsCount += (l.activities || []).length;
@@ -120,13 +135,21 @@ export default async function TracksPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Materiais didáticos"
-        description="Crie e organize os níveis, unidades, aulas e materiais que compõem o seu ensino."
+        title="Materiais Didáticos"
+        description="Acervo finalizado de slides, PDFs, áudios, links e atividades prontos para liberar e vincular aos alunos e turmas."
         action={
-          <CreateTrackModal
-            organizationId={activeOrgId}
-            triggerText="+ Novo nível"
-          />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href={`/professor/planning?org=${activeOrgId}`}
+              className="px-3.5 py-2 bg-white border border-[#E6E1D8] text-[#6C0F37] text-xs font-semibold rounded-xl hover:bg-[#FAF8F5] transition-colors"
+            >
+              📝 Ir para Planejamento
+            </Link>
+            <CreateTrackModal
+              organizationId={activeOrgId}
+              triggerText="+ Novo nível"
+            />
+          </div>
         }
       />
 

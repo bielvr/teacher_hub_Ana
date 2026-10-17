@@ -72,9 +72,25 @@ export default async function ProfessorTrackDetailPage({
     lessons = lessonsData || [];
   }
 
+  const isLessonInMaterialsLibrary = (lesson: any): boolean => {
+    if (!lesson?.description || typeof lesson.description !== 'string') return true;
+    try {
+      if (lesson.description.trim().startsWith('{')) {
+        const parsed = JSON.parse(lesson.description);
+        if (parsed.published_to_materials === false) return false;
+      }
+    } catch {
+      return true;
+    }
+    return true;
+  };
+
+  const publishedLessons = lessons.filter(isLessonInMaterialsLibrary);
+  const planningDraftsCount = lessons.length - publishedLessons.length;
+
   const modulesWithLessons = (modules || []).map((m) => ({
     ...m,
-    lessons: lessons.filter((l) => l.module_id === m.id),
+    lessons: publishedLessons.filter((l) => l.module_id === m.id),
   }));
 
   const allModulesOptions = modulesWithLessons.map((m) => ({ id: m.id, title: m.title }));
@@ -130,6 +146,22 @@ export default async function ProfessorTrackDetailPage({
           </div>
         </div>
       </div>
+
+      {planningDraftsCount > 0 && (
+        <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="text-[#2B2426]">
+            📝 Você possui <strong>{planningDraftsCount}</strong>{' '}
+            {planningDraftsCount === 1 ? 'lesson em rascunho' : 'lessons em rascunho'} neste nível no{' '}
+            <strong>Planejamento</strong>. Envie para a biblioteca quando estiverem prontas para uso.
+          </div>
+          <Link
+            href={`/professor/planning?level=${track.id}${activeOrgId ? `&org=${activeOrgId}` : ''}`}
+            className="text-[#6C0F37] font-bold hover:underline shrink-0"
+          >
+            Abrir Planejamento →
+          </Link>
+        </div>
+      )}
 
       {/* Conteúdo Principal */}
       <div className="space-y-6">
