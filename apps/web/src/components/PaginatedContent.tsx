@@ -1,12 +1,167 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, ReactNode } from 'react';
 
 interface PaginatedContentProps {
   content: string;
   enableKeyboardNavigation?: boolean;
   className?: string;
   fontSizeClass?: string;
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|~~[^~]+~~)/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-bold text-[#2B2426]">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return (
+        <em key={i} className="italic text-[#2B2426]">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} className="bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8] px-1 py-0.5 rounded text-[11px] font-mono">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith('~~') && part.endsWith('~~')) {
+      return (
+        <del key={i} className="line-through text-[#6F6865]">
+          {part.slice(2, -2)}
+        </del>
+      );
+    }
+    return part;
+  });
+}
+
+export function RichMarkdownRenderer({ text }: { text: string }) {
+  if (!text) return null;
+  const lines = text.split('\n');
+
+  return (
+    <div className="space-y-1.5 text-left">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+
+        if (!trimmed) {
+          return <div key={idx} className="h-1.5" />;
+        }
+
+        // H1: # Heading
+        if (trimmed.startsWith('# ')) {
+          return (
+            <h1 key={idx} className="text-base sm:text-lg font-bold text-[#6C0F37] pt-2 pb-1 border-b border-[#E6E1D8]">
+              {renderInlineMarkdown(trimmed.replace(/^#\s+/, ''))}
+            </h1>
+          );
+        }
+
+        // H2: ## Heading
+        if (trimmed.startsWith('## ')) {
+          return (
+            <h2 key={idx} className="text-sm sm:text-base font-bold text-[#6C0F37] pt-2 pb-0.5 border-b border-[#E6E1D8]/60">
+              {renderInlineMarkdown(trimmed.replace(/^##\s+/, ''))}
+            </h2>
+          );
+        }
+
+        // H3: ### Heading
+        if (trimmed.startsWith('### ')) {
+          return (
+            <h3 key={idx} className="text-xs sm:text-sm font-bold text-[#2B2426] pt-1">
+              {renderInlineMarkdown(trimmed.replace(/^###\s+/, ''))}
+            </h3>
+          );
+        }
+
+        // Checklist item checked: - [x] or * [x]
+        const checkedMatch = trimmed.match(/^[-*]\s*\[([xX])\]\s*(.*)$/);
+        if (checkedMatch) {
+          return (
+            <div
+              key={idx}
+              className="flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50/70 border border-emerald-200/70 px-2.5 py-1.5 rounded-lg my-1"
+            >
+              <span className="text-emerald-600 font-bold text-sm leading-none">☑</span>
+              <span className="line-through opacity-85">
+                {renderInlineMarkdown(checkedMatch[2])}
+              </span>
+            </div>
+          );
+        }
+
+        // Checklist item unchecked: - [ ] or * [ ]
+        const uncheckedMatch = trimmed.match(/^[-*]\s*\[\s*\]\s*(.*)$/);
+        if (uncheckedMatch) {
+          return (
+            <div
+              key={idx}
+              className="flex items-center gap-2 text-xs font-medium text-[#2B2426] bg-[#FFFDF7] border border-[#E6E1D8] px-2.5 py-1.5 rounded-lg my-1"
+            >
+              <span className="text-[#6F6865] text-sm leading-none">☐</span>
+              <span>{renderInlineMarkdown(uncheckedMatch[1])}</span>
+            </div>
+          );
+        }
+
+        // Bullet item: - Item or * Item
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          return (
+            <div key={idx} className="flex items-start gap-2 text-xs text-[#2B2426] pl-2">
+              <span className="text-[#6C0F37] font-bold text-sm leading-none mt-0.5">•</span>
+              <div className="flex-1 leading-relaxed">
+                {renderInlineMarkdown(trimmed.replace(/^[-*]\s+/, ''))}
+              </div>
+            </div>
+          );
+        }
+
+        // Numbered item: 1. Item
+        const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+        if (numberedMatch) {
+          return (
+            <div key={idx} className="flex items-start gap-2 text-xs text-[#2B2426] pl-2">
+              <span className="text-[#6C0F37] font-bold text-xs shrink-0">{numberedMatch[1]}.</span>
+              <div className="flex-1 leading-relaxed">
+                {renderInlineMarkdown(numberedMatch[2])}
+              </div>
+            </div>
+          );
+        }
+
+        // Quote: > text
+        if (trimmed.startsWith('> ')) {
+          return (
+            <blockquote
+              key={idx}
+              className="border-l-4 border-[#D7CE36] bg-[#FFFDF7] pl-3 py-1.5 my-1 text-xs italic text-[#6F6865] rounded-r-lg"
+            >
+              {renderInlineMarkdown(trimmed.replace(/^>\s+/, ''))}
+            </blockquote>
+          );
+        }
+
+        // Regular paragraph line
+        return (
+          <p key={idx} className="text-xs text-[#2B2426] leading-relaxed">
+            {renderInlineMarkdown(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export function PaginatedContent({
@@ -54,8 +209,8 @@ export function PaginatedContent({
 
   if (pages.length <= 1) {
     return (
-      <div className={`whitespace-pre-wrap leading-relaxed ${fontSizeClass} ${className}`}>
-        {content}
+      <div className={`leading-relaxed ${fontSizeClass} ${className}`}>
+        <RichMarkdownRenderer text={content} />
       </div>
     );
   }
@@ -91,35 +246,33 @@ export function PaginatedContent({
         </div>
       </div>
 
-      {/* Conteúdo da Página Atual */}
-      <div className={`whitespace-pre-wrap leading-relaxed min-h-[120px] ${fontSizeClass}`}>
-        {pages[currentPage]}
+      {/* Conteúdo da Página Atual com Formatador Rico */}
+      <div className={`leading-relaxed min-h-[120px] ${fontSizeClass}`}>
+        <RichMarkdownRenderer text={pages[currentPage]} />
       </div>
 
       {/* Rodapé de Navegação */}
       <div className="flex items-center justify-between pt-3 border-t border-[#E6E1D8] text-xs">
         <button
           type="button"
+          onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
           disabled={currentPage === 0}
-          onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E6E1D8] bg-white text-[#2B2426] hover:bg-[#F7F4ED] disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer font-medium"
+          className="px-3 py-1.5 rounded-lg border border-[#E6E1D8] text-[#2B2426] hover:bg-[#FAF8F5] disabled:opacity-40 disabled:cursor-not-allowed transition font-medium"
         >
-          <span>←</span>
-          <span>Página anterior</span>
+          ← Anterior
         </button>
 
-        <span className="text-[11px] text-[#6F6865] font-semibold">
+        <span className="text-[#6F6865] font-semibold">
           Etapa {currentPage + 1} de {pages.length}
         </span>
 
         <button
           type="button"
+          onClick={() => setCurrentPage((p) => Math.min(pages.length - 1, p + 1))}
           disabled={currentPage === pages.length - 1}
-          onClick={() => setCurrentPage((prev) => Math.min(pages.length - 1, prev + 1))}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#6C0F37] hover:bg-[#57102E] text-white disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer font-semibold shadow-2xs"
+          className="px-3 py-1.5 rounded-lg bg-[#6C0F37] text-white hover:bg-[#57102E] disabled:opacity-40 disabled:cursor-not-allowed transition font-semibold"
         >
-          <span>Próxima página</span>
-          <span>→</span>
+          Próxima →
         </button>
       </div>
     </div>

@@ -389,4 +389,94 @@ export async function sendNoticeAction(orgId: string, title: string, content: st
   } catch (err: any) {
     return { success: false, error: err.message || 'Falha ao enviar aviso.' };
   }
+}
+
+// 4. Marcar Atividade como Concluída ou Alternar Progresso do Aluno
+export async function toggleActivityCompletionAction(activityId: string, orgId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Não autenticado');
+
+  const { data: existing } = await supabase
+    .from('activity_submissions')
+    .select('id, status')
+    .eq('activity_id', activityId)
+    .eq('student_id', user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const newStatus = existing.status === 'completed' ? 'pending' : 'completed';
+    const { error } = await supabase
+      .from('activity_submissions')
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/student/activities');
+    return { completed: newStatus === 'completed' };
+  } else {
+    const { error } = await supabase
+      .from('activity_submissions')
+      .insert({
+        organization_id: orgId,
+        activity_id: activityId,
+        student_id: user.id,
+        status: 'completed',
+        submitted_at: new Date().toISOString(),
+      });
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/student/activities');
+    return { completed: true };
+  }
+}
+
+// 5. Enviar Respostas Interativas da Atividade e Gravar Progresso
+export async function submitStudentActivityAction(
+  activityId: string,
+  orgId: string,
+  answers: Record<string, any>,
+  score?: number
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Não autenticado');
+
+  const { data: existing } = await supabase
+    .from('activity_submissions')
+    .select('id')
+    .eq('activity_id', activityId)
+    .eq('student_id', user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('activity_submissions')
+      .update({
+        status: 'completed',
+        score: score ?? null,
+        submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from('activity_submissions')
+      .insert({
+        organization_id: orgId,
+        activity_id: activityId,
+        student_id: user.id,
+        status: 'completed',
+        score: score ?? null,
+        submitted_at: new Date().toISOString(),
+      });
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath('/student/activities');
+  return { success: true };
 }

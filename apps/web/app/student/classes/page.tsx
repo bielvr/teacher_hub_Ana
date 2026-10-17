@@ -41,39 +41,47 @@ export default async function StudentClassesPage() {
     .filter(Boolean);
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-zinc-200 pb-4">
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
+    <div className="space-y-6 max-w-4xl mx-auto pb-16">
+      <div className="border-b border-[#E6E1D8] pb-4">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
+          Ambiente Pedagógico
+        </span>
+        <h1 className="text-3xl font-bold text-[#6C0F37] tracking-tight mt-1">
           Minhas Turmas
         </h1>
-        <p className="text-xs text-zinc-500 mt-1">
+        <p className="text-sm text-[#6F6865] mt-1">
           Acompanhe suas turmas ativas, níveis pedagógicos e materiais de apoio.
         </p>
       </div>
 
       {classesList.length === 0 ? (
-        <Card className="p-8">
+        <Card className="p-8 border-[#E6E1D8] bg-white rounded-2xl">
           <EmptyState
             title="Nenhuma turma vinculada"
-            description="Você ainda não foi adicionado a nenhuma turma da organização."
+            description="Você ainda não foi adicionado a nenhuma turma ativa da organização."
           />
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {classesList.map((item: any) => (
-            <Card key={item.id} className="p-5 border-zinc-200 shadow-sm flex flex-col justify-between">
+            <Card key={item.id} className="p-6 border-[#E6E1D8] bg-white rounded-2xl shadow-xs flex flex-col justify-between">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded">
-                  {item.level || 'Geral'}
-                </span>
-                <h3 className="text-base font-bold text-zinc-900 mt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-[#FFFDF7] text-[#6C0F37] border border-[#E6E1D8] px-2.5 py-0.5 rounded-md">
+                    Nível: {item.level || 'Geral'}
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    Ativa
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-[#2B2426] mt-3">
                   {item.name}
                 </h3>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
-                <span>Status: Ativa</span>
-                <span className="font-semibold text-zinc-800">Ver detalhes →</span>
+              <div className="mt-6 pt-3 border-t border-[#E6E1D8] flex items-center justify-between text-xs text-[#6F6865]">
+                <span>Status da Matrícula: Regular</span>
+                <span className="font-semibold text-[#6C0F37]">Matriculado ✓</span>
               </div>
             </Card>
           ))}
