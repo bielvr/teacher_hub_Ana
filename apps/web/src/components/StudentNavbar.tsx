@@ -139,7 +139,7 @@ export function StudentNavbar({
         className="sticky top-0 z-40 bg-[#6C0F37] border-b border-[#57102E] shadow-sm font-sans"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Canto Esquerdo: Logo oficial da Fikra + Badge Portal do Aluno */}
+          {/* Canto Esquerdo: Logo oficial da Fikra */}
           <div className="flex items-center gap-3">
             <Link
               href={`/student?org=${orgId}`}
@@ -154,10 +154,6 @@ export function StudentNavbar({
                 className="h-7 w-auto object-contain"
               />
             </Link>
-
-            <span className="hidden sm:inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-white/10 text-[#FFFDF7] border border-white/15">
-              Portal do Aluno
-            </span>
           </div>
 
           {/* Centro / Desktop: Menus de Navegação */}

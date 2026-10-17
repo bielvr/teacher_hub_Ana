@@ -51,7 +51,9 @@ export default async function ProfessorNotesPage({
     .eq('organization_id', activeOrgId)
     .order('lesson_date', { ascending: false });
 
-  const notes: LessonNoteItem[] = (notesData as any[]) || [];
+  const notes: LessonNoteItem[] = ((notesData as any[]) || []).filter(
+    (n: any) => !n.title?.startsWith('[Chamada]') && !n.title?.startsWith('[Contrato]')
+  );
 
   return (
     <div className="space-y-6">

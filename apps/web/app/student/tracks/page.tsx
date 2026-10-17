@@ -69,6 +69,18 @@ export default async function StudentTracksPage({
   const context = await getStudentContext(supabase, activeOrgId);
   const tracks = context?.tracks || [];
 
+  // Busca permissões específicas de nivelamento salvas pela professora
+  const { data: unlockedItems } = await supabase
+    .from('student_review_items')
+    .select('item_id')
+    .eq('organization_id', activeOrgId)
+    .eq('student_id', context?.user?.id || '')
+    .eq('item_type', 'resource')
+    .eq('content_preview', 'unlocked_level');
+
+  const unlockedTrackIds = (unlockedItems || []).map((u: any) => u.item_id);
+  const hasSpecificUnlocked = unlockedTrackIds.length > 0;
+
   return (
     <div className="space-y-8">
       {/* Topo / Materiais Didáticos */}
@@ -90,22 +102,57 @@ export default async function StudentTracksPage({
           description="Seu professor disponibilizará os módulos e lições aqui conforme o avanço dos seus estudos."
         />
       ) : (
-        tracks.map((track: any) => (
-          <div key={track.id} className="space-y-6">
-            <div className="border-b border-[#E6E1D8] pb-3 flex items-baseline justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-[#6C0F37]">{track.title}</h2>
-                {track.description && (
-                  <p className="text-xs text-[#6F6865] mt-0.5">{track.description}</p>
-                )}
+        tracks.map((track: any) => {
+          const isTrackUnlocked = !hasSpecificUnlocked || unlockedTrackIds.includes(track.id);
+
+          if (!isTrackUnlocked) {
+            return (
+              <div key={track.id} className="space-y-4 opacity-70">
+                <div className="border-b border-[#E6E1D8] pb-3 flex items-baseline justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-[#6F6865]">{track.title}</h2>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">
+                        🔒 Nível Bloqueado
+                      </span>
+                    </div>
+                    {track.description && (
+                      <p className="text-xs text-[#6F6865] mt-0.5">{track.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-4 text-xs text-[#6F6865] flex items-center gap-3">
+                  <span className="text-xl">🔒</span>
+                  <span>
+                    Este nível pedagógico ainda não foi liberado para você. Conforme você evoluir nos estudos, seu professor liberará o acesso.
+                  </span>
+                </div>
               </div>
-              <Link
-                href={`/student/tracks/${track.id}?org=${activeOrgId}`}
-                className="text-xs font-semibold text-[#6C0F37] hover:underline"
-              >
-                Abrir trilha completa →
-              </Link>
-            </div>
+            );
+          }
+
+          return (
+            <div key={track.id} className="space-y-6">
+              <div className="border-b border-[#E6E1D8] pb-3 flex items-baseline justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-[#6C0F37]">{track.title}</h2>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      ✓ Liberado
+                    </span>
+                  </div>
+                  {track.description && (
+                    <p className="text-xs text-[#6F6865] mt-0.5">{track.description}</p>
+                  )}
+                </div>
+                <Link
+                  href={`/student/tracks/${track.id}?org=${activeOrgId}`}
+                  className="text-xs font-semibold text-[#6C0F37] hover:underline"
+                >
+                  Abrir trilha completa →
+                </Link>
+              </div>
 
             {/* Módulos */}
             {track.modules?.map((mod: any, mIdx: number) => (
@@ -195,8 +242,9 @@ export default async function StudentTracksPage({
               </div>
             ))}
           </div>
-        ))
-      )}
-    </div>
-  );
+        );
+      })
+    )}
+  </div>
+);
 }

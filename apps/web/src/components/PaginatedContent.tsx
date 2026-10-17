@@ -9,33 +9,34 @@ interface PaginatedContentProps {
   fontSizeClass?: string;
 }
 
-function renderInlineMarkdown(text: string): ReactNode[] {
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|~~[^~]+~~)/g;
+export function renderInlineMarkdown(text: string): ReactNode[] {
+  if (!text) return [];
+  const regex = /(\*\*(?:[^*]|\*(?!\*))+\*\*|\*[^*]+\*|`[^`]+`|~~[^~]+~~)/g;
   const parts = text.split(regex);
 
   return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong key={i} className="font-bold text-[#2B2426]">
           {part.slice(2, -2)}
         </strong>
       );
     }
-    if (part.startsWith('*') && part.endsWith('*')) {
+    if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
       return (
         <em key={i} className="italic text-[#2B2426]">
           {part.slice(1, -1)}
         </em>
       );
     }
-    if (part.startsWith('`') && part.endsWith('`')) {
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
         <code key={i} className="bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8] px-1 py-0.5 rounded text-[11px] font-mono">
           {part.slice(1, -1)}
         </code>
       );
     }
-    if (part.startsWith('~~') && part.endsWith('~~')) {
+    if (part.startsWith('~~') && part.endsWith('~~') && part.length >= 4) {
       return (
         <del key={i} className="line-through text-[#6F6865]">
           {part.slice(2, -2)}

@@ -27,7 +27,9 @@ export default async function StudentNotesPage({
     .eq('student_id', user.id)
     .order('lesson_date', { ascending: false });
 
-  const list: any[] = notes || [];
+  const list: any[] = (notes || []).filter(
+    (n: any) => !n.title?.startsWith('[Chamada]') && !n.title?.startsWith('[Contrato]')
+  );
   const teacherNotes = list.filter(
     (n) =>
       n.author_role === 'teacher' &&

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from './Card';
 import { EmptyState } from './EmptyState';
 import { PaginatedContent } from './PaginatedContent';
@@ -41,6 +41,10 @@ export function StudentActivitiesClient({
   initialCompletedIds = [],
 }: StudentActivitiesClientProps) {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set(initialCompletedIds));
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
+  const [search, setSearch] = useState('');
+
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [answersByActivity, setAnswersByActivity] = useState<Record<string, Record<string, any>>>({});
   const [resultsByActivity, setResultsByActivity] = useState<
@@ -48,13 +52,25 @@ export function StudentActivitiesClient({
   >({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
+  // Fecha modal com Escape
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && selectedActivityId) {
+        setSelectedActivityId(null);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedActivityId]);
+
   // Progresso Geral
   const totalCount = activities.length;
   const completedCount = completedIds.size;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   // Toggle de Conclusão Rápida
-  const handleToggleComplete = async (actId: string) => {
+  const handleToggleComplete = async (actId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setTogglingId(actId);
     try {
       const res = await toggleActivityCompletionAction(actId, orgId);
@@ -142,314 +158,495 @@ export function StudentActivitiesClient({
     }
   };
 
+  // Filtragem
+  const filteredActivities = activities.filter((act) => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchTitle = act.title.toLowerCase().includes(q);
+      const matchLesson = (act.lessons?.title || '').toLowerCase().includes(q);
+      if (!matchTitle && !matchLesson) return false;
+    }
+    const isCompleted = completedIds.has(act.id);
+    if (filterStatus === 'pending' && isCompleted) return false;
+    if (filterStatus === 'completed' && !isCompleted) return false;
+    return true;
+  });
+
+  const selectedActivity = activities.find((a) => a.id === selectedActivityId);
+
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-16">
-      {/* Topo / Cabeçalho */}
-      <div className="border-b border-[#E6E1D8] pb-5">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
-          Suas Atividades & Exercícios
-        </span>
-        <h1 className="text-3xl font-bold text-[#6C0F37] tracking-tight mt-1">
-          Materiais e Tarefas
-        </h1>
-        <p className="text-sm text-[#6F6865] mt-1">
-          Acesse os conteúdos de estudo, assista aos vídeos e conclua as tarefas preparadas pelo professor.
-        </p>
-
-        {/* Barra de Progresso do Aluno */}
-        {totalCount > 0 && (
-          <div className="mt-5 p-4 bg-white border border-[#E6E1D8] rounded-2xl shadow-xs space-y-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#2B2426] flex items-center gap-1.5">
-                <span>🎯 Progresso de Atividades:</span>
-                <span className="text-[#6C0F37]">
-                  {completedCount} de {totalCount} concluídas ({progressPercent}%)
-                </span>
-              </span>
-              <span className="text-[11px] font-semibold text-[#6F6865]">
-                {progressPercent === 100 ? '🎉 Todas as tarefas concluídas!' : 'Continue praticando!'}
-              </span>
-            </div>
-
-            <div className="w-full h-2.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#6C0F37] to-[#8C1649] rounded-full transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+    <div className="space-y-6">
+      {/* Barra de Progresso e Métricas Gerais */}
+      <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] block">
+              Seu Progresso de Estudos
+            </span>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#2B2426] tracking-tight">
+              Atividades & Exercícios Práticos
+            </h1>
           </div>
-        )}
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-[#6C0F37] bg-[#FFFDF7] border border-[#E6E1D8] px-3 py-1.5 rounded-xl shadow-2xs">
+              {completedCount} de {totalCount} concluídas ({progressPercent}%)
+            </span>
+          </div>
+        </div>
+
+        {/* Linha da Barra de Progresso */}
+        <div className="w-full bg-[#FAF8F5] border border-[#E6E1D8] h-3 rounded-full overflow-hidden">
+          <div
+            className="bg-[#6C0F37] h-full rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
       </div>
 
-      {totalCount === 0 ? (
+      {/* Barra de Busca e Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <input
+            type="text"
+            placeholder="Buscar atividade por título ou lição..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3.5 py-2 pl-9 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] placeholder-[#6F6865] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+          />
+          <span className="absolute left-3 top-2.5 text-[#6F6865] text-xs">🔍</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+          {(['all', 'pending', 'completed'] as const).map((st) => (
+            <button
+              key={st}
+              type="button"
+              onClick={() => setFilterStatus(st)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer border ${
+                filterStatus === st
+                  ? 'bg-[#6C0F37] text-white border-[#6C0F37]'
+                  : 'bg-white text-[#6F6865] border-[#E6E1D8] hover:bg-[#FAF8F5]'
+              }`}
+            >
+              {st === 'all' ? 'Todas' : st === 'pending' ? 'Pendentes' : 'Concluídas'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Listagem de Atividades em Cards Clicáveis */}
+      {filteredActivities.length === 0 ? (
         <EmptyState
-          title="Nenhuma atividade liberada"
-          description="Seus materiais e exercícios aparecerão aqui conforme forem publicados pelo professor."
+          title="Nenhuma atividade encontrada"
+          description={
+            search || filterStatus !== 'all'
+              ? 'Nenhuma atividade corresponde aos filtros selecionados.'
+              : 'Seus materiais e exercícios aparecerão aqui conforme forem publicados pelo professor.'
+          }
         />
       ) : (
-        <div className="space-y-6">
-          {activities.map((act) => {
-            const embedUrl = getYouTubeEmbedUrl(act.video_url);
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredActivities.map((act) => {
             const isCompleted = completedIds.has(act.id);
             const rawBlocks: ActivityBlock[] = act.metadata?.blocks || act.metadata?.items || [];
-            const questionBlocks = rawBlocks.filter((b): b is QuestionBlock => b.kind === 'question');
-            const studentAnswers = answersByActivity[act.id] || {};
-            const result = resultsByActivity[act.id];
+            const questions = rawBlocks.filter((b): b is QuestionBlock => b.kind === 'question');
 
             return (
               <Card
                 key={act.id}
-                className={`p-6 border rounded-2xl space-y-5 shadow-xs transition-all ${
-                  isCompleted ? 'border-emerald-300 bg-white' : 'border-[#E6E1D8] bg-white'
+                onClick={() => setSelectedActivityId(act.id)}
+                className={`p-5 border rounded-2xl space-y-4 shadow-xs transition-all cursor-pointer hover:shadow-md hover:border-[#6C0F37]/40 flex flex-col justify-between ${
+                  isCompleted ? 'border-emerald-300 bg-white ring-1 ring-emerald-100' : 'border-[#E6E1D8] bg-white'
                 }`}
               >
-                {/* Cabeçalho do Card */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E6E1D8] pb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[#FFFDF7] text-[#6C0F37] border border-[#E6E1D8] rounded-md">
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8] rounded-md">
                         {act.type}
                       </span>
-                      <span className="text-xs text-[#6F6865]">
+                      <span className="text-xs text-[#6F6865] truncate max-w-[200px]">
                         Aula: {act.lessons?.title || 'Conteúdo geral'}
                       </span>
-                      {isCompleted && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          ✓ Concluída
-                        </span>
-                      )}
                     </div>
-                    <h2 className="text-lg font-bold text-[#2B2426] mt-1.5">{act.title}</h2>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {act.pdf_url && (
-                      <a
-                        href={act.pdf_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 text-xs font-semibold bg-[#6C0F37] text-white rounded-xl hover:bg-[#57102E] transition shadow-2xs"
-                      >
-                        Abrir PDF ↗
-                      </a>
-                    )}
-                    {act.link_url && (
-                      <a
-                        href={act.link_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 text-xs font-semibold border border-[#E6E1D8] text-[#2B2426] rounded-xl hover:bg-[#FFFDF7] transition"
-                      >
-                        Acessar Link ↗
-                      </a>
-                    )}
-
-                    {/* Botão de Marcar como Concluída */}
-                    <button
-                      type="button"
-                      onClick={() => handleToggleComplete(act.id)}
-                      disabled={togglingId === act.id}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                         isCompleted
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                          : 'bg-[#FFFDF7] text-[#6C0F37] border-[#E6E1D8] hover:bg-[#F7F4ED] hover:border-[#6C0F37]'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-zinc-100 text-zinc-600 border-zinc-200'
                       }`}
                     >
-                      <span>{isCompleted ? '✓ Concluída' : 'Marcar como Concluída'}</span>
-                    </button>
+                      {isCompleted ? '✓ Concluída' : 'Pendente'}
+                    </span>
+                  </div>
+
+                  <h2 className="text-base font-bold text-[#2B2426] leading-snug group-hover:text-[#6C0F37] transition-colors">
+                    {act.title}
+                  </h2>
+
+                  {/* Badges de Recursos Inclusos */}
+                  <div className="flex items-center gap-2 flex-wrap pt-1 text-[11px] text-[#6F6865]">
+                    {act.video_url && (
+                      <span className="inline-flex items-center gap-1 bg-[#FAF8F5] px-2 py-0.5 rounded-md border border-[#E6E1D8]">
+                        🎥 Vídeo
+                      </span>
+                    )}
+                    {act.pdf_url && (
+                      <span className="inline-flex items-center gap-1 bg-[#FAF8F5] px-2 py-0.5 rounded-md border border-[#E6E1D8]">
+                        📄 PDF
+                      </span>
+                    )}
+                    {act.link_url && (
+                      <span className="inline-flex items-center gap-1 bg-[#FAF8F5] px-2 py-0.5 rounded-md border border-[#E6E1D8]">
+                        🔗 Link
+                      </span>
+                    )}
+                    {questions.length > 0 && (
+                      <span className="inline-flex items-center gap-1 bg-[#FFFDF7] text-[#6C0F37] font-semibold px-2 py-0.5 rounded-md border border-[#E6E1D8]">
+                        ✍️ {questions.length} {questions.length === 1 ? 'exercício' : 'exercícios'}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Player Interno se for Vídeo do YouTube */}
-                {embedUrl && (
-                  <div className="overflow-hidden rounded-xl bg-black aspect-video w-full shadow-sm">
+                {/* Ações Inferiores do Card */}
+                <div className="pt-3 border-t border-[#E6E1D8] flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleComplete(act.id, e)}
+                    disabled={togglingId === act.id}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                      isCompleted
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                        : 'bg-white text-[#6F6865] border-[#E6E1D8] hover:text-[#6C0F37]'
+                    }`}
+                  >
+                    {isCompleted ? '✓ Concluída' : 'Marcar concluída'}
+                  </button>
+
+                  <div className="inline-flex items-center gap-1 text-xs font-bold text-[#6C0F37] hover:underline">
+                    <span>Acessar Atividade</span>
+                    <span>→</span>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* MODAL DE RESOLUÇÃO / EXECUÇÃO DA ATIVIDADE EM FOCO */}
+      {selectedActivity && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedActivityId(null);
+          }}
+        >
+          <div className="bg-white border border-[#E6E1D8] rounded-3xl p-6 sm:p-8 shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative animate-in zoom-in-95 space-y-6">
+            {/* Topo do Modal */}
+            <div className="flex items-start justify-between gap-4 border-b border-[#E6E1D8] pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8] rounded-md">
+                    {selectedActivity.type}
+                  </span>
+                  <span className="text-xs text-[#6F6865]">
+                    Aula: {selectedActivity.lessons?.title || 'Conteúdo geral'}
+                  </span>
+                  {completedIds.has(selectedActivity.id) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      ✓ Concluída
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-[#2B2426]">
+                  {selectedActivity.title}
+                </h1>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleToggleComplete(selectedActivity.id)}
+                  disabled={togglingId === selectedActivity.id}
+                  className={`px-3.5 py-1.5 text-xs font-bold rounded-xl border transition cursor-pointer ${
+                    completedIds.has(selectedActivity.id)
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-[#FFFDF7] text-[#6C0F37] border-[#E6E1D8] hover:bg-[#FAF8F5]'
+                  }`}
+                >
+                  {completedIds.has(selectedActivity.id) ? '✓ Concluída' : 'Marcar como Concluída'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedActivityId(null)}
+                  className="w-8 h-8 rounded-full bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] flex items-center justify-center font-bold text-base cursor-pointer"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Player de Vídeo Incorporado */}
+            {selectedActivity.video_url && (
+              <div className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] block">
+                  🎥 Vídeo da Atividade
+                </span>
+                {getYouTubeEmbedUrl(selectedActivity.video_url) ? (
+                  <div className="overflow-hidden rounded-2xl bg-black aspect-video w-full shadow-sm">
                     <iframe
-                      src={embedUrl}
-                      title={act.title}
+                      src={getYouTubeEmbedUrl(selectedActivity.video_url)!}
+                      title={selectedActivity.title}
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />
                   </div>
+                ) : (
+                  <a
+                    href={selectedActivity.video_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6C0F37] text-white text-xs font-bold hover:bg-[#57102E]"
+                  >
+                    <span>Assistir Vídeo Externo</span>
+                    <span>↗</span>
+                  </a>
                 )}
+              </div>
+            )}
 
-                {/* Bloco de Descrição / Instruções com Paginação em Etapas */}
-                {act.content_markdown && act.content_markdown.trim() && (
-                  <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl p-4 space-y-2">
-                    <span className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider block">
-                      Instruções & Conteúdo da Atividade:
-                    </span>
-                    <PaginatedContent
-                      content={act.content_markdown}
-                      enableKeyboardNavigation={true}
-                    />
+            {/* Material em PDF */}
+            {selectedActivity.pdf_url && (
+              <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📄</span>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#2B2426]">Material de Apoio em PDF</h3>
+                    <p className="text-xs text-[#6F6865]">Abra o documento para leitura ou imprima seus exercícios.</p>
                   </div>
-                )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={selectedActivity.pdf_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-2xs flex items-center gap-1.5"
+                  >
+                    <span>Visualizar PDF</span>
+                    <span>↗</span>
+                  </a>
+                </div>
+              </div>
+            )}
 
-                {/* Bloco de Exercícios Interativos Montados pelo Professor */}
-                {questionBlocks.length > 0 && (
-                  <div className="space-y-4 pt-2 border-t border-[#E6E1D8]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
-                        <span>✏️ Exercícios Práticos</span>
-                        <span className="text-[11px] text-[#6F6865] font-normal">
-                          ({questionBlocks.length} {questionBlocks.length === 1 ? 'questão' : 'questões'})
-                        </span>
+            {/* Link Externo */}
+            {selectedActivity.link_url && (
+              <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🔗</span>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#2B2426]">Link Complementar</h3>
+                    <p className="text-xs text-[#6F6865]">Acesse o recurso interativo ou material online sugerido.</p>
+                  </div>
+                </div>
+                <a
+                  href={selectedActivity.link_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 text-xs font-bold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#FFFDF7] rounded-xl transition shadow-2xs"
+                >
+                  Abrir Link ↗
+                </a>
+              </div>
+            )}
+
+            {/* Conteúdo Didático / Instruções */}
+            {selectedActivity.content_markdown && selectedActivity.content_markdown.trim() && (
+              <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-5 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] block">
+                  📖 Instruções & Conteúdo Didático
+                </span>
+                <PaginatedContent content={selectedActivity.content_markdown} enableKeyboardNavigation={true} />
+              </div>
+            )}
+
+            {/* Bloco de Exercícios Interativos */}
+            {(() => {
+              const rawBlocks: ActivityBlock[] =
+                selectedActivity.metadata?.blocks || selectedActivity.metadata?.items || [];
+              const questions = rawBlocks.filter((b): b is QuestionBlock => b.kind === 'question');
+              const studentAnswers = answersByActivity[selectedActivity.id] || {};
+              const result = resultsByActivity[selectedActivity.id];
+
+              if (questions.length === 0) return null;
+
+              return (
+                <div className="space-y-4 pt-4 border-t border-[#E6E1D8]">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-2">
+                      <span>✏️ Exercícios Práticos</span>
+                      <span className="text-xs text-[#6F6865] font-normal">
+                        ({questions.length} {questions.length === 1 ? 'questão' : 'questões'})
                       </span>
-                    </div>
-
-                    <div className="space-y-4">
-                      {questionBlocks.map((q, qIdx) => (
-                        <div
-                          key={q.id}
-                          className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl p-4 space-y-3"
-                        >
-                          <div className="flex items-start gap-2">
-                            <span className="w-5 h-5 rounded-full bg-[#6C0F37]/10 text-[#6C0F37] text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                              {qIdx + 1}
-                            </span>
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-[#2B2426] leading-relaxed">
-                                {q.prompt}
-                              </p>
-                              {q.instructions && (
-                                <p className="text-xs text-[#6F6865] mt-0.5 italic">
-                                  {q.instructions}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 1. Múltipla Escolha */}
-                          {q.type === 'multiple_choice' && q.options && (
-                            <div className="space-y-2 pl-7">
-                              {q.options.map((opt, oIdx) => {
-                                const isSelected = studentAnswers[q.id] === opt;
-                                return (
-                                  <label
-                                    key={oIdx}
-                                    className={`flex items-center gap-3 p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
-                                      isSelected
-                                        ? 'bg-[#6C0F37]/5 border-[#6C0F37] text-[#6C0F37]'
-                                        : 'bg-white border-[#E6E1D8] text-[#2B2426] hover:bg-[#FAF8F5]'
-                                    }`}
-                                  >
-                                    <input
-                                      type="radio"
-                                      name={`q-${act.id}-${q.id}`}
-                                      value={opt}
-                                      checked={isSelected}
-                                      onChange={() => handleAnswerChange(act.id, q.id, opt)}
-                                      className="text-[#6C0F37] focus:ring-[#6C0F37]"
-                                    />
-                                    <span>{opt}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* 2. Verdadeiro ou Falso */}
-                          {q.type === 'true_false' && (
-                            <div className="flex items-center gap-3 pl-7">
-                              {['Verdadeiro', 'Falso'].map((choice) => {
-                                const isSelected = studentAnswers[q.id] === choice;
-                                return (
-                                  <button
-                                    key={choice}
-                                    type="button"
-                                    onClick={() => handleAnswerChange(act.id, q.id, choice)}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                                      isSelected
-                                        ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-xs'
-                                        : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:bg-[#FAF8F5]'
-                                    }`}
-                                  >
-                                    {choice}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* 3. Preenchimento de Lacuna */}
-                          {q.type === 'fill_blank' && (
-                            <div className="pl-7">
-                              <input
-                                type="text"
-                                placeholder="Digite a palavra que completa a frase..."
-                                value={studentAnswers[q.id] || ''}
-                                onChange={(e) => handleAnswerChange(act.id, q.id, e.target.value)}
-                                className="w-full px-3 py-2 bg-white border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] placeholder-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37]/20 focus:border-[#6C0F37]"
-                              />
-                            </div>
-                          )}
-
-                          {/* 4. Resposta Curta ou Tradução */}
-                          {(q.type === 'short_answer_auto' ||
-                            q.type === 'short_answer_manual' ||
-                            q.type === 'translation') && (
-                            <div className="pl-7">
-                              <input
-                                type="text"
-                                placeholder="Sua resposta..."
-                                value={studentAnswers[q.id] || ''}
-                                onChange={(e) => handleAnswerChange(act.id, q.id, e.target.value)}
-                                className="w-full px-3 py-2 bg-white border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] placeholder-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37]/20 focus:border-[#6C0F37]"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Feedback do Resultado da Atividade */}
-                    {result && (
-                      <div
-                        className={`p-3.5 rounded-xl border text-xs leading-relaxed flex items-start gap-2 animate-fadeIn ${
-                          result.total && result.score && result.score === result.total
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                            : 'bg-[#FFFDF7] border-[#E6E1D8] text-[#2B2426]'
-                        }`}
-                      >
-                        <span className="text-base shrink-0">
-                          {result.total && result.score && result.score === result.total ? '🌟' : '📝'}
-                        </span>
-                        <div>
-                          <p className="font-semibold">{result.feedback}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Botão de Envio de Respostas */}
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSubmitInteractive(act)}
-                        disabled={submittingId === act.id}
-                        className="px-5 py-2.5 bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-semibold rounded-xl transition-all shadow-xs disabled:opacity-60 cursor-pointer flex items-center gap-2"
-                      >
-                        {submittingId === act.id ? (
-                          <>
-                            <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            <span>Gravando progresso...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Enviar Respostas & Concluir</span>
-                            <span>→</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    </h3>
                   </div>
-                )}
-              </Card>
-            );
-          })}
+
+                  <div className="space-y-4">
+                    {questions.map((q, qIdx) => (
+                      <div
+                        key={q.id}
+                        className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-4 sm:p-5 space-y-3"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <span className="w-6 h-6 rounded-full bg-[#6C0F37] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                            {qIdx + 1}
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-[#2B2426] leading-relaxed">
+                              {q.prompt}
+                            </p>
+                            {q.instructions && (
+                              <p className="text-xs text-[#6F6865] mt-0.5 italic">
+                                {q.instructions}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 1. Múltipla Escolha */}
+                        {q.type === 'multiple_choice' && q.options && (
+                          <div className="space-y-2 pl-8">
+                            {q.options.map((opt, oIdx) => {
+                              const isSelected = studentAnswers[q.id] === opt;
+                              return (
+                                <label
+                                  key={oIdx}
+                                  className={`flex items-center gap-3 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
+                                    isSelected
+                                      ? 'bg-[#6C0F37]/10 border-[#6C0F37] text-[#6C0F37] font-bold'
+                                      : 'bg-white border-[#E6E1D8] text-[#2B2426] hover:bg-[#FAF8F5]'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`q-${selectedActivity.id}-${q.id}`}
+                                    value={opt}
+                                    checked={isSelected}
+                                    onChange={() => handleAnswerChange(selectedActivity.id, q.id, opt)}
+                                    className="text-[#6C0F37] focus:ring-[#6C0F37]"
+                                  />
+                                  <span>{opt}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* 2. Verdadeiro ou Falso */}
+                        {q.type === 'true_false' && (
+                          <div className="flex items-center gap-3 pl-8">
+                            {['Verdadeiro', 'Falso'].map((choice) => {
+                              const isSelected = studentAnswers[q.id] === choice;
+                              return (
+                                <button
+                                  key={choice}
+                                  type="button"
+                                  onClick={() => handleAnswerChange(selectedActivity.id, q.id, choice)}
+                                  className={`px-5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-xs'
+                                      : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:bg-[#FAF8F5]'
+                                  }`}
+                                >
+                                  {choice}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* 3. Preenchimento de Lacuna */}
+                        {q.type === 'fill_blank' && (
+                          <div className="pl-8">
+                            <input
+                              type="text"
+                              placeholder="Digite a resposta correta..."
+                              value={studentAnswers[q.id] || ''}
+                              onChange={(e) =>
+                                handleAnswerChange(selectedActivity.id, q.id, e.target.value)
+                              }
+                              className="w-full px-3.5 py-2.5 bg-white border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                            />
+                          </div>
+                        )}
+
+                        {/* 4. Resposta Curta ou Tradução */}
+                        {(q.type === 'short_answer_auto' ||
+                          q.type === 'short_answer_manual' ||
+                          q.type === 'translation') && (
+                          <div className="pl-8">
+                            <textarea
+                              rows={2}
+                              placeholder="Digite sua resposta aqui..."
+                              value={studentAnswers[q.id] || ''}
+                              onChange={(e) =>
+                                handleAnswerChange(selectedActivity.id, q.id, e.target.value)
+                              }
+                              className="w-full px-3.5 py-2.5 bg-white border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Feedback do Resultado da Atividade */}
+                  {result && (
+                    <div
+                      className={`p-4 rounded-xl border text-xs leading-relaxed flex items-start gap-3 animate-in fade-in ${
+                        result.total && result.score && result.score === result.total
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-[#FFFDF7] border-[#E6E1D8] text-[#2B2426]'
+                      }`}
+                    >
+                      <span className="text-xl shrink-0">
+                        {result.total && result.score && result.score === result.total ? '🌟' : '📝'}
+                      </span>
+                      <div>
+                        <p className="font-bold text-sm">{result.feedback}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Botão de Envio de Respostas */}
+                  <div className="flex justify-end pt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleSubmitInteractive(selectedActivity)}
+                      disabled={submittingId === selectedActivity.id}
+                      className="px-6 py-3 bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2"
+                    >
+                      {submittingId === selectedActivity.id ? (
+                        <span>Gravando progresso...</span>
+                      ) : (
+                        <>
+                          <span>Verificar e Enviar Respostas</span>
+                          <span>→</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
     </div>

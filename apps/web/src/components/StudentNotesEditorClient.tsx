@@ -7,7 +7,7 @@ import {
   deleteLessonNoteAction,
   duplicateLessonNoteAction,
 } from '../actions/studies';
-import { PaginatedContent } from './PaginatedContent';
+import { PaginatedContent, renderInlineMarkdown } from './PaginatedContent';
 
 export interface LessonNoteItem {
   id: string;
@@ -96,7 +96,7 @@ function RichMarkdownViewer({
         if (trimmed.startsWith('## ')) {
           return (
             <h2 key={idx} className="text-xl sm:text-2xl font-bold text-[#6C0F37] pt-2 pb-1 border-b border-[#E6E1D8]">
-              {trimmed.replace(/^##\s+/, '')}
+              {renderInlineMarkdown(trimmed.replace(/^##\s+/, ''))}
             </h2>
           );
         }
@@ -105,7 +105,7 @@ function RichMarkdownViewer({
         if (trimmed.startsWith('### ')) {
           return (
             <h3 key={idx} className="text-base sm:text-lg font-bold text-[#2B2426] pt-1">
-              {trimmed.replace(/^###\s+/, '')}
+              {renderInlineMarkdown(trimmed.replace(/^###\s+/, ''))}
             </h3>
           );
         }
@@ -116,33 +116,35 @@ function RichMarkdownViewer({
         }
 
         // Checklist desmarcado (- [ ])
-        if (trimmed.startsWith('- [ ] ')) {
+        if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('* [ ] ')) {
           return (
-            <div key={idx} className="flex items-start gap-2.5 my-1 text-xs sm:text-sm">
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded border border-[#6C0F37] text-white shrink-0 mt-0.5 bg-white"></span>
-              <span className="text-[#2B2426]">{trimmed.replace(/^- \[\s\]\s*/, '')}</span>
+            <div key={idx} className="flex items-center gap-2.5 my-1.5 text-xs sm:text-sm">
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded border-2 border-[#6C0F37]/40 text-white shrink-0 bg-white shadow-2xs hover:border-[#6C0F37] transition-colors"></span>
+              <span className="text-[#2B2426]">{renderInlineMarkdown(trimmed.replace(/^[-*]\s*\[\s*\]\s*/, ''))}</span>
             </div>
           );
         }
 
         // Checklist marcado (- [x])
-        if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ')) {
+        if (trimmed.match(/^[-*]\s*\[[xX]\]\s*/)) {
           return (
-            <div key={idx} className="flex items-start gap-2.5 my-1 text-xs sm:text-sm">
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-[#6C0F37] text-white shrink-0 mt-0.5 text-[10px]">
+            <div key={idx} className="flex items-center gap-2.5 my-1.5 text-xs sm:text-sm">
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-[#6C0F37] text-white shrink-0 text-[10px] font-bold shadow-2xs">
                 ✓
               </span>
-              <span className="line-through text-[#6F6865]">{trimmed.replace(/^- \[[xX]\]\s*/, '')}</span>
+              <span className="line-through text-[#6F6865] opacity-80">
+                {renderInlineMarkdown(trimmed.replace(/^[-*]\s*\[[xX]\]\s*/, ''))}
+              </span>
             </div>
           );
         }
 
-        // Lista com marcadores (• ou -)
-        if (trimmed.startsWith('• ') || trimmed.startsWith('- ')) {
+        // Lista com marcadores (• ou - ou *)
+        if (trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
           return (
             <div key={idx} className="flex items-start gap-2 ml-2 my-1">
               <span className="text-[#6C0F37] font-bold shrink-0 leading-tight">•</span>
-              <span>{trimmed.replace(/^[•\-]\s+/, '')}</span>
+              <span className="leading-relaxed">{renderInlineMarkdown(trimmed.replace(/^[•\-*]\s+/, ''))}</span>
             </div>
           );
         }
@@ -159,7 +161,7 @@ function RichMarkdownViewer({
               <div className="flex border border-[#E6E1D8] rounded-lg divide-x divide-[#E6E1D8] bg-[#FFFDF7]">
                 {cells.map((cell, cIdx) => (
                   <div key={cIdx} className="px-3 py-1.5 text-xs font-medium text-[#2B2426] flex-1">
-                    {cell}
+                    {renderInlineMarkdown(cell)}
                   </div>
                 ))}
               </div>
@@ -186,7 +188,7 @@ function RichMarkdownViewer({
         // Parágrafo comum
         return (
           <p key={idx} className="leading-relaxed whitespace-pre-wrap">
-            {line}
+            {renderInlineMarkdown(line)}
           </p>
         );
       })}

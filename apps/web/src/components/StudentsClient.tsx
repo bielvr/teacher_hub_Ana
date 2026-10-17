@@ -134,21 +134,24 @@ export function StudentsClient({
 
                   return (
                     <tr key={st.id} className="hover:bg-[#F7F4ED]/30 transition-colors">
-                      {/* Aluna com Avatar Oficial (Fundo Amarelo, Iniciais Vinho) */}
+                      {/* Aluna com Avatar Oficial (Fundo Amarelo, Iniciais Vinho) - Clicável */}
                       <td className="py-4 px-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#D7CE36] text-[#6C0F37] font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                        <Link
+                          href={`/professor/students/${st.id}?org=${organizationId}`}
+                          className="flex items-center gap-3 group"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-[#D7CE36] text-[#6C0F37] font-bold text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:ring-2 group-hover:ring-[#6C0F37]/30 transition-all">
                             {initials}
                           </div>
                           <div>
-                            <span className="font-bold text-[#2B2426] block">
+                            <span className="font-bold text-[#2B2426] block group-hover:text-[#6C0F37] transition-colors">
                               {st.full_name}
                             </span>
                             <span className="text-[11px] text-[#6F6865]">
                               {st.email || 'Sem e-mail'}
                             </span>
                           </div>
-                        </div>
+                        </Link>
                       </td>
 
                       {/* Turma / Nível */}
@@ -180,11 +183,20 @@ export function StudentsClient({
                       <td className="py-4 px-5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link
-                            href={`/professor/notes?student_id=${st.id}`}
-                            className="px-2.5 py-1 text-xs font-semibold text-[#6C0F37] hover:bg-[#F3E8EC] rounded-lg transition-colors border border-[#6C0F37]/30"
+                            href={`/professor/students/${st.id}?org=${organizationId}`}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-2xs flex items-center gap-1"
+                            title="Ver ficha completa da aluna"
+                          >
+                            <span>Ver Perfil</span>
+                            <span>→</span>
+                          </Link>
+
+                          <Link
+                            href={`/professor/notes?student_id=${st.id}&org=${organizationId}`}
+                            className="px-2.5 py-1.5 text-xs font-semibold text-[#6C0F37] hover:bg-[#F3E8EC] rounded-xl transition-colors border border-[#6C0F37]/30"
                             title="Abrir Caderno de Anotações"
                           >
-                            Caderno 📓
+                            📓
                           </Link>
 
                           {st.phone && (
@@ -192,10 +204,10 @@ export function StudentsClient({
                               href={`https://wa.me/${st.phone.replace(/\D/g, '')}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors border border-emerald-300"
+                              className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors border border-emerald-300"
                               title="Enviar WhatsApp"
                             >
-                              WhatsApp 💬
+                              💬
                             </a>
                           )}
                         </div>

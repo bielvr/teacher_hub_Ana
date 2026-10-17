@@ -51,11 +51,10 @@ export function TeacherOperationalHubClient({
       {/* Cabeçalho Dinâmico do Dia */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-[#E6E1D8]/80">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] px-2.5 py-0.5 rounded-md">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6C0F37]/80">
               {dateFormatted}
-            </span>
-            <span className="text-xs text-[#6F6865] hidden sm:inline">• Central Operacional</span>
+            </p>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#6C0F37] tracking-tight">
