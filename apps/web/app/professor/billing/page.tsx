@@ -200,6 +200,12 @@ export default async function TeacherBillingPage({
         >
           Relatórios e exportações
         </Link>
+        <Link
+          href={`/professor/admin/affiliates?org=${activeOrgId}`}
+          className="pb-3 border-b-2 border-transparent text-[#6C0F37] hover:text-[#57102E] flex items-center gap-1"
+        >
+          <span>✦ Conexão Fikra (Afiliadas)</span>
+        </Link>
       </div>
 
       {/* 4 Cards Principais Clicáveis com os Indicadores da Escola */}

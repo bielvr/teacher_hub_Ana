@@ -136,16 +136,40 @@ export function TeacherNavbar({
     { href: `/professor/students?org=${activeOrgId}`, path: '/professor/students', label: 'Alunos' },
   ];
 
+  const activeMembership =
+    _memberships.find((m) => m.organizations?.id === activeOrgId) || _memberships[0];
+  const isOwner = activeMembership?.role === 'owner';
+
   const financialLinks = [
     { href: `/professor/billing?org=${activeOrgId}`, path: '/professor/billing', label: 'Visão geral' },
     { href: `/professor/billing/receivables?org=${activeOrgId}`, path: '/professor/billing/receivables', label: 'Recebimentos' },
     { href: `/professor/billing/expenses?org=${activeOrgId}`, path: '/professor/billing/expenses', label: 'Despesas' },
     { href: `/professor/billing/team?org=${activeOrgId}`, path: '/professor/billing/team', label: 'Equipe e repasses' },
     { href: `/professor/billing/reports?org=${activeOrgId}`, path: '/professor/billing/reports', label: 'Relatórios e exportações' },
+    { href: `/professor/affiliates?org=${activeOrgId}`, path: '/professor/affiliates', label: '✦ Conexão Fikra (Parceira)' },
+    ...(isOwner
+      ? [
+          {
+            href: `/professor/admin/affiliates?org=${activeOrgId}`,
+            path: '/professor/admin/affiliates',
+            label: '👑 Gestão de Afiliadas (Titular)',
+          },
+        ]
+      : []),
   ];
 
   const accountLinks = [
     { href: `/professor/account?tab=profile&org=${activeOrgId}`, path: '/professor/account?tab=profile', label: 'Meu perfil' },
+    { href: `/professor/affiliates?org=${activeOrgId}`, path: '/professor/affiliates', label: 'Conexão Fikra (Indicações)' },
+    ...(isOwner
+      ? [
+          {
+            href: `/professor/admin/affiliates?org=${activeOrgId}`,
+            path: '/professor/admin/affiliates',
+            label: 'Gestão de Afiliadas (Titular)',
+          },
+        ]
+      : []),
     { href: `/professor/account?tab=team&org=${activeOrgId}`, path: '/professor/account?tab=team', label: 'Conta e equipe' },
     { href: `/professor/account?tab=settings&org=${activeOrgId}`, path: '/professor/account?tab=settings', label: 'Configurações da plataforma' },
     { href: `/professor/tutorials?org=${activeOrgId}`, path: '/professor/tutorials', label: 'Central de ajuda' },
@@ -156,6 +180,9 @@ export function TeacherNavbar({
   const isPedagogicalActive = pedagogicalLinks.some((l) => pathname.startsWith(l.path));
   const isManagementActive = managementLinks.some((l) => pathname.startsWith(l.path));
   const isFinancialActive = pathname.startsWith('/professor/billing');
+  const isAffiliatesActive =
+    pathname.startsWith('/professor/affiliates') ||
+    pathname.startsWith('/professor/admin/affiliates');
 
   const initials = getInitials(teacherName);
 
@@ -359,6 +386,22 @@ export function TeacherNavbar({
                   </div>
                 )}
               </div>
+
+              {/* 5. Conexão Fikra (Link direto para área da parceira) */}
+              <Link
+                href={`/professor/affiliates?org=${activeOrgId}`}
+                onClick={() => setOpenMenu(null)}
+                className={`relative h-16 flex items-center gap-1.5 px-3.5 text-sm font-medium transition-colors cursor-pointer ${
+                  isAffiliatesActive
+                    ? 'text-[#D7CE36]'
+                    : 'text-[#FFFDF7] hover:text-[#D7CE36]'
+                }`}
+              >
+                <span>Conexão Fikra</span>
+                {isAffiliatesActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D7CE36]" />
+                )}
+              </Link>
             </nav>
           </div>
 

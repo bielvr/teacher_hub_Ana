@@ -18,6 +18,9 @@ export type ActivityType =
   | 'audio'
   | 'external_link'
   | 'assignment';
+export type AffiliatePartnerStatus = 'active' | 'inactive' | 'suspended';
+export type AffiliatePlanCycle = 'monthly' | 'yearly';
+export type AffiliateCommissionStatus = 'pending' | 'available' | 'paid' | 'cancelled';
 
 export interface Database {
   public: {
@@ -935,6 +938,200 @@ export interface Database {
           }
         ];
       };
+
+      affiliate_partners: {
+        Row: {
+          id: string;
+          profile_id: string;
+          referral_code: string;
+          status: AffiliatePartnerStatus;
+          free_months_end_date: string | null;
+          current_quarter_paid_referrals: number;
+          pix_key: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          referral_code: string;
+          status?: AffiliatePartnerStatus;
+          free_months_end_date?: string | null;
+          current_quarter_paid_referrals?: number;
+          pix_key?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          referral_code?: string;
+          status?: AffiliatePartnerStatus;
+          free_months_end_date?: string | null;
+          current_quarter_paid_referrals?: number;
+          pix_key?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'affiliate_partners_profile_id_fkey';
+            columns: ['profile_id'];
+            isOneToOne: true;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      affiliate_referrals: {
+        Row: {
+          id: string;
+          partner_id: string;
+          referred_profile_id: string | null;
+          plan_slug: string;
+          cycle: AffiliatePlanCycle;
+          asaas_customer_id: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          partner_id: string;
+          referred_profile_id?: string | null;
+          plan_slug: string;
+          cycle: AffiliatePlanCycle;
+          asaas_customer_id?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          partner_id?: string;
+          referred_profile_id?: string | null;
+          plan_slug?: string;
+          cycle?: AffiliatePlanCycle;
+          asaas_customer_id?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'affiliate_referrals_partner_id_fkey';
+            columns: ['partner_id'];
+            isOneToOne: false;
+            referencedRelation: 'affiliate_partners';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'affiliate_referrals_referred_profile_id_fkey';
+            columns: ['referred_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      affiliate_commissions: {
+        Row: {
+          id: string;
+          partner_id: string;
+          referral_id: string | null;
+          gross_amount: number;
+          commission_percentage: number;
+          commission_amount: number;
+          status: AffiliateCommissionStatus;
+          paid_at: string | null;
+          transfer_receipt_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          partner_id: string;
+          referral_id?: string | null;
+          gross_amount: number;
+          commission_percentage: number;
+          commission_amount: number;
+          status?: AffiliateCommissionStatus;
+          paid_at?: string | null;
+          transfer_receipt_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          partner_id?: string;
+          referral_id?: string | null;
+          gross_amount?: number;
+          commission_percentage?: number;
+          commission_amount?: number;
+          status?: AffiliateCommissionStatus;
+          paid_at?: string | null;
+          transfer_receipt_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'affiliate_commissions_partner_id_fkey';
+            columns: ['partner_id'];
+            isOneToOne: false;
+            referencedRelation: 'affiliate_partners';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'affiliate_commissions_referral_id_fkey';
+            columns: ['referral_id'];
+            isOneToOne: false;
+            referencedRelation: 'affiliate_referrals';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      affiliate_payouts: {
+        Row: {
+          id: string;
+          partner_id: string;
+          amount: number;
+          receipt_url: string | null;
+          notes: string | null;
+          paid_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          partner_id: string;
+          amount: number;
+          receipt_url?: string | null;
+          notes?: string | null;
+          paid_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          partner_id?: string;
+          amount?: number;
+          receipt_url?: string | null;
+          notes?: string | null;
+          paid_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'affiliate_payouts_partner_id_fkey';
+            columns: ['partner_id'];
+            isOneToOne: false;
+            referencedRelation: 'affiliate_partners';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -948,6 +1145,9 @@ export interface Database {
       session_status: SessionStatus;
       lesson_release_type: LessonReleaseType;
       activity_type: ActivityType;
+      affiliate_partner_status: AffiliatePartnerStatus;
+      affiliate_plan_cycle: AffiliatePlanCycle;
+      affiliate_commission_status: AffiliateCommissionStatus;
     };
   };
 }
