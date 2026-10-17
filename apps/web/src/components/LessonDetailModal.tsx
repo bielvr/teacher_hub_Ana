@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
 
 interface ActivityItem {
   id: string;
@@ -11,6 +12,7 @@ interface ActivityItem {
   video_url?: string | null;
   link_url?: string | null;
   audio_url?: string | null;
+  content_markdown?: string | null;
   metadata?: any;
 }
 
@@ -37,13 +39,16 @@ export function LessonDetailModal({
   lessonIndex,
   onEdit,
 }: LessonDetailModalProps) {
+  const [previewActivity, setPreviewActivity] = useState<any | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && isOpen) onClose();
+      if (event.key === 'Escape' && isOpen && !previewActivity) onClose();
     }
     if (isOpen) document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, previewActivity]);
 
   if (!isOpen) return null;
 
@@ -226,6 +231,7 @@ export function LessonDetailModal({
                 title: act.title,
                 type: act.type,
                 url: act.pdf_url || act.video_url || act.link_url || act.audio_url,
+                rawActivity: act,
               })),
               ...(metadata.material_url &&
               activities.every(
@@ -238,16 +244,67 @@ export function LessonDetailModal({
                       title: metadata.material_title || 'Material de Apoio',
                       type: metadata.material_type || 'Documento/PDF',
                       url: metadata.material_url,
+                      rawActivity: null,
                     },
                   ]
                 : []),
             ];
 
+            const handleMaterialClick = (item: (typeof supportMaterials)[number]) => {
+              if (item.url) {
+                window.open(item.url, '_blank', 'noopener,noreferrer');
+                return;
+              }
+
+              if (item.rawActivity) {
+                const act = item.rawActivity;
+                const meta = act.metadata || {};
+                const blocks = meta.blocks || [];
+                const instructions = act.content_markdown || meta.instructions || '';
+                const category = meta.category || 'Exercício e prática';
+                const targetSkills = meta.target_skills || [];
+                const correctionType = meta.correction_type || 'manual';
+
+                setPreviewActivity({
+                  title: act.title,
+                  category,
+                  targetSkills,
+                  instructions,
+                  blocks,
+                  correctionType,
+                });
+                return;
+              }
+
+              setFeedbackMsg(`O recurso "${item.title}" não possui arquivo anexado ou link externo.`);
+              setTimeout(() => setFeedbackMsg(null), 4000);
+            };
+
             return (
               <div className="space-y-3 pt-4 border-t border-[#E6E1D8]">
-                <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
-                  <span>📎</span> Materiais de Apoio & Exercícios ({supportMaterials.length})
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📎</span> Materiais de Apoio & Exercícios ({supportMaterials.length})
+                  </h3>
+                  {supportMaterials.length > 0 && (
+                    <span className="text-[11px] text-[#6F6865]">
+                      Clique para abrir ou visualizar
+                    </span>
+                  )}
+                </div>
+
+                {feedbackMsg && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center justify-between animate-fadeIn">
+                    <span>⚠️ {feedbackMsg}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackMsg(null)}
+                      className="text-amber-800 font-bold ml-2 cursor-pointer hover:opacity-70"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
 
                 {supportMaterials.length === 0 ? (
                   <p className="text-xs text-[#6F6865] italic bg-[#F7F4ED]/50 p-3 rounded-xl border border-[#E6E1D8]">
@@ -258,34 +315,55 @@ export function LessonDetailModal({
                     {supportMaterials.map((act) => (
                       <div
                         key={act.id}
-                        className="flex items-center justify-between p-3 bg-[#F7F4ED] border border-[#E6E1D8] rounded-xl text-xs hover:border-[#6C0F37]/30 transition-colors"
+                        onClick={() => handleMaterialClick(act)}
+                        className="flex items-center justify-between p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl text-xs cursor-pointer hover:bg-white hover:border-[#6C0F37]/40 hover:shadow-xs transition-all group"
+                        title={
+                          act.url
+                            ? 'Abrir link/arquivo externo em nova aba'
+                            : act.rawActivity
+                            ? 'Visualizar atividade pedagógica'
+                            : 'Recurso didático'
+                        }
                       >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="text-base">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-base p-1.5 rounded-lg bg-white border border-[#E6E1D8] group-hover:border-[#6C0F37]/30 transition-colors shrink-0">
                             {act.type?.toLowerCase().includes('pdf') || act.type === 'Documento/PDF'
                               ? '📄'
                               : act.type?.toLowerCase().includes('video') || act.type === 'Vídeo'
                               ? '▶️'
                               : act.type?.toLowerCase().includes('audio') || act.type === 'Áudio'
                               ? '🎧'
+                              : act.rawActivity
+                              ? '📝'
                               : '🔗'}
                           </span>
-                          <span className="font-semibold text-[#2B2426] truncate">
-                            {act.title}
-                          </span>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-[#2B2426] block truncate group-hover:text-[#6C0F37] transition-colors">
+                              {act.title}
+                            </span>
+                            <span className="text-[10px] text-[#6F6865] block font-medium">
+                              {act.url ? 'Recurso externo' : act.rawActivity ? 'Exercício interativo' : 'Material didático'}
+                            </span>
+                          </div>
                         </div>
 
-                        {act.url && (
-                          <a
-                            href={act.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-lg transition shrink-0 ml-2 shadow-xs flex items-center gap-1"
-                          >
-                            <span>Acessar</span>
-                            <span>↗</span>
-                          </a>
-                        )}
+                        <div className="shrink-0 ml-3">
+                          {act.url ? (
+                            <span className="px-3 py-1.5 text-xs font-semibold text-white bg-[#6C0F37] group-hover:bg-[#57102E] rounded-lg transition shadow-xs flex items-center gap-1">
+                              <span>Acessar</span>
+                              <span>↗</span>
+                            </span>
+                          ) : act.rawActivity ? (
+                            <span className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#D7CE36] group-hover:bg-[#C2B92F] rounded-lg transition shadow-xs flex items-center gap-1">
+                              <span>Visualizar</span>
+                              <span>👁️</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 text-[11px] font-medium text-[#6F6865] bg-white border border-[#E6E1D8] rounded-lg">
+                              Acessar
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -319,6 +397,20 @@ export function LessonDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Visualizador de Atividade / Exercício Interativo */}
+      {previewActivity && (
+        <ActivityPreviewModal
+          isOpen={!!previewActivity}
+          onClose={() => setPreviewActivity(null)}
+          title={previewActivity.title}
+          category={previewActivity.category}
+          targetSkills={previewActivity.targetSkills}
+          instructions={previewActivity.instructions}
+          blocks={previewActivity.blocks}
+          correctionType={previewActivity.correctionType}
+        />
+      )}
     </div>
   );
 }

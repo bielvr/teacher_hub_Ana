@@ -18,6 +18,7 @@ import {
 } from '../types/activities';
 import { ActivityBlockSelector } from './activities/ActivityBlockSelector';
 import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
+import { RichMarkdownRenderer, renderInlineMarkdown } from './PaginatedContent';
 
 interface TrackOption {
   id: string;
@@ -62,6 +63,7 @@ export function CreateActivityModal({
   const [selectedModuleId, setSelectedModuleId] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [instructionTab, setInstructionTab] = useState<'edit' | 'preview'>('edit');
 
   // ETAPA 2: Blocos de Atividade
   const [blocks, setBlocks] = useState<ActivityBlock[]>([]);
@@ -454,12 +456,39 @@ export function CreateActivityModal({
                     </div>
                   </div>
 
-                  {/* Instruções Gerais para o Aluno com Barra de Ferramentas & Quebra de Página */}
+                  {/* Instruções Gerais para o Aluno com Barra de Ferramentas, Abas e Quebra de Página */}
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
-                        Instruções Gerais para o Aluno
-                      </label>
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
+                          Instruções Gerais para o Aluno
+                        </label>
+                        <div className="flex items-center bg-[#FAF8F5] border border-[#E6E1D8] rounded-lg p-0.5 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setInstructionTab('edit')}
+                            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                              instructionTab === 'edit'
+                                ? 'bg-white text-[#6C0F37] shadow-xs'
+                                : 'text-[#6F6865] hover:text-[#2B2426]'
+                            }`}
+                          >
+                            ✍️ Escrever
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setInstructionTab('preview')}
+                            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                              instructionTab === 'preview'
+                                ? 'bg-[#6C0F37] text-white shadow-xs'
+                                : 'text-[#6F6865] hover:text-[#2B2426]'
+                            }`}
+                          >
+                            👁️ Visualizar Formatação
+                          </button>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
                         onClick={insertPageBreak}
@@ -471,91 +500,113 @@ export function CreateActivityModal({
                       </button>
                     </div>
 
-                    {/* Barra de Ferramentas Rica */}
-                    <div className="flex flex-wrap items-center gap-1 p-2 bg-[#FAF8F5] border border-b-0 border-[#E6E1D8] rounded-t-xl text-xs">
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('**', '**')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1]"
-                        title="Negrito"
-                      >
-                        B
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('*', '*')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] italic hover:bg-[#F0EBE1]"
-                        title="Itálico"
-                      >
-                        I
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('<u>', '</u>')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] underline hover:bg-[#F0EBE1]"
-                        title="Sublinhado"
-                      >
-                        U
-                      </button>
-                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('## ')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1]"
-                        title="Título"
-                      >
-                        H2
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('- ')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
-                        title="Lista com marcadores"
-                      >
-                        • Lista
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('1. ')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
-                        title="Lista numerada"
-                      >
-                        1. Lista
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('- [ ] ')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
-                        title="Checklist"
-                      >
-                        ☑ Checklist
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('\n---\n')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
-                        title="Divisória horizontal"
-                      >
-                        ― Divisória
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertInstructionSnippet('[Link](', ')')}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1]"
-                        title="Inserir Link"
-                      >
-                        🔗 Link
-                      </button>
-                    </div>
+                    {instructionTab === 'edit' ? (
+                      <>
+                        {/* Barra de Ferramentas Rica */}
+                        <div className="flex flex-wrap items-center gap-1 p-2 bg-[#FAF8F5] border border-b-0 border-[#E6E1D8] rounded-t-xl text-xs">
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('**', '**')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Negrito (**texto**)"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('*', '*')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] italic hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Itálico (*texto*)"
+                          >
+                            I
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('<u>', '</u>')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] underline hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Sublinhado"
+                          >
+                            U
+                          </button>
+                          <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('## ')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Título H2"
+                          >
+                            H2
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('### ')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Título H3"
+                          >
+                            H3
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('- ')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Lista com marcadores"
+                          >
+                            • Lista
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('1. ')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Lista numerada"
+                          >
+                            1. Lista
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('- [ ] ')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Checklist"
+                          >
+                            ☑ Checklist
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('\n---\n')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Divisória horizontal"
+                          >
+                            ― Divisória
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertInstructionSnippet('[Link](', ')')}
+                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
+                            title="Inserir Link"
+                          >
+                            🔗 Link
+                          </button>
+                        </div>
 
-                    <textarea
-                      id="instructions-textarea"
-                      rows={5}
-                      placeholder="Instruções claras para os alunos. Você pode inserir <!--page-break--> para separar em etapas com botão 'Avançar'..."
-                      value={instructions}
-                      onChange={(e) => setInstructions(e.target.value)}
-                      className="w-full p-3.5 border border-[#E6E1D8] rounded-b-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] font-mono leading-relaxed resize-y"
-                    />
+                        <textarea
+                          id="instructions-textarea"
+                          rows={5}
+                          placeholder="Instruções claras para os alunos. Você pode inserir <!--page-break--> para separar em etapas com botão 'Avançar'..."
+                          value={instructions}
+                          onChange={(e) => setInstructions(e.target.value)}
+                          className="w-full p-3.5 border border-[#E6E1D8] rounded-b-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] font-mono leading-relaxed resize-y"
+                        />
+                      </>
+                    ) : (
+                      <div className="w-full min-h-[160px] p-4 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] leading-relaxed shadow-xs space-y-2">
+                        {instructions.trim() ? (
+                          <RichMarkdownRenderer text={instructions} />
+                        ) : (
+                          <p className="text-xs text-[#6F6865] italic">
+                            Nenhuma instrução digitada ainda. Clique em "✍️ Escrever" para adicionar orientações aos alunos.
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {instructions.includes('<!--page-break-->') && (
                       <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg mt-2 font-medium">
@@ -610,6 +661,27 @@ export function CreateActivityModal({
                       </div>
                     </div>
                   </div>
+
+                  {/* Resumo das Instruções na Etapa 2 com Renderização Formatada */}
+                  {instructions.trim() && (
+                    <div className="p-4 rounded-xl bg-white border border-[#E6E1D8] space-y-2 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
+                          <span>📋</span> Instruções da Atividade
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStep(1)}
+                          className="text-[11px] font-semibold text-[#6C0F37] hover:underline cursor-pointer"
+                        >
+                          Editar na Etapa 1 ↗
+                        </button>
+                      </div>
+                      <div className="text-xs text-[#2B2426] bg-[#FAF8F5] p-3 rounded-lg border border-[#E6E1D8]/60">
+                        <RichMarkdownRenderer text={instructions} />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Lista de Blocos Inseridos */}
                   <div className="space-y-4">
@@ -918,7 +990,9 @@ export function CreateActivityModal({
                                 {block.kind === 'resource' ? (
                                   <p className="truncate">{block.title} • {block.url || 'Texto complementar'}</p>
                                 ) : (
-                                  <p className="truncate font-medium text-[#2B2426]">{(block as QuestionBlock).prompt}</p>
+                                  <div className="truncate font-medium text-[#2B2426]">
+                                    {renderInlineMarkdown((block as QuestionBlock).prompt)}
+                                  </div>
                                 )}
                               </div>
                             )}

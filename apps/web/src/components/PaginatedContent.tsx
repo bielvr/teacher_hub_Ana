@@ -11,7 +11,7 @@ interface PaginatedContentProps {
 
 export function renderInlineMarkdown(text: string): ReactNode[] {
   if (!text) return [];
-  const regex = /(\*\*(?:[^*]|\*(?!\*))+\*\*|\*[^*]+\*|`[^`]+`|~~[^~]+~~)/g;
+  const regex = /(\*\*(?:[^*]|\*(?!\*))+\*\*|\*[^*]+\*|`[^`]+`|~~[^~]+~~|<u>[^<]+<\/u>|\[[^\]]+\]\([^)]+\))/g;
   const parts = text.split(regex);
 
   return parts.map((part, i) => {
@@ -43,6 +43,27 @@ export function renderInlineMarkdown(text: string): ReactNode[] {
         </del>
       );
     }
+    if (part.startsWith('<u>') && part.endsWith('</u>') && part.length >= 7) {
+      return (
+        <u key={i} className="underline text-[#2B2426]">
+          {part.slice(3, -4)}
+        </u>
+      );
+    }
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={i}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#6C0F37] underline font-semibold hover:text-[#57102E]"
+        >
+          {linkMatch[1]}
+        </a>
+      );
+    }
     return part;
   });
 }
@@ -58,6 +79,11 @@ export function RichMarkdownRenderer({ text }: { text: string }) {
 
         if (!trimmed) {
           return <div key={idx} className="h-1.5" />;
+        }
+
+        // Horizontal divider: --- or *** or ___
+        if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+          return <hr key={idx} className="border-t border-[#E6E1D8] my-2" />;
         }
 
         // H1: # Heading

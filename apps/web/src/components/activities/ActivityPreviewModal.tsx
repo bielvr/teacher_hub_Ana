@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ActivityBlock, PedagogicalObjective, TargetSkill, CorrectionType } from '../../types/activities';
+import { RichMarkdownRenderer, renderInlineMarkdown } from '../PaginatedContent';
 
 interface ActivityPreviewModalProps {
   isOpen: boolean;
@@ -157,11 +158,11 @@ export function ActivityPreviewModal({
 
           {/* Instruções Gerais da Etapa Atual */}
           {pages[currentPage]?.trim() && (
-            <div className="p-4 rounded-xl bg-white border border-[#E6E1D8] text-sm text-[#2B2426] leading-relaxed shadow-xs space-y-2 whitespace-pre-wrap">
+            <div className="p-4 rounded-xl bg-white border border-[#E6E1D8] text-sm text-[#2B2426] leading-relaxed shadow-xs space-y-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37] block">
                 Instruções da Etapa
               </span>
-              <div>{pages[currentPage].trim()}</div>
+              <RichMarkdownRenderer text={pages[currentPage].trim()} />
             </div>
           )}
 
@@ -192,8 +193,8 @@ export function ActivityPreviewModal({
                     <div className="space-y-2">
                       <h3 className="text-sm font-bold text-[#2B2426]">{block.title}</h3>
                       {block.type === 'text' && (
-                        <div className="text-xs text-[#2B2426] whitespace-pre-wrap bg-[#FAF8F5] p-3 rounded-lg border border-[#E6E1D8]">
-                          {block.content_markdown}
+                        <div className="text-xs text-[#2B2426] bg-[#FAF8F5] p-3 rounded-lg border border-[#E6E1D8]">
+                          <RichMarkdownRenderer text={block.content_markdown || ''} />
                         </div>
                       )}
                       {block.type === 'image' && block.url && (
@@ -242,7 +243,9 @@ export function ActivityPreviewModal({
                   {/* 2. Blocos de Questões & Exercícios (14 formatos) */}
                   {block.kind === 'question' && (
                     <div className="space-y-3">
-                      <p className="text-sm font-semibold text-[#2B2426]">{block.prompt}</p>
+                      <div className="text-sm font-semibold text-[#2B2426] leading-relaxed">
+                        {renderInlineMarkdown(block.prompt)}
+                      </div>
 
                       {/* Múltipla Escolha */}
                       {block.type === 'multiple_choice' && (
@@ -264,7 +267,7 @@ export function ActivityPreviewModal({
                                 onChange={() => handleAnswerChange(block.id, opt)}
                                 className="accent-[#6C0F37]"
                               />
-                              <span>{opt}</span>
+                              <span className="leading-relaxed">{renderInlineMarkdown(opt)}</span>
                             </label>
                           ))}
                         </div>
@@ -296,7 +299,7 @@ export function ActivityPreviewModal({
                                   }}
                                   className="accent-[#6C0F37]"
                                 />
-                                <span>{opt}</span>
+                                <span className="leading-relaxed">{renderInlineMarkdown(opt)}</span>
                               </label>
                             );
                           })}
@@ -370,7 +373,7 @@ export function ActivityPreviewModal({
                               className="flex items-center gap-2 p-2 bg-white rounded border border-[#E6E1D8] text-xs text-[#2B2426]"
                             >
                               <span className="font-bold text-[#6C0F37]">{i + 1}.</span>
-                              <span>{item}</span>
+                              <span className="leading-relaxed">{renderInlineMarkdown(item)}</span>
                             </div>
                           ))}
                         </div>
@@ -383,11 +386,11 @@ export function ActivityPreviewModal({
                           {(block.matching_pairs || [{ left: 'Termo 1', right: 'Definição 1' }]).map((pair, pIdx) => (
                             <div key={pIdx} className="flex items-center justify-between gap-3 text-xs">
                               <span className="p-2 bg-white rounded border border-[#E6E1D8] flex-1 font-medium">
-                                {pair.left}
+                                {renderInlineMarkdown(pair.left)}
                               </span>
                               <span className="text-[#6C0F37] font-bold">↔</span>
                               <span className="p-2 bg-white rounded border border-[#E6E1D8] flex-1 font-medium">
-                                {pair.right}
+                                {renderInlineMarkdown(pair.right)}
                               </span>
                             </div>
                           ))}
