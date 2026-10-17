@@ -162,7 +162,7 @@ export function ActivityPreviewModal({
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37] block">
                 Instruções da Etapa
               </span>
-              <RichMarkdownRenderer text={pages[currentPage].trim()} />
+              <RichMarkdownRenderer content={pages[currentPage].trim()} />
             </div>
           )}
 
@@ -194,7 +194,7 @@ export function ActivityPreviewModal({
                       <h3 className="text-sm font-bold text-[#2B2426]">{block.title}</h3>
                       {block.type === 'text' && (
                         <div className="text-xs text-[#2B2426] bg-[#FAF8F5] p-3 rounded-lg border border-[#E6E1D8]">
-                          <RichMarkdownRenderer text={block.content_markdown || ''} />
+                          <RichMarkdownRenderer content={block.content_markdown || ''} />
                         </div>
                       )}
                       {block.type === 'image' && block.url && (
@@ -244,7 +244,7 @@ export function ActivityPreviewModal({
                   {block.kind === 'question' && (
                     <div className="space-y-3">
                       <div className="text-sm font-semibold text-[#2B2426] leading-relaxed">
-                        {renderInlineMarkdown(block.prompt)}
+                        <RichMarkdownRenderer content={block.prompt} />
                       </div>
 
                       {/* Múltipla Escolha */}

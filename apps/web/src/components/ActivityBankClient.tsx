@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { CreateActivityModal } from './CreateActivityModal';
 import { ActivityCardMenu } from './ActivityCardMenu';
 import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
+import { renderInlineMarkdown } from './PaginatedContent';
 
 interface ActivityItem {
   id: string;
@@ -258,7 +259,14 @@ export function ActivityBankClient({
 
           {act.content_markdown && (
             <p className="text-xs text-[#6F6865] line-clamp-2 leading-relaxed">
-              {act.content_markdown.replace(/<!--page-break-->/g, ' ')}
+              {renderInlineMarkdown(
+                act.content_markdown
+                  .replace(/<!--page-break-->/gi, ' ')
+                  .replace(/(?:^|\n)\s*#{1,3}\s+/g, ' ')
+                  .replace(/(?:^|\n)\s*[-*]\s*\[[ xX]?\]\s+/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+              )}
             </p>
           )}
         </div>

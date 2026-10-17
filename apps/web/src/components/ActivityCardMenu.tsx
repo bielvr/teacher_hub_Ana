@@ -7,6 +7,7 @@ import {
   updateActivityAction,
   assignActivityAction,
 } from '../actions/activities';
+import { RichMarkdownRenderer, renderInlineMarkdown } from './PaginatedContent';
 
 interface ActivityCardMenuProps {
   activity: {
@@ -32,6 +33,8 @@ export function ActivityCardMenu({ activity, students, classes }: ActivityCardMe
   const [menuOpen, setMenuOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editTab, setEditTab] = useState<'edit' | 'preview'>('edit');
+  const [editContent, setEditContent] = useState(activity.content_markdown || '');
   const [assignOpen, setAssignOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -206,9 +209,9 @@ export function ActivityCardMenu({ activity, students, classes }: ActivityCardMe
             </div>
 
             {activity.content_markdown && (
-              <div className="p-4 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] whitespace-pre-wrap leading-relaxed">
+              <div className="p-4 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] leading-relaxed">
                 <span className="font-bold text-[#6C0F37] block mb-1">Instruções / Enunciado:</span>
-                {activity.content_markdown}
+                <RichMarkdownRenderer content={activity.content_markdown} />
               </div>
             )}
 
@@ -234,17 +237,19 @@ export function ActivityCardMenu({ activity, students, classes }: ActivityCardMe
                 {items.map((q: any, i: number) => (
                   <div key={i} className="p-3 bg-white border border-[#E6E1D8] rounded-xl text-xs space-y-1">
                     <span className="font-bold text-[#6C0F37]">Questão {i + 1}:</span>
-                    <p className="text-[#2B2426]">{q.prompt}</p>
+                    <div className="text-[#2B2426]">
+                      <RichMarkdownRenderer content={q.prompt} />
+                    </div>
                     {q.options && (
                       <div className="pl-2 space-y-0.5 text-[11px] text-[#6F6865]">
                         {q.options.map((opt: string, oIdx: number) => (
-                          <div key={oIdx}>• {opt}</div>
+                          <div key={oIdx}>• {renderInlineMarkdown(opt)}</div>
                         ))}
                       </div>
                     )}
                     {q.answer_key && (
                       <div className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded w-fit mt-1">
-                        Gabarito: {q.answer_key}
+                        Gabarito: {renderInlineMarkdown(q.answer_key)}
                       </div>
                     )}
                   </div>
@@ -370,13 +375,46 @@ export function ActivityCardMenu({ activity, students, classes }: ActivityCardMe
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#2B2426] mb-1">Instruções</label>
-                <textarea
-                  name="content_markdown"
-                  rows={3}
-                  defaultValue={activity.content_markdown || ''}
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426]"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-[#2B2426]">Instruções</label>
+                  <div className="flex items-center bg-[#FAF8F5] border border-[#E6E1D8] rounded-md p-0.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setEditTab('edit')}
+                      className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                        editTab === 'edit' ? 'bg-white text-[#6C0F37]' : 'text-[#6F6865]'
+                      }`}
+                    >
+                      ✍️ Escrever
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditTab('preview')}
+                      className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                        editTab === 'preview' ? 'bg-[#6C0F37] text-white' : 'text-[#6F6865]'
+                      }`}
+                    >
+                      👁️ Visualizar Formatação
+                    </button>
+                  </div>
+                </div>
+                <input type="hidden" name="content_markdown" value={editContent} />
+                {editTab === 'edit' ? (
+                  <textarea
+                    rows={4}
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426]"
+                  />
+                ) : (
+                  <div className="w-full min-h-[84px] p-3 border border-[#E6E1D8] rounded-xl text-xs bg-[#FAF8F5] text-[#2B2426]">
+                    {editContent.trim() ? (
+                      <RichMarkdownRenderer content={editContent} />
+                    ) : (
+                      <span className="text-[#6F6865] italic">Sem instruções.</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E1D8]">

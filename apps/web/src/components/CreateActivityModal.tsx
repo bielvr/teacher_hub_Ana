@@ -68,6 +68,7 @@ export function CreateActivityModal({
   // ETAPA 2: Blocos de Atividade
   const [blocks, setBlocks] = useState<ActivityBlock[]>([]);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [resourceBlockTab, setResourceBlockTab] = useState<'edit' | 'preview'>('edit');
 
   // Filtros encadeados de Nível -> Unidade -> Aula
   const availableModules = tracks.find((t) => t.id === selectedTrackId)?.modules || [];
@@ -107,11 +108,27 @@ export function CreateActivityModal({
     const end = textarea.selectionEnd;
     const text = textarea.value;
     const selection = text.substring(start, end);
-    const replacement = before + (selection || 'texto') + after;
+
+    const isBlockPrefix = ['## ', '### ', '- ', '1. ', '- [ ] '].includes(before);
+    if (isBlockPrefix && !after) {
+      const needsLeadingNewline = start > 0 && text[start - 1] !== '\n';
+      const prefix = (needsLeadingNewline ? '\n' : '') + before;
+      const body = selection || 'Item';
+      const replacement = prefix + body;
+      setInstructions(text.substring(0, start) + replacement + text.substring(end));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + prefix.length, start + prefix.length + body.length);
+      }, 50);
+      return;
+    }
+
+    const body = selection || 'texto';
+    const replacement = before + body + after;
     setInstructions(text.substring(0, start) + replacement + text.substring(end));
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + before.length, start + before.length + (selection || 'texto').length);
+      textarea.setSelectionRange(start + before.length, start + before.length + body.length);
     }, 50);
   };
 
@@ -599,7 +616,7 @@ export function CreateActivityModal({
                     ) : (
                       <div className="w-full min-h-[160px] p-4 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] leading-relaxed shadow-xs space-y-2">
                         {instructions.trim() ? (
-                          <RichMarkdownRenderer text={instructions} />
+                          <RichMarkdownRenderer content={instructions} />
                         ) : (
                           <p className="text-xs text-[#6F6865] italic">
                             Nenhuma instrução digitada ainda. Clique em "✍️ Escrever" para adicionar orientações aos alunos.
@@ -678,7 +695,7 @@ export function CreateActivityModal({
                         </button>
                       </div>
                       <div className="text-xs text-[#2B2426] bg-[#FAF8F5] p-3 rounded-lg border border-[#E6E1D8]/60">
-                        <RichMarkdownRenderer text={instructions} />
+                        <RichMarkdownRenderer content={instructions} />
                       </div>
                     </div>
                   )}
@@ -767,9 +784,10 @@ export function CreateActivityModal({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setEditingBlockId(editingBlockId === block.id ? null : block.id)
-                                  }
+                                  onClick={() => {
+                                    setEditingBlockId(editingBlockId === block.id ? null : block.id);
+                                    setResourceBlockTab('edit');
+                                  }}
                                   className="px-2 py-0.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded hover:bg-[#F0EBE1]"
                                 >
                                   {editingBlockId === block.id ? 'Recolher' : 'Editar'}
@@ -802,18 +820,54 @@ export function CreateActivityModal({
                                       />
                                     </div>
                                     {block.type === 'text' ? (
-                                      <div>
-                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                          Conteúdo do Texto
-                                        </label>
-                                        <textarea
-                                          rows={3}
-                                          value={block.content_markdown || ''}
-                                          onChange={(e) =>
-                                            updateBlock(block.id, { content_markdown: e.target.value })
-                                          }
-                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                        />
+                                      <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <label className="block text-[11px] font-bold text-[#2B2426]">
+                                            Conteúdo do Texto
+                                          </label>
+                                          <div className="flex items-center bg-white border border-[#E6E1D8] rounded-md p-0.5 text-[11px]">
+                                            <button
+                                              type="button"
+                                              onClick={() => setResourceBlockTab('edit')}
+                                              className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                                                resourceBlockTab === 'edit'
+                                                  ? 'bg-[#FAF8F5] text-[#6C0F37]'
+                                                  : 'text-[#6F6865]'
+                                              }`}
+                                            >
+                                              ✍️ Escrever
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setResourceBlockTab('preview')}
+                                              className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                                                resourceBlockTab === 'preview'
+                                                  ? 'bg-[#6C0F37] text-white'
+                                                  : 'text-[#6F6865]'
+                                              }`}
+                                            >
+                                              👁️ Visualizar Formatação
+                                            </button>
+                                          </div>
+                                        </div>
+                                        {resourceBlockTab === 'edit' ? (
+                                          <textarea
+                                            rows={3}
+                                            value={block.content_markdown || ''}
+                                            onChange={(e) =>
+                                              updateBlock(block.id, { content_markdown: e.target.value })
+                                            }
+                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                          />
+                                        ) : (
+                                          <div className="w-full min-h-[76px] p-3 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]">
+                                            {block.content_markdown?.trim() ? (
+                                              <RichMarkdownRenderer content={block.content_markdown} />
+                                            ) : (
+                                              <span className="text-[#6F6865] italic">Sem conteúdo digitado.</span>
+                                            )}
+                                          </div>
+                                        )}
                                       </div>
                                     ) : (
                                       <div>
@@ -988,10 +1042,17 @@ export function CreateActivityModal({
                               /* Visão Sintética do Bloco */
                               <div className="text-xs text-[#6F6865]">
                                 {block.kind === 'resource' ? (
-                                  <p className="truncate">{block.title} • {block.url || 'Texto complementar'}</p>
+                                  block.type === 'text' && block.content_markdown ? (
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-[#2B2426]">{block.title}</p>
+                                      <RichMarkdownRenderer content={block.content_markdown} />
+                                    </div>
+                                  ) : (
+                                    <p className="truncate">{block.title} • {block.url || 'Texto complementar'}</p>
+                                  )
                                 ) : (
-                                  <div className="truncate font-medium text-[#2B2426]">
-                                    {renderInlineMarkdown((block as QuestionBlock).prompt)}
+                                  <div className="font-medium text-[#2B2426]">
+                                    <RichMarkdownRenderer content={(block as QuestionBlock).prompt} />
                                   </div>
                                 )}
                               </div>

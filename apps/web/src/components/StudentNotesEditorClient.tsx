@@ -7,7 +7,7 @@ import {
   deleteLessonNoteAction,
   duplicateLessonNoteAction,
 } from '../actions/studies';
-import { PaginatedContent, renderInlineMarkdown } from './PaginatedContent';
+import { PaginatedContent, RichMarkdownRenderer, renderInlineMarkdown } from './PaginatedContent';
 
 export interface LessonNoteItem {
   id: string;
@@ -79,119 +79,9 @@ function RichMarkdownViewer({
     );
   }
 
-  // Renderização simples e elegante de blocos markdown
-  const lines = cleanContent.split('\n');
-
   return (
-    <div className={`space-y-3 leading-relaxed text-[#2B2426] font-sans ${fontSizeClass}`}>
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-
-        // Linha vazia
-        if (!trimmed) {
-          return <div key={idx} className="h-2" />;
-        }
-
-        // Título H2 (##)
-        if (trimmed.startsWith('## ')) {
-          return (
-            <h2 key={idx} className="text-xl sm:text-2xl font-bold text-[#6C0F37] pt-2 pb-1 border-b border-[#E6E1D8]">
-              {renderInlineMarkdown(trimmed.replace(/^##\s+/, ''))}
-            </h2>
-          );
-        }
-
-        // Título H3 (###)
-        if (trimmed.startsWith('### ')) {
-          return (
-            <h3 key={idx} className="text-base sm:text-lg font-bold text-[#2B2426] pt-1">
-              {renderInlineMarkdown(trimmed.replace(/^###\s+/, ''))}
-            </h3>
-          );
-        }
-
-        // Divisória (---)
-        if (trimmed === '---' || trimmed === '***') {
-          return <hr key={idx} className="border-[#E6E1D8] my-3" />;
-        }
-
-        // Checklist desmarcado (- [ ])
-        if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('* [ ] ')) {
-          return (
-            <div key={idx} className="flex items-center gap-2.5 my-1.5 text-xs sm:text-sm">
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded border-2 border-[#6C0F37]/40 text-white shrink-0 bg-white shadow-2xs hover:border-[#6C0F37] transition-colors"></span>
-              <span className="text-[#2B2426]">{renderInlineMarkdown(trimmed.replace(/^[-*]\s*\[\s*\]\s*/, ''))}</span>
-            </div>
-          );
-        }
-
-        // Checklist marcado (- [x])
-        if (trimmed.match(/^[-*]\s*\[[xX]\]\s*/)) {
-          return (
-            <div key={idx} className="flex items-center gap-2.5 my-1.5 text-xs sm:text-sm">
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-[#6C0F37] text-white shrink-0 text-[10px] font-bold shadow-2xs">
-                ✓
-              </span>
-              <span className="line-through text-[#6F6865] opacity-80">
-                {renderInlineMarkdown(trimmed.replace(/^[-*]\s*\[[xX]\]\s*/, ''))}
-              </span>
-            </div>
-          );
-        }
-
-        // Lista com marcadores (• ou - ou *)
-        if (trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          return (
-            <div key={idx} className="flex items-start gap-2 ml-2 my-1">
-              <span className="text-[#6C0F37] font-bold shrink-0 leading-tight">•</span>
-              <span className="leading-relaxed">{renderInlineMarkdown(trimmed.replace(/^[•\-*]\s+/, ''))}</span>
-            </div>
-          );
-        }
-
-        // Tabela simples (linhas com '|')
-        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-          if (trimmed.includes('---')) return null; // Linha divisória de tabela
-          const cells = trimmed
-            .split('|')
-            .slice(1, -1)
-            .map((c) => c.trim());
-          return (
-            <div key={idx} className="overflow-x-auto my-1">
-              <div className="flex border border-[#E6E1D8] rounded-lg divide-x divide-[#E6E1D8] bg-[#FFFDF7]">
-                {cells.map((cell, cIdx) => (
-                  <div key={cIdx} className="px-3 py-1.5 text-xs font-medium text-[#2B2426] flex-1">
-                    {renderInlineMarkdown(cell)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        }
-
-        // Imagem (![alt](url))
-        const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
-        if (imgMatch) {
-          return (
-            <div key={idx} className="my-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imgMatch[2]}
-                alt={imgMatch[1] || 'Imagem da aula'}
-                className="max-h-72 rounded-xl border border-[#E6E1D8] shadow-xs object-contain"
-              />
-              {imgMatch[1] && <span className="block text-[11px] text-[#6F6865] mt-1">{imgMatch[1]}</span>}
-            </div>
-          );
-        }
-
-        // Parágrafo comum
-        return (
-          <p key={idx} className="leading-relaxed whitespace-pre-wrap">
-            {renderInlineMarkdown(line)}
-          </p>
-        );
-      })}
+    <div className={`text-[#2B2426] font-sans ${fontSizeClass}`}>
+      <RichMarkdownRenderer content={cleanContent} />
     </div>
   );
 }
@@ -444,13 +334,34 @@ export function StudentNotesEditorClient({
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selectedText = textarea.value.substring(start, end);
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
 
-    const replacement = `${prefix}${selectedText || 'texto'}${suffix}`;
+    const trimmedPrefix = prefix.replace(/^\n+/, '');
+    const isBlockPrefix = ['## ', '### ', '• ', '1. ', '- [ ] '].includes(trimmedPrefix);
+    if (isBlockPrefix) {
+      const needsLeadingNewline = start > 0 && text[start - 1] !== '\n';
+      const cleanPrefix = (needsLeadingNewline ? '\n' : '') + trimmedPrefix;
+      const body = selectedText || 'Item';
+      const replacement = `${cleanPrefix}${body}${suffix}`;
+      const newContent = text.substring(0, start) + replacement + text.substring(end);
+      setNoteContent(newContent);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(
+          start + cleanPrefix.length,
+          start + cleanPrefix.length + body.length
+        );
+      }, 50);
+      return;
+    }
+
+    const body = selectedText || 'texto';
+    const replacement = `${prefix}${body}${suffix}`;
     const newContent =
-      textarea.value.substring(0, start) +
+      text.substring(0, start) +
       replacement +
-      textarea.value.substring(end);
+      text.substring(end);
 
     setNoteContent(newContent);
 
@@ -458,7 +369,7 @@ export function StudentNotesEditorClient({
       textarea.focus();
       textarea.setSelectionRange(
         start + prefix.length,
-        start + prefix.length + (selectedText.length || 5)
+        start + prefix.length + body.length
       );
     }, 50);
   };
@@ -1289,7 +1200,7 @@ export function StudentNotesEditorClient({
                             : 'text-[#6F6865] hover:text-[#2B2426]'
                         }`}
                       >
-                        👁️ Visualizar
+                        👁️ Visualizar Formatação
                       </button>
                     </div>
                   </div>

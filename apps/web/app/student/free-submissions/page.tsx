@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { createClient } from '../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../src/services/organizations';
-import { submitFreeProductionAction } from '../../../src/actions/studies';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
+import { CreateFreeSubmissionModal } from '../../../src/components/CreateFreeSubmissionModal';
+import { RichMarkdownRenderer } from '../../../src/components/PaginatedContent';
 
 export default async function StudentFreeSubmissionsPage({
   searchParams,
@@ -45,44 +46,8 @@ export default async function StudentFreeSubmissionsPage({
           </p>
         </div>
 
-        {/* Modal / Detalhes de Envio */}
-        <details className="relative">
-          <summary className="list-none cursor-pointer px-4 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs flex items-center gap-1.5">
-            <span>+ Enviar um texto</span>
-          </summary>
-          <div className="absolute right-0 mt-2 w-96 bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-xl z-50">
-            <h3 className="text-sm font-bold text-[#2B2426] mb-3">Nova Produção Livre</h3>
-            <form action={submitFreeProductionAction} className="space-y-3">
-              <input type="hidden" name="organization_id" value={activeOrgId} />
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#6F6865] mb-1">Título</label>
-                <input
-                  name="title"
-                  type="text"
-                  required
-                  placeholder="Ex: My thoughts about traveling"
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#6F6865] mb-1">Texto</label>
-                <textarea
-                  name="content"
-                  rows={5}
-                  required
-                  placeholder="Escreva livremente aqui..."
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs cursor-pointer"
-              >
-                Enviar para Feedback
-              </button>
-            </form>
-          </div>
-        </details>
+        {/* Modal Centralizado de Envio */}
+        <CreateFreeSubmissionModal activeOrgId={activeOrgId} />
       </div>
 
       {list.length === 0 ? (
@@ -125,12 +90,16 @@ export default async function StudentFreeSubmissionsPage({
                     <div className="mt-3 text-left p-4 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl shadow-xs space-y-3 text-sm">
                       <div>
                         <strong className="text-xs uppercase text-[#6F6865] block mb-1">Seu Texto:</strong>
-                        <p className="text-[#2B2426] whitespace-pre-wrap text-xs leading-relaxed">{sub.content}</p>
+                        <div className="text-[#2B2426] text-xs leading-relaxed">
+                          <RichMarkdownRenderer content={sub.content} />
+                        </div>
                       </div>
                       {sub.teacher_feedback && (
                         <div className="border-t border-[#E6E1D8] pt-3 bg-[#FFFDF7] -mx-4 -mb-4 p-4 rounded-b-xl">
                           <strong className="text-xs uppercase text-[#6C0F37] block mb-1">Feedback do Professor:</strong>
-                          <p className="text-[#2B2426] whitespace-pre-wrap text-xs leading-relaxed">{sub.teacher_feedback}</p>
+                          <div className="text-[#2B2426] text-xs leading-relaxed">
+                            <RichMarkdownRenderer content={sub.teacher_feedback} />
+                          </div>
                         </div>
                       )}
                     </div>

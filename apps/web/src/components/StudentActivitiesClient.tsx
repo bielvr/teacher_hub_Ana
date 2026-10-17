@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Card } from './Card';
 import { EmptyState } from './EmptyState';
-import { PaginatedContent } from './PaginatedContent';
+import { PaginatedContent, RichMarkdownRenderer, renderInlineMarkdown } from './PaginatedContent';
 import { toggleActivityCompletionAction, submitStudentActivityAction } from '../actions/studies';
-import { ActivityBlock, QuestionBlock } from '../types/activities';
+import { ActivityBlock, QuestionBlock, ResourceBlock } from '../types/activities';
 
 function getYouTubeEmbedUrl(url?: string | null) {
   if (!url) return null;
@@ -477,18 +477,39 @@ export function StudentActivitiesClient({
               </div>
             )}
 
-            {/* Bloco de Exercícios Interativos */}
+            {/* Bloco de Exercícios Interativos e Recursos */}
             {(() => {
               const rawBlocks: ActivityBlock[] =
                 selectedActivity.metadata?.blocks || selectedActivity.metadata?.items || [];
+              const resources = rawBlocks.filter((b): b is ResourceBlock => b.kind === 'resource');
               const questions = rawBlocks.filter((b): b is QuestionBlock => b.kind === 'question');
               const studentAnswers = answersByActivity[selectedActivity.id] || {};
               const result = resultsByActivity[selectedActivity.id];
 
-              if (questions.length === 0) return null;
+              if (questions.length === 0 && resources.length === 0) return null;
 
               return (
                 <div className="space-y-4 pt-4 border-t border-[#E6E1D8]">
+                  {resources.length > 0 && (
+                    <div className="space-y-3">
+                      {resources.map((res) => (
+                        <div
+                          key={res.id}
+                          className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-4 sm:p-5 space-y-2"
+                        >
+                          <h4 className="text-sm font-bold text-[#6C0F37]">{res.title}</h4>
+                          {res.type === 'text' && res.content_markdown && (
+                            <div className="text-xs sm:text-sm text-[#2B2426] leading-relaxed">
+                              <RichMarkdownRenderer content={res.content_markdown} />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {questions.length > 0 && (
+                  <>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-2">
                       <span>✏️ Exercícios Práticos</span>
@@ -509,13 +530,13 @@ export function StudentActivitiesClient({
                             {qIdx + 1}
                           </span>
                           <div className="flex-1">
-                            <p className="text-sm font-bold text-[#2B2426] leading-relaxed">
-                              {q.prompt}
-                            </p>
+                            <div className="text-sm font-bold text-[#2B2426] leading-relaxed">
+                              <RichMarkdownRenderer content={q.prompt} />
+                            </div>
                             {q.instructions && (
-                              <p className="text-xs text-[#6F6865] mt-0.5 italic">
-                                {q.instructions}
-                              </p>
+                              <div className="text-xs text-[#6F6865] mt-0.5 italic">
+                                <RichMarkdownRenderer content={q.instructions} />
+                              </div>
                             )}
                           </div>
                         </div>
@@ -542,7 +563,7 @@ export function StudentActivitiesClient({
                                     onChange={() => handleAnswerChange(selectedActivity.id, q.id, opt)}
                                     className="text-[#6C0F37] focus:ring-[#6C0F37]"
                                   />
-                                  <span>{opt}</span>
+                                  <span>{renderInlineMarkdown(opt)}</span>
                                 </label>
                               );
                             })}
@@ -643,6 +664,8 @@ export function StudentActivitiesClient({
                       )}
                     </button>
                   </div>
+                  </>
+                  )}
                 </div>
               );
             })()}

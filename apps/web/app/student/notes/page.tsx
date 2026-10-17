@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { createClient } from '../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../src/services/organizations';
-import { createLessonNoteAction } from '../../../src/actions/studies';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { PaginatedContent } from '../../../src/components/PaginatedContent';
+import { CreateStudentNoteModal } from '../../../src/components/CreateStudentNoteModal';
 
 export default async function StudentNotesPage({
   searchParams,
@@ -58,44 +58,7 @@ export default async function StudentNotesPage({
           </p>
         </div>
 
-        <details className="relative">
-          <summary className="list-none cursor-pointer px-4 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs">
-            + Nova anotação
-          </summary>
-          <div className="absolute right-0 mt-2 w-80 bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-xl z-50">
-            <h3 className="text-sm font-bold text-[#2B2426] mb-3">Criar no Meu Caderno</h3>
-            <form action={createLessonNoteAction} className="space-y-3">
-              <input type="hidden" name="organization_id" value={activeOrgId} />
-              <input type="hidden" name="author_role" value="student" />
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#6F6865] mb-1">Título</label>
-                <input
-                  name="title"
-                  type="text"
-                  required
-                  placeholder="Ex: Dúvida sobre pronúncia"
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#6F6865] mb-1">Conteúdo</label>
-                <textarea
-                  name="content"
-                  rows={4}
-                  required
-                  placeholder="Minhas anotações e reflexões..."
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs"
-              >
-                Salvar Anotação
-              </button>
-            </form>
-          </div>
-        </details>
+        <CreateStudentNoteModal activeOrgId={activeOrgId} />
       </div>
 
       <div className="flex gap-2">
