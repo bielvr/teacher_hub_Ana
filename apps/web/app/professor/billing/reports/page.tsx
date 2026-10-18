@@ -66,12 +66,13 @@ export default async function FinancialReportsPage({
   });
 
   expenses.forEach((e) => {
+    const isPaid = e.status === 'paid' || e.status === 'paga';
     transactions.push({
       date: e.paid_at ? e.paid_at.split('T')[0] : e.due_date,
       description: e.description || 'Despesa Operacional',
       category: e.category || 'Geral',
       amount: Number(e.amount) || 0,
-      status: e.status === 'paid' ? 'Pago' : 'A pagar',
+      status: isPaid ? 'Pago' : 'A pagar',
       origin: 'Despesa',
     });
   });

@@ -2,6 +2,7 @@ import { createClient } from '../../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../../src/services/organizations';
 import { PageHeader } from '../../../../src/components/PageHeader';
 import { CreateExpenseModal } from '../../../../src/components/CreateExpenseModal';
+import { BillingNavTabs } from '../../../../src/components/BillingNavTabs';
 
 export default async function ExpensesPage({
   searchParams,
@@ -38,7 +39,7 @@ export default async function ExpensesPage({
   expenses.forEach((e) => {
     const val = Number(e.amount) || 0;
     totalExpenses += val;
-    if (e.status === 'paga') totalPaid += val;
+    if (e.status === 'paid' || e.status === 'paga') totalPaid += val;
     else totalPending += val;
   });
 
@@ -46,7 +47,7 @@ export default async function ExpensesPage({
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <PageHeader
         title="Despesas"
         description="Contas recorrentes e avulsas do negócio: assinatura da Fikra, internet, contabilidade, materiais e plataformas."
@@ -57,6 +58,8 @@ export default async function ExpensesPage({
           />
         }
       />
+
+      <BillingNavTabs activeOrgId={activeOrgId} activeTab="expenses" />
 
       {/* Métricas no Topo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -124,8 +127,8 @@ export default async function ExpensesPage({
               </thead>
               <tbody className="divide-y divide-[#E6E1D8]">
                 {expenses.map((e) => {
-                  const isPaid = e.status === 'paga';
-                  const isOverdue = e.status === 'vencida';
+                  const isPaid = e.status === 'paid' || e.status === 'paga';
+                  const isOverdue = e.status === 'overdue' || e.status === 'vencida';
 
                   return (
                     <tr key={e.id} className="hover:bg-[#F7F4ED]/30 transition-colors">

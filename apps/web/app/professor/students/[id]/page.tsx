@@ -31,33 +31,89 @@ export default async function StudentProfilePage({
     );
   }
 
-  // 1. Busca perfil do aluno
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', studentId)
-    .single();
+  // 1. Busca membro na organização com join em profiles e class_students -> classes
+  const { data: memberByProfile } = await supabase
+    .from('organization_members')
+    .select(`
+      *,
+      profiles (*),
+      class_students (
+        student_id,
+        classes (
+          id,
+          name,
+          level
+        )
+      )
+    `)
+    .eq('organization_id', activeOrgId)
+    .eq('profile_id', studentId)
+    .maybeSingle();
+
+  const { data: memberById } = !memberByProfile
+    ? await supabase
+        .from('organization_members')
+        .select(`
+          *,
+          profiles (*),
+          class_students (
+            student_id,
+            classes (
+              id,
+              name,
+              level
+            )
+          )
+        `)
+        .eq('organization_id', activeOrgId)
+        .eq('id', studentId)
+        .maybeSingle()
+    : { data: null };
+
+  const member: any = memberByProfile || memberById;
+  const resolvedProfileId = member?.profile_id || studentId;
+
+  // 2. Busca perfil do aluno (ou utiliza o retornado via join)
+  let profile: any = member?.profiles || null;
+  if (!profile) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', resolvedProfileId)
+      .maybeSingle();
+    profile = profileData;
+  }
 
   if (!profile) {
     notFound();
   }
 
-  // 2. Busca membro na organização
-  const { data: member } = await supabase
-    .from('organization_members')
-    .select('*')
-    .eq('organization_id', activeOrgId)
-    .eq('profile_id', studentId)
-    .maybeSingle();
+  // 3. Resolve turmas vinculadas ao membro (organization_members.id) ou profile_id
+  const joinedClassStudents = Array.isArray(member?.class_students)
+    ? member.class_students
+    : member?.class_students
+    ? [member.class_students]
+    : [];
 
-  // 3. Busca turma
-  const { data: classRel } = await supabase
+  const candidateIds = Array.from(
+    new Set([member?.id, profile.id, studentId].filter(Boolean))
+  ) as string[];
+
+  const { data: directClassRels } = await supabase
     .from('class_students')
-    .select('classes (id, name, level)')
-    .eq('student_id', member?.id || studentId)
-    .maybeSingle();
+    .select('student_id, classes (id, name, level)')
+    .in('student_id', candidateIds);
 
-  const className = (classRel as any)?.classes?.name || null;
+  const allEnrollments = [...joinedClassStudents, ...(directClassRels || [])];
+  const uniqueClassNames = Array.from(
+    new Set(
+      allEnrollments
+        .map((rel: any) => rel?.classes?.name)
+        .filter(Boolean)
+    )
+  ) as string[];
+
+  const className = uniqueClassNames.length > 0 ? uniqueClassNames.join(', ') : null;
 
   // 4. Busca trilhas/níveis da organização
   const { data: tracksData } = await supabase

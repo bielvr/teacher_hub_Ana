@@ -33,12 +33,15 @@ export async function getClassWithStudents(supabase: SupabaseClient<Database>, c
     .from('classes')
     .select(`
       id,
+      organization_id,
       name,
       level,
       class_students (
         enrolled_at,
+        student_id,
         student:student_id (
           id,
+          profile_id,
           profiles (
             id,
             full_name,
@@ -79,6 +82,9 @@ export async function updateClass(supabase: SupabaseClient<Database>, classId: s
 }
 
 export async function deleteClass(supabase: SupabaseClient<Database>, classId: string) {
+  await supabase.from('class_students').delete().eq('class_id', classId);
+  await supabase.from('live_sessions').delete().eq('class_id', classId);
+
   const { error } = await supabase
     .from('classes')
     .delete()
@@ -95,7 +101,7 @@ export async function enrollStudentInClass(
 ) {
   const { data, error } = await supabase
     .from('class_students')
-    .insert({
+    .upsert({
       class_id: classId,
       student_id: studentMemberId,
     })

@@ -27,8 +27,19 @@ export default async function TeacherDashboardLayout({
     redirect('/onboarding');
   }
 
-  // 2. Determina a org padrão
-  const defaultOrgId = memberships[0].organizations.id;
+  // 2. Valida estritamente se o papel do usuário na organização é docente/gestor
+  const membership = memberships[0];
+  const isStaff =
+    membership.role === 'owner' ||
+    membership.role === 'admin' ||
+    membership.role === 'teacher';
+
+  if (!isStaff) {
+    redirect('/student');
+  }
+
+  // 3. Determina a org padrão
+  const defaultOrgId = membership.organizations.id;
 
   // 3. Busca usuário atual para exibir nome/iniciais no avatar do TeacherNavbar
   const { data: { user } } = await supabase.auth.getUser();

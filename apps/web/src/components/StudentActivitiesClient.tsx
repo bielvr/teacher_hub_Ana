@@ -33,12 +33,14 @@ interface StudentActivitiesClientProps {
   activities: ActivityItem[];
   orgId: string;
   initialCompletedIds?: string[];
+  initialAnswersByActivity?: Record<string, Record<string, any>>;
 }
 
 export function StudentActivitiesClient({
   activities,
   orgId,
   initialCompletedIds = [],
+  initialAnswersByActivity = {},
 }: StudentActivitiesClientProps) {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set(initialCompletedIds));
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -46,7 +48,8 @@ export function StudentActivitiesClient({
   const [search, setSearch] = useState('');
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [answersByActivity, setAnswersByActivity] = useState<Record<string, Record<string, any>>>({});
+  const [answersByActivity, setAnswersByActivity] =
+    useState<Record<string, Record<string, any>>>(initialAnswersByActivity);
   const [resultsByActivity, setResultsByActivity] = useState<
     Record<string, { tested: boolean; score?: number; total?: number; feedback?: string }>
   >({});
@@ -73,7 +76,7 @@ export function StudentActivitiesClient({
     if (e) e.stopPropagation();
     setTogglingId(actId);
     try {
-      const res = await toggleActivityCompletionAction(actId, orgId);
+      const res = await toggleActivityCompletionAction(actId, orgId, answersByActivity[actId]);
       setCompletedIds((prev) => {
         const next = new Set(prev);
         if (res.completed) next.add(actId);

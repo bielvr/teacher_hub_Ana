@@ -299,7 +299,7 @@ export async function createLessonWithActivityAction(
     const module_id = formData.get('module_id') as string;
     const lesson_title = (formData.get('lesson_title') as string)?.trim();
     const rawType = (formData.get('activity_type') as string) || 'pdf';
-    const activity_title = (formData.get('activity_title') as string)?.trim() || lesson_title;
+    const rawActivityTitle = (formData.get('activity_title') as string)?.trim() || '';
     let content_url = (formData.get('content_url') as string)?.trim() || '';
     const content_markdown = (formData.get('content_markdown') as string)?.trim() || '';
 
@@ -336,6 +336,9 @@ export async function createLessonWithActivityAction(
         cover_image_url = uploadedCover;
       }
     }
+
+    const hasMaterialAttachment = Boolean(content_url || content_markdown);
+    const activity_title = hasMaterialAttachment ? (rawActivityTitle || lesson_title) : '';
 
     // Mapeamento seguro para o enum da tabela activities:
     let activity_type: ActivityType = 'pdf';
@@ -387,9 +390,9 @@ export async function createLessonWithActivityAction(
       preparation_status,
       published_to_materials: true,
       cover_image_url,
-      material_type: rawType,
-      material_title: activity_title,
-      material_url: content_url,
+      material_type: hasMaterialAttachment ? rawType : '',
+      material_title: hasMaterialAttachment ? activity_title : '',
+      material_url: content_url || '',
     };
 
     // 1. Busca próximo order_index para a lição
@@ -415,8 +418,8 @@ export async function createLessonWithActivityAction(
       return { success: false, error: lessonError?.message || 'Falha ao criar lição.' };
     }
 
-    // 3. Insere a atividade / material anexado se houver dados
-    if (activity_title || content_url) {
+    // 3. Insere a atividade / material anexado estritamente se content_url (ou arquivo/markdown) foi fornecido
+    if (hasMaterialAttachment) {
       const { error: activityError } = await supabase
         .from('activities')
         .insert({
@@ -439,6 +442,7 @@ export async function createLessonWithActivityAction(
       }
     }
 
+    revalidatePath('/professor');
     revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
     if (track_id) {
@@ -466,6 +470,10 @@ export async function updateLessonAction(
     const status = (formData.get('status') as string) || 'todo';
     const preparation_status = (formData.get('preparation_status') as string) || 'ready';
     let cover_image_url = (formData.get('cover_image_url') as string)?.trim() || '';
+
+    const rawType = (formData.get('activity_type') as string)?.trim() || '';
+    const activity_title = (formData.get('activity_title') as string)?.trim() || '';
+    let content_url = (formData.get('content_url') as string)?.trim() || '';
 
     if (!lesson_id || !title) {
       return { success: false, error: 'ID e título da aula são obrigatórios.' };
@@ -500,6 +508,21 @@ export async function updateLessonAction(
       }
     }
 
+    // Upload de anexo didático se fornecido
+    const fileUpload = formData.get('file_upload') as File | null;
+    if (fileUpload && fileUpload.size > 0 && typeof fileUpload.name === 'string') {
+      const cleanFileName = fileUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = `lessons/${lesson_id}/${Date.now()}-${cleanFileName}`;
+      const uploadedUrl = await uploadToStorage(supabase, 'course-materials', storagePath, fileUpload);
+      if (uploadedUrl) {
+        content_url = uploadedUrl;
+      }
+    }
+
+    const effectiveMaterialType = rawType || existingMeta.material_type || 'Documento/PDF';
+    const effectiveMaterialTitle = activity_title || existingMeta.material_title || '';
+    const effectiveMaterialUrl = content_url || existingMeta.material_url || '';
+
     const lessonMetadata = {
       ...existingMeta,
       communicative_objectives,
@@ -509,6 +532,9 @@ export async function updateLessonAction(
       status,
       preparation_status,
       cover_image_url: cover_image_url || existingMeta.cover_image_url || '',
+      material_type: effectiveMaterialType,
+      material_title: effectiveMaterialTitle,
+      material_url: effectiveMaterialUrl,
     };
 
     const { error: lessonError } = await supabase
@@ -520,6 +546,55 @@ export async function updateLessonAction(
       .eq('id', lesson_id);
 
     if (lessonError) return { success: false, error: lessonError.message };
+
+    // Se um novo anexo ou link de material foi informado na edição, registra/atualiza na tabela activities
+    if (content_url || activity_title) {
+      let activity_type: ActivityType = 'pdf';
+      let video_url: string | null = null;
+      let pdf_url: string | null = null;
+      let link_url: string | null = null;
+      let audio_url: string | null = null;
+
+      switch (effectiveMaterialType) {
+        case 'video':
+        case 'Vídeo':
+          activity_type = 'video';
+          video_url = effectiveMaterialUrl || null;
+          break;
+        case 'audio':
+        case 'Áudio':
+          activity_type = 'audio';
+          audio_url = effectiveMaterialUrl || null;
+          break;
+        case 'link':
+        case 'Link':
+        case 'image':
+        case 'Imagem':
+          activity_type = 'external_link';
+          link_url = effectiveMaterialUrl || null;
+          break;
+        default:
+          activity_type = 'pdf';
+          pdf_url = effectiveMaterialUrl || null;
+          break;
+      }
+
+      if (content_url) {
+        await supabase.from('activities').insert({
+          lesson_id,
+          title: effectiveMaterialTitle || title,
+          type: activity_type,
+          video_url,
+          pdf_url,
+          link_url,
+          audio_url,
+          metadata: {
+            original_material_type: effectiveMaterialType,
+            ...lessonMetadata,
+          },
+        });
+      }
+    }
 
     revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
@@ -651,6 +726,7 @@ export async function createPlanningLessonAction(
       return { success: false, error: lessonError?.message || 'Erro ao criar lesson no planejamento.' };
     }
 
+    revalidatePath('/professor');
     revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
     revalidatePath(`/professor/tracks/${track_id}`);
@@ -671,9 +747,13 @@ export async function updatePlanningLessonAction(
     const track_id = (formData.get('track_id') as string)?.trim();
     const module_id = (formData.get('module_id') as string)?.trim();
     const lesson_title = (formData.get('lesson_title') as string)?.trim();
-    const preparation_status =
-      ((formData.get('preparation_status') as string) as 'need_prep' | 'in_progress' | 'ready') ||
-      'need_prep';
+    const rawPrep = (formData.get('preparation_status') as string) || 'need_prep';
+    const preparation_status: 'need_prep' | 'in_progress' | 'ready' =
+      rawPrep === 'needs_prep' || rawPrep === 'need_prep'
+        ? 'need_prep'
+        : rawPrep === 'in_progress'
+        ? 'in_progress'
+        : 'ready';
     const communicative_objectives = (formData.get('communicative_objectives') as string)?.trim() || '';
     const notes = (formData.get('notes') as string)?.trim() || '';
     const checklistRaw = (formData.get('checklist') as string) || '[]';
@@ -746,6 +826,7 @@ export async function updatePlanningLessonAction(
       return { success: false, error: error.message };
     }
 
+    revalidatePath('/professor');
     revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
     if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
@@ -811,6 +892,7 @@ export async function sendLessonToMaterialsAction(
       return { success: false, error: updateErr.message };
     }
 
+    revalidatePath('/professor');
     revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
     if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
@@ -821,6 +903,43 @@ export async function sendLessonToMaterialsAction(
   }
 }
 
+export async function deletePlanningLessonAction(
+  lessonIdOrFormData: string | FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const lesson_id =
+      typeof lessonIdOrFormData === 'string'
+        ? lessonIdOrFormData.trim()
+        : ((lessonIdOrFormData.get('lesson_id') as string) || '').trim();
+    const track_id =
+      typeof lessonIdOrFormData === 'string'
+        ? ''
+        : ((lessonIdOrFormData.get('track_id') as string) || '').trim();
+
+    if (!lesson_id) {
+      return { success: false, error: 'ID da lesson é obrigatório.' };
+    }
+
+    await supabase.from('activities').delete().eq('lesson_id', lesson_id);
+
+    const { error } = await supabase.from('lessons').delete().eq('id', lesson_id);
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/planning');
+    revalidatePath('/professor/tracks');
+    if (track_id) {
+      revalidatePath(`/professor/tracks/${track_id}`);
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao excluir lesson do planejamento.' };
+  }
+}
+
 export async function deleteLessonAction(formData: FormData) {
   const supabase = await createClient();
   const lesson_id = formData.get('lesson_id') as string;
@@ -828,9 +947,12 @@ export async function deleteLessonAction(formData: FormData) {
 
   if (!lesson_id) throw new Error('ID da aula é obrigatório.');
 
+  await supabase.from('activities').delete().eq('lesson_id', lesson_id);
+
   const { error } = await supabase.from('lessons').delete().eq('id', lesson_id);
   if (error) throw new Error(error.message);
 
+  revalidatePath('/professor');
   revalidatePath('/professor/planning');
   revalidatePath('/professor/tracks');
   if (track_id) {

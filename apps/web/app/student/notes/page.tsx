@@ -25,6 +25,10 @@ export default async function StudentNotesPage({
     .from('lesson_notes')
     .select('*')
     .eq('student_id', user.id)
+    .not('title', 'ilike', '[Privado]%')
+    .not('content', 'ilike', '%<!--private-->%')
+    .not('title', 'ilike', '[Chamada]%')
+    .not('title', 'ilike', '[Contrato]%')
     .order('lesson_date', { ascending: false });
 
   const list: any[] = (notes || []).filter(

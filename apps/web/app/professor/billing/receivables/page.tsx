@@ -2,6 +2,7 @@ import { createClient } from '../../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../../src/services/organizations';
 import { PageHeader } from '../../../../src/components/PageHeader';
 import { CreatePaymentModal } from '../../../../src/components/CreatePaymentModal';
+import { BillingNavTabs } from '../../../../src/components/BillingNavTabs';
 
 export default async function ReceivablesPage({
   searchParams,
@@ -65,7 +66,7 @@ export default async function ReceivablesPage({
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <PageHeader
         title="Recebimentos"
         description="Mensalidades e cobranças das alunas, pagamentos recebidos, pendentes e previsões de parcelas."
@@ -77,6 +78,8 @@ export default async function ReceivablesPage({
           />
         }
       />
+
+      <BillingNavTabs activeOrgId={activeOrgId} activeTab="receivables" />
 
       {/* Métricas no Topo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

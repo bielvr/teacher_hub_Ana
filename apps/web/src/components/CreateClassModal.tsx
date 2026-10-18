@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export function CreateClassModal({ orgId }: { orgId: string }) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [level, setLevel] = useState('');
@@ -24,6 +26,7 @@ export function CreateClassModal({ orgId }: { orgId: string }) {
       setIsOpen(false);
       setName('');
       setLevel('');
+      router.refresh();
     } catch {
       alert('Erro ao criar turma');
     } finally {

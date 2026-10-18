@@ -7,15 +7,40 @@ interface LessonData {
   id: string;
   title: string;
   description?: string | null;
+  activities?: Array<{
+    id: string;
+    title: string;
+    type: string;
+    pdf_url?: string | null;
+    video_url?: string | null;
+    link_url?: string | null;
+    audio_url?: string | null;
+  }>;
 }
 
 interface EditLessonModalProps {
   lesson: LessonData;
   trackId: string;
+  externalIsOpen?: boolean;
+  onExternalClose?: () => void;
+  hideTrigger?: boolean;
 }
 
-export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function EditLessonModal({
+  lesson,
+  trackId,
+  externalIsOpen,
+  onExternalClose,
+  hideTrigger = false,
+}: EditLessonModalProps) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+
+  const handleClose = () => {
+    setInternalIsOpen(false);
+    if (onExternalClose) onExternalClose();
+  };
+
   const [title, setTitle] = useState(lesson.title);
   const [communicativeObjectives, setCommunicativeObjectives] = useState('');
   const [vocabulary, setVocabulary] = useState('');
@@ -24,6 +49,13 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
   const [preparationStatus, setPreparationStatus] = useState<'ready' | 'needs_prep'>('ready');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [coverSource, setCoverSource] = useState<'url' | 'file'>('url');
+
+  // Campos de anexo didático da aula
+  const [materialType, setMaterialType] = useState('Documento/PDF');
+  const [materialTitle, setMaterialTitle] = useState('');
+  const [materialUrl, setMaterialUrl] = useState('');
+  const [materialSource, setMaterialSource] = useState<'link' | 'upload'>('link');
+
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -38,6 +70,9 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
         setStatus(parsed.status || 'todo');
         setPreparationStatus(parsed.preparation_status || 'ready');
         setCoverImageUrl(parsed.cover_image_url || '');
+        setMaterialType(parsed.material_type || 'Documento/PDF');
+        setMaterialTitle(parsed.material_title || '');
+        setMaterialUrl(parsed.material_url || '');
       } catch {
         setCommunicativeObjectives(lesson.description);
       }
@@ -46,7 +81,7 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && isOpen) setIsOpen(false);
+      if (event.key === 'Escape' && isOpen) handleClose();
     }
     if (isOpen) document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -61,8 +96,12 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
 
     startTransition(async () => {
       try {
-        await updateLessonAction(formData);
-        setIsOpen(false);
+        const res = await updateLessonAction(formData);
+        if (res && !res.success) {
+          setErrorMsg(res.error || 'Erro ao atualizar aula.');
+          return;
+        }
+        handleClose();
       } catch (err: any) {
         setErrorMsg(err.message || 'Erro ao atualizar aula.');
       }
@@ -71,23 +110,25 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(true);
-        }}
-        className="px-2.5 py-1 text-[11px] font-semibold text-[#6C0F37] hover:bg-[#F7F4ED] rounded-lg border border-[#E6E1D8] transition-colors cursor-pointer"
-        title="Editar aula"
-      >
-        ✏️ Editar
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setInternalIsOpen(true);
+          }}
+          className="px-2.5 py-1 text-[11px] font-semibold text-[#6C0F37] hover:bg-[#F7F4ED] rounded-lg border border-[#E6E1D8] transition-colors cursor-pointer"
+          title="Editar aula"
+        >
+          ✏️ Editar
+        </button>
+      )}
 
       {isOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsOpen(false);
+            if (e.target === e.currentTarget) handleClose();
           }}
         >
           <div
@@ -96,7 +137,7 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
           >
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
               className="absolute top-4 right-4 text-[#6F6865] hover:text-[#2B2426] p-1 font-bold text-base cursor-pointer"
             >
               ✕
@@ -108,7 +149,7 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
               </span>
               <h3 className="text-lg font-bold text-[#6C0F37] mt-1.5">Editar Aula</h3>
               <p className="text-xs text-[#6F6865] mt-0.5">
-                Atualize o título, status, objetivos e miniatura da aula.
+                Atualize o título, status, objetivos, miniatura e anexos da aula.
               </p>
             </div>
 
@@ -122,6 +163,7 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <input type="hidden" name="lesson_id" value={lesson.id} />
               <input type="hidden" name="track_id" value={trackId} />
+              <input type="hidden" name="activity_type" value={materialType} />
 
               <div>
                 <label className="block text-xs font-semibold text-[#2B2426] mb-1">
@@ -217,6 +259,80 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
                 </div>
               </div>
 
+              {/* Anexos / Material Didático da Aula */}
+              <div className="pt-2 border-t border-[#E6E1D8] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[#2B2426]">
+                    📎 Anexo / Material de Apoio da Aula
+                  </label>
+                  <div className="flex text-[11px] gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMaterialSource('link')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        materialSource === 'link'
+                          ? 'bg-[#6C0F37] text-white font-medium'
+                          : 'text-[#6F6865] hover:text-[#2B2426]'
+                      }`}
+                    >
+                      Link / URL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMaterialSource('upload')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        materialSource === 'upload'
+                          ? 'bg-[#6C0F37] text-white font-medium'
+                          : 'text-[#6F6865] hover:text-[#2B2426]'
+                      }`}
+                    >
+                      Upload Arquivo
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <select
+                    value={materialType}
+                    onChange={(e) => setMaterialType(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                  >
+                    <option value="Documento/PDF">📄 Documento / PDF</option>
+                    <option value="Vídeo">▶️ Vídeo</option>
+                    <option value="Áudio">🎧 Áudio</option>
+                    <option value="Link">🔗 Link Externo</option>
+                    <option value="Apresentação">📊 Apresentação</option>
+                  </select>
+
+                  <input
+                    name="activity_title"
+                    type="text"
+                    value={materialTitle}
+                    onChange={(e) => setMaterialTitle(e.target.value)}
+                    placeholder="Título do anexo (opcional)"
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                  />
+                </div>
+
+                {materialSource === 'link' ? (
+                  <input
+                    name="content_url"
+                    type="url"
+                    value={materialUrl}
+                    onChange={(e) => setMaterialUrl(e.target.value)}
+                    placeholder="https://drive.google.com/... ou link do anexo"
+                    className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                  />
+                ) : (
+                  <input
+                    name="file_upload"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.mp3,.mp4,.png,.jpg,.jpeg"
+                    className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#6C0F37] file:text-white hover:file:bg-[#57102E] cursor-pointer"
+                  />
+                )}
+              </div>
+
               {/* Imagem de Capa */}
               <div className="pt-2 border-t border-[#E6E1D8] space-y-2">
                 <div className="flex items-center justify-between">
@@ -267,7 +383,7 @@ export function EditLessonModal({ lesson, trackId }: EditLessonModalProps) {
               <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#E6E1D8]">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleClose}
                   disabled={isPending}
                   className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:bg-[#F7F4ED] rounded-xl transition cursor-pointer"
                 >

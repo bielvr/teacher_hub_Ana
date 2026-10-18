@@ -76,15 +76,36 @@ export default async function StudentReviewPage() {
                 <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{resources.length}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {resources.map((item) => (
-                  <Card key={item.id} className="p-4 border border-stone-200/80 bg-[#fbfbf8]">
-                    <span className="text-[10px] font-bold uppercase text-stone-400">{item.subtitle || 'RECURSO'}</span>
-                    <h3 className="font-bold text-sm text-stone-900 mt-1">{item.title}</h3>
-                    {item.content_preview && (
-                      <p className="text-xs text-stone-500 mt-1 line-clamp-2">{item.content_preview}</p>
-                    )}
-                  </Card>
-                ))}
+                {resources.map((item) => {
+                  const isUnlockedLevel =
+                    item.content_preview === 'unlocked_level' ||
+                    item.subtitle === 'unlocked_level' ||
+                    item.title === 'unlocked_level';
+
+                  return (
+                    <Card key={item.id} className="p-4 border border-stone-200/80 bg-[#fbfbf8]">
+                      <span className="text-[10px] font-bold uppercase text-stone-400">
+                        {item.subtitle && item.subtitle !== 'unlocked_level'
+                          ? item.subtitle
+                          : isUnlockedLevel
+                          ? 'NÍVEL LIBERADO'
+                          : 'RECURSO'}
+                      </span>
+                      <h3 className="font-bold text-sm text-stone-900 mt-1">
+                        {item.title === 'unlocked_level' ? 'Novo nível liberado' : item.title}
+                      </h3>
+                      {isUnlockedLevel ? (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            🎉 Novo nível liberado!
+                          </span>
+                        </div>
+                      ) : item.content_preview ? (
+                        <p className="text-xs text-stone-500 mt-1 line-clamp-2">{item.content_preview}</p>
+                      ) : null}
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}

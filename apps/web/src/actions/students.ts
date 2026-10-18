@@ -8,12 +8,34 @@ export async function enrollStudentAction(classId: string, studentMemberId: stri
   const supabase = await createClient();
   await enrollStudentInClass(supabase, classId, studentMemberId);
   revalidatePath(`/professor/classes/${classId}`);
+  revalidatePath('/professor/classes');
+  revalidatePath('/professor/students');
+}
+
+export async function enrollStudentInClassAction(
+  classId: string,
+  studentMemberId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    await enrollStudentInClass(supabase, classId, studentMemberId);
+    revalidatePath(`/professor/classes/${classId}`);
+    revalidatePath('/professor/classes');
+    revalidatePath('/professor/students');
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao matricular aluno na turma.' };
+  }
 }
 
 export async function removeStudentAction(classId: string, studentMemberId: string) {
   const supabase = await createClient();
   await removeStudentFromClass(supabase, classId, studentMemberId);
   revalidatePath(`/professor/classes/${classId}`);
+  revalidatePath('/professor/classes');
+  revalidatePath('/professor/students');
 }
 
 export async function createStudentAction(formData: FormData): Promise<{ success: boolean; studentId?: string; error?: string }> {

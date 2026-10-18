@@ -35,6 +35,56 @@ export async function scheduleSessionAction(formData: FormData) {
     throw new Error(error.message);
   }
 
+  revalidatePath('/professor');
   revalidatePath('/professor/calendar');
+  revalidatePath('/student');
   revalidatePath('/student/calendar');
+}
+
+export async function cancelSessionAction(
+  sessionId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('live_sessions')
+      .update({ status: 'cancelled' })
+      .eq('id', sessionId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/calendar');
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao cancelar sessão.' };
+  }
+}
+
+export async function deleteSessionAction(
+  sessionId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('live_sessions')
+      .delete()
+      .eq('id', sessionId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/calendar');
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao excluir evento.' };
+  }
 }

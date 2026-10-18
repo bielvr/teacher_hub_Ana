@@ -51,9 +51,19 @@ export default async function ProfessorNotesPage({
     .eq('organization_id', activeOrgId)
     .order('lesson_date', { ascending: false });
 
-  const notes: LessonNoteItem[] = ((notesData as any[]) || []).filter(
-    (n: any) => !n.title?.startsWith('[Chamada]') && !n.title?.startsWith('[Contrato]')
-  );
+  const notes: LessonNoteItem[] = ((notesData as any[]) || [])
+    .filter((n: any) => !n.title?.startsWith('[Chamada]') && !n.title?.startsWith('[Contrato]'))
+    .map((n: any) => {
+      const match = typeof n.content === 'string' ? n.content.match(/<!--private:([0-9a-f-]+)-->/i) : null;
+      if (match && match[1]) {
+        return {
+          ...n,
+          student_id: match[1],
+          content: n.content.replace(/<!--private:[0-9a-f-]+-->/i, '<!--private-->'),
+        };
+      }
+      return n;
+    });
 
   return (
     <div className="space-y-6">

@@ -78,13 +78,20 @@ export default async function TeacherBillingPage({
   let expensePendingTotal = 0;
   let expensePaidTotal = 0;
 
+  const isExpensePaid = (status?: string) => status === 'paid' || status === 'paga';
+  const isExpensePendingOrOverdue = (status?: string) =>
+    status === 'pending' ||
+    status === 'pendente' ||
+    status === 'overdue' ||
+    status === 'vencida';
+
   expenses.forEach((e) => {
     const amount = Number(e.amount) || 0;
-    if (e.status === 'pending') {
+    if (isExpensePaid(e.status)) {
+      expensePaidTotal += amount;
+    } else if (isExpensePendingOrOverdue(e.status)) {
       expensePendingCount++;
       expensePendingTotal += amount;
-    } else if (e.status === 'paid') {
-      expensePaidTotal += amount;
     }
   });
 
@@ -122,9 +129,10 @@ export default async function TeacherBillingPage({
     });
 
   expenses
-    .filter((e) => e.status === 'pending')
+    .filter((e) => isExpensePendingOrOverdue(e.status))
     .forEach((e) => {
-      const isOverdue = e.due_date < todayIso;
+      const isOverdue =
+        e.status === 'overdue' || e.status === 'vencida' || e.due_date < todayIso;
       pendingItems.push({
         id: `e-${e.id}`,
         type: 'expense',

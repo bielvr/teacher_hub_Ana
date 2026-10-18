@@ -6,6 +6,7 @@ import {
   createPlanningLessonAction,
   updatePlanningLessonAction,
   sendLessonToMaterialsAction,
+  deletePlanningLessonAction,
 } from '../actions/tracks';
 
 export interface ChecklistItem {
@@ -496,14 +497,23 @@ export function PlanningLessonCard({
 }: PlanningLessonCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [isPending, startTransition] = useTransition();
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const normalizedLessonStatus: 'need_prep' | 'in_progress' | 'ready' =
+    (lesson.prepStatus as string) === 'needs_prep' || lesson.prepStatus === 'need_prep'
+      ? 'need_prep'
+      : lesson.prepStatus === 'in_progress'
+      ? 'in_progress'
+      : 'ready';
+
   // Estados do modal de edição
   const [title, setTitle] = useState(lesson.title);
   const [prepStatus, setPrepStatus] = useState<'need_prep' | 'in_progress' | 'ready'>(
-    lesson.prepStatus
+    normalizedLessonStatus
   );
   const [objectives, setObjectives] = useState(lesson.communicativeGoals || '');
   const [notes, setNotes] = useState(lesson.notes || '');
@@ -514,7 +524,13 @@ export function PlanningLessonCard({
 
   useEffect(() => {
     setTitle(lesson.title);
-    setPrepStatus(lesson.prepStatus);
+    setPrepStatus(
+      (lesson.prepStatus as string) === 'needs_prep' || lesson.prepStatus === 'need_prep'
+        ? 'need_prep'
+        : lesson.prepStatus === 'in_progress'
+        ? 'in_progress'
+        : 'ready'
+    );
     setObjectives(lesson.communicativeGoals || '');
     setNotes(lesson.notes || '');
     setVocabulary(lesson.vocabulary || '');
@@ -548,7 +564,7 @@ export function PlanningLessonCard({
       badgeClass: 'bg-[#F0FDF4] text-[#198754] border-[#B9F5D0]',
       dotClass: 'bg-[#198754]',
     },
-  }[lesson.prepStatus] || {
+  }[normalizedLessonStatus] || {
     label: 'Em preparação',
     badgeClass: 'bg-[#FFFDF0] text-[#B78103] border-[#FEEBAA]',
     dotClass: 'bg-[#B78103]',
@@ -566,6 +582,19 @@ export function PlanningLessonCard({
         setToastMsg('Disponibilizada em Materiais Didáticos!');
         setTimeout(() => setToastMsg(null), 3500);
         setEditOpen(false);
+      }
+    });
+  };
+
+  const handleDeletePlanningLesson = () => {
+    setDeleteError('');
+    startTransition(async () => {
+      const res = await deletePlanningLessonAction(lesson.id);
+      if (res.success) {
+        setDeleteConfirmOpen(false);
+        setEditOpen(false);
+      } else {
+        setDeleteError(res.error || 'Erro ao excluir rascunho.');
       }
     });
   };
@@ -664,6 +693,22 @@ export function PlanningLessonCard({
                         <span>📁</span>
                         <span>Abrir em Materiais Didáticos →</span>
                       </Link>
+
+                      <div className="my-1 border-t border-[#E6E1D8]" />
+
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setDeleteError('');
+                          setDeleteConfirmOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-[11px] font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <span>🗑️</span>
+                        <span>Excluir aula / rascunho</span>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -951,6 +996,58 @@ export function PlanningLessonCard({
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão da Lesson / Rascunho */}
+      {deleteConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isPending) setDeleteConfirmOpen(false);
+          }}
+        >
+          <div
+            className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-2xl w-full max-w-sm relative animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto text-xl">
+                ⚠️
+              </div>
+              <h3 className="text-base font-bold text-[#2B2426]">
+                Excluir aula / rascunho?
+              </h3>
+              <p className="text-xs text-[#6F6865] leading-relaxed">
+                Tem certeza que deseja excluir <strong>{lesson.title}</strong> do planejamento? Esta ação não pode ser desfeita.
+              </p>
+
+              {deleteError && (
+                <div className="p-2.5 bg-red-50 text-red-700 text-xs rounded-xl text-left">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-center gap-2.5 pt-3 border-t border-[#E6E1D8]">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                  disabled={isPending}
+                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:bg-[#FAF8F5] rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeletePlanningLesson}
+                  disabled={isPending}
+                  className="px-5 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer"
+                >
+                  {isPending ? 'Excluindo...' : 'Sim, Excluir'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -32,40 +32,45 @@ export default async function StudentCalendarPage({
 
   if (activeOrgId) {
     // 2. Busca turmas associadas à aluna via class_students
-    const { data: enrollments } = await supabase
-      .from('class_students')
-      .select('class_id')
-      .eq('student_id', memberId);
+    const candidateStudentIds = Array.from(new Set([memberId, userId].filter(Boolean)));
+    const { data: enrollments } =
+      candidateStudentIds.length > 0
+        ? await supabase
+            .from('class_students')
+            .select('class_id')
+            .in('student_id', candidateStudentIds)
+        : { data: [] };
 
-    const classIds = (enrollments || []).map((e: any) => e.class_id).filter(Boolean);
+    const classIds = Array.from(
+      new Set((enrollments || []).map((e: any) => e.class_id).filter(Boolean))
+    );
 
-    // 3. Monta query de sessões ao vivo filtrando estritamente pela organização e turmas da aluna
-    let query = supabase
-      .from('live_sessions')
-      .select(`
-        id,
-        title,
-        scheduled_at,
-        duration_minutes,
-        meet_url,
-        status,
-        class_id,
-        organization_id,
-        classes (
-          id,
-          name,
-          level
-        )
-      `)
-      .eq('organization_id', activeOrgId)
-      .order('scheduled_at', { ascending: true });
-
+    // 3. Monta query de sessões ao vivo filtrando estritamente pela organização, turmas da aluna e status agendado
     if (classIds.length > 0) {
-      query = query.or(`class_id.in.(${classIds.join(',')}),class_id.is.null`);
-    }
+      const { data: sessions } = await supabase
+        .from('live_sessions')
+        .select(`
+          id,
+          title,
+          scheduled_at,
+          duration_minutes,
+          meet_url,
+          status,
+          class_id,
+          organization_id,
+          classes (
+            id,
+            name,
+            level
+          )
+        `)
+        .eq('organization_id', activeOrgId)
+        .eq('status', 'scheduled')
+        .in('class_id', classIds)
+        .order('scheduled_at', { ascending: true });
 
-    const { data: sessions } = await query;
-    sessionList = sessions || [];
+      sessionList = sessions || [];
+    }
   }
 
   return (

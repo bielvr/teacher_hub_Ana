@@ -94,7 +94,20 @@ export async function createExpenseAction(formData: FormData) {
   const rawAmount = formData.get('amount') as string;
   const due_date = formData.get('due_date') as string;
   const recurrence = (formData.get('recurrence') as string) || 'Mensal';
-  const status = (formData.get('status') as string) || 'pendente';
+  const rawStatus = ((formData.get('status') as string) || 'pending').trim().toLowerCase();
+
+  const statusMap: Record<string, 'pending' | 'paid' | 'overdue'> = {
+    pending: 'pending',
+    pendente: 'pending',
+    paid: 'paid',
+    paga: 'paid',
+    pago: 'paid',
+    overdue: 'overdue',
+    vencida: 'overdue',
+    vencido: 'overdue',
+  };
+
+  const status = statusMap[rawStatus] || 'pending';
 
   if (!organization_id || !description || !rawAmount || !due_date) {
     throw new Error('Preencha os campos obrigatórios da despesa.');
@@ -110,10 +123,30 @@ export async function createExpenseAction(formData: FormData) {
     due_date,
     recurrence,
     status,
+    paid_at: status === 'paid' ? new Date().toISOString() : null,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Fallback caso exista restrição legada com valores em português no banco
+    const ptFallbackMap: Record<'pending' | 'paid' | 'overdue', string> = {
+      pending: 'pendente',
+      paid: 'paga',
+      overdue: 'vencida',
+    };
+    const { error: retryErr } = await supabase.from('expenses').insert({
+      organization_id,
+      description,
+      category,
+      amount,
+      due_date,
+      recurrence,
+      status: ptFallbackMap[status],
+      paid_at: status === 'paid' ? new Date().toISOString() : null,
+    });
+    if (retryErr) throw new Error(retryErr.message);
+  }
 
+  revalidatePath('/professor/billing');
   revalidatePath('/professor/billing/expenses');
   revalidatePath('/professor/billing/reports');
 }

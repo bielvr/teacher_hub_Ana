@@ -301,10 +301,10 @@ export function StudentNotesEditorClient({
           )
         );
       } else {
-        await createLessonNoteAction(formData);
-        const tempId = `temp-${Date.now()}`;
+        const res = await createLessonNoteAction(formData);
+        const createdId = res?.id || `temp-${Date.now()}`;
         const newNote: LessonNoteItem = {
-          id: tempId,
+          id: createdId,
           organization_id: organizationId,
           student_id: selectedStudentId,
           author_role: 'teacher',
@@ -314,7 +314,7 @@ export function StudentNotesEditorClient({
           created_at: new Date().toISOString(),
         };
         setNotes([newNote, ...notes]);
-        setActiveNoteId(tempId);
+        setActiveNoteId(createdId);
       }
 
       setSaveSuccess(true);

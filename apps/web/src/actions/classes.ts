@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../lib/supabase/server';
-import { createClass, deleteClass } from '../services/classes';
+import { createClass, deleteClass, enrollStudentInClass } from '../services/classes';
 
 export async function createClassAction(formData: FormData) {
   const organization_id = formData.get('organization_id') as string;
@@ -14,8 +14,24 @@ export async function createClassAction(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let teacherId: string | null = null;
+  if (user) {
+    const { data: member } = await supabase
+      .from('organization_members')
+      .select('id')
+      .eq('organization_id', organization_id)
+      .eq('profile_id', user.id)
+      .maybeSingle();
+    teacherId = member?.id || null;
+  }
+
   await createClass(supabase, {
     organization_id,
+    teacher_id: teacherId,
     name,
     level: level || null,
   });
@@ -23,10 +39,35 @@ export async function createClassAction(formData: FormData) {
   revalidatePath('/professor/classes');
 }
 
-export async function deleteClassAction(classId: string) {
-  const supabase = await createClient();
-  await deleteClass(supabase, classId);
-  revalidatePath('/professor/classes');
+export async function deleteClassAction(classId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    await deleteClass(supabase, classId);
+    revalidatePath('/professor/classes');
+    revalidatePath('/professor/students');
+    revalidatePath('/professor/calendar');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao excluir turma.' };
+  }
+}
+
+export async function enrollStudentInClassAction(
+  classId: string,
+  studentMemberId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    await enrollStudentInClass(supabase, classId, studentMemberId);
+    revalidatePath(`/professor/classes/${classId}`);
+    revalidatePath('/professor/classes');
+    revalidatePath('/professor/students');
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao matricular aluno na turma.' };
+  }
 }
 
 export async function getOrgClassesAction(organizationId: string) {

@@ -7,6 +7,7 @@ import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { ScheduleSessionModal } from '../../../src/components/ScheduleSessionModal';
 import { SyncCalendarHeaderButton, AddToGoogleCalendarButton } from '../../../src/components/CalendarSyncButtons';
+import { CalendarSessionActions } from '../../../src/components/CalendarSessionActions';
 
 export default async function CalendarPage({
   searchParams,
@@ -74,6 +75,13 @@ export default async function CalendarPage({
               cancelled: 'bg-red-50 text-red-600 border-red-200',
             };
 
+            const statusLabels: Record<string, string> = {
+              scheduled: 'Agendada',
+              live: 'Ao Vivo',
+              finished: 'Finalizada',
+              cancelled: 'Cancelada',
+            };
+
             return (
               <Card
                 key={session.id}
@@ -91,7 +99,13 @@ export default async function CalendarPage({
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-base text-[#2B2426]">
+                      <h3
+                        className={`font-bold text-base ${
+                          session.status === 'cancelled'
+                            ? 'line-through text-[#6F6865]'
+                            : 'text-[#2B2426]'
+                        }`}
+                      >
                         {session.title}
                       </h3>
                       {(session.meet_url?.includes('meet.google.com') || session.title?.toLowerCase().includes('google')) && (
@@ -117,10 +131,10 @@ export default async function CalendarPage({
                       statusColors[session.status] || 'bg-stone-50'
                     }`}
                   >
-                    {session.status}
+                    {statusLabels[session.status] || session.status}
                   </span>
 
-                  {session.meet_url && (
+                  {session.meet_url && session.status !== 'cancelled' && (
                     <a
                       href={session.meet_url}
                       target="_blank"
@@ -130,6 +144,12 @@ export default async function CalendarPage({
                       Acessar Sala
                     </a>
                   )}
+
+                  <CalendarSessionActions
+                    sessionId={session.id}
+                    sessionTitle={session.title}
+                    status={session.status}
+                  />
                 </div>
               </Card>
             );

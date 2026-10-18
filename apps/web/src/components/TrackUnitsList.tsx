@@ -298,9 +298,13 @@ export function TrackUnitsList({
 
       {/* Modal de Edição de Aula disparado via Detalhes */}
       {lessonToEdit && (
-        <div style={{ display: 'none' }}>
-          {/* Suporte invisível para acionamento direto */}
-        </div>
+        <EditLessonModal
+          lesson={lessonToEdit}
+          trackId={trackId}
+          externalIsOpen={true}
+          onExternalClose={() => setLessonToEdit(null)}
+          hideTrigger={true}
+        />
       )}
     </div>
   );

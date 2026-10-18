@@ -57,7 +57,26 @@ export async function reviewFreeProductionAction(formData: FormData) {
   revalidatePath('/professor/free-submissions');
 }
 
-// 3. Criar Anotação no Caderno Compartilhado
+/**
+ * 3. Criar Anotação no Caderno Compartilhado ou Registro Pedagógico Privado
+ *
+ * POLÍTICA RLS RESTRITIVA (Supabase PostgreSQL - public.lesson_notes):
+ * Para impedir que alunos leiam anotações privadas da professora via consulta direta
+ * na API REST (/rest/v1/lesson_notes), a política SELECT para alunos restringe:
+ *   USING (
+ *     student_id = auth.uid()
+ *     AND (
+ *       author_role = 'student'
+ *       OR (
+ *         author_role != 'student'
+ *         AND title NOT ILIKE '[Privado]%'
+ *         AND content NOT ILIKE '%<!--private-->%'
+ *         AND title NOT ILIKE '[Chamada]%'
+ *         AND title NOT ILIKE '[Contrato]%'
+ *       )
+ *     )
+ *   )
+ */
 export async function createLessonNoteAction(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -65,39 +84,86 @@ export async function createLessonNoteAction(formData: FormData) {
 
   const organization_id = formData.get('organization_id') as string;
   const student_id = (formData.get('student_id') as string) || user.id;
-  const author_role = (formData.get('author_role') as 'teacher' | 'student') || 'student';
-  const title = formData.get('title') as string;
-  const content = formData.get('content') as string;
+  const requestedRole = (formData.get('author_role') as 'teacher' | 'student') || 'student';
+  const rawTitle = (formData.get('title') as string)?.trim();
+  const rawContent = (formData.get('content') as string)?.trim();
   const lesson_id = (formData.get('lesson_id') as string) || null;
+  const lesson_date =
+    (formData.get('lesson_date') as string)?.trim() || new Date().toISOString().split('T')[0];
+  const isPrivateFlag =
+    formData.get('is_private') === 'true' ||
+    /^\[Privado\]/i.test(rawTitle || '') ||
+    (rawContent || '').includes('<!--private-->');
 
-  if (!organization_id || !title || !content) throw new Error('Campos obrigatórios ausentes.');
+  if (!organization_id || !rawTitle || !rawContent) throw new Error('Campos obrigatórios ausentes.');
 
-  const { error } = await supabase.from('lesson_notes').insert({
-    organization_id,
-    student_id,
-    author_role,
-    title,
-    content,
-    lesson_id,
-    lesson_date: new Date().toISOString().split('T')[0],
-  });
+  // Valida papel real do usuário na organização para evitar escalação de author_role
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('role')
+    .eq('organization_id', organization_id)
+    .eq('profile_id', user.id)
+    .maybeSingle();
+
+  const isStaff =
+    membership?.role === 'owner' ||
+    membership?.role === 'admin' ||
+    membership?.role === 'teacher';
+
+  const author_role: 'teacher' | 'student' =
+    isStaff && requestedRole === 'teacher' ? 'teacher' : 'student';
+
+  // Garante gravação identificável para notas privadas (exclusivo para docentes: author_role != 'student')
+  const isPrivateNote = author_role !== 'student' && isPrivateFlag;
+  const cleanBaseTitle = rawTitle.replace(/^\[Privado\]\s*/i, '').trim();
+  const cleanBaseContent = rawContent.replace(/<!--private(?::[0-9a-f-]+)?-->\s*/gi, '').trim();
+
+  const title = isPrivateNote ? `[Privado] ${cleanBaseTitle}` : cleanBaseTitle;
+  const content = isPrivateNote
+    ? `<!--private-->\n${cleanBaseContent}`
+    : cleanBaseContent;
+
+  const { data: inserted, error } = await supabase
+    .from('lesson_notes')
+    .insert({
+      organization_id,
+      student_id: author_role === 'student' ? user.id : student_id,
+      author_role,
+      title,
+      content,
+      lesson_id,
+      lesson_date,
+    })
+    .select('id')
+    .single();
 
   if (error) throw new Error(error.message);
 
   revalidatePath('/student/notes');
   revalidatePath('/professor/notes');
+  return { id: inserted?.id };
 }
 
 export async function updateLessonNoteAction(formData: FormData) {
   const supabase = await createClient();
   const note_id = formData.get('note_id') as string;
-  const title = (formData.get('title') as string)?.trim();
-  const content = (formData.get('content') as string)?.trim();
+  const rawTitle = (formData.get('title') as string)?.trim();
+  const rawContent = (formData.get('content') as string)?.trim();
   const lesson_date = (formData.get('lesson_date') as string)?.trim();
+  const isPrivateFlag =
+    formData.get('is_private') === 'true' ||
+    /^\[Privado\]/i.test(rawTitle || '') ||
+    (rawContent || '').includes('<!--private-->');
 
-  if (!note_id || !title || !content) {
+  if (!note_id || !rawTitle || !rawContent) {
     throw new Error('ID, título e conteúdo são obrigatórios.');
   }
+
+  const cleanBaseTitle = rawTitle.replace(/^\[Privado\]\s*/i, '').trim();
+  const cleanBaseContent = rawContent.replace(/<!--private-->\s*/gi, '').trim();
+
+  const title = isPrivateFlag ? `[Privado] ${cleanBaseTitle}` : cleanBaseTitle;
+  const content = isPrivateFlag ? `<!--private-->\n${cleanBaseContent}` : cleanBaseContent;
 
   const { error } = await supabase
     .from('lesson_notes')
@@ -392,10 +458,17 @@ export async function sendNoticeAction(orgId: string, title: string, content: st
 }
 
 // 4. Marcar Atividade como Concluída ou Alternar Progresso do Aluno
-export async function toggleActivityCompletionAction(activityId: string, orgId: string) {
+export async function toggleActivityCompletionAction(
+  activityId: string,
+  orgId: string,
+  answers?: Record<string, any>
+) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Não autenticado');
+
+  const hasAnswers = answers && typeof answers === 'object' && Object.keys(answers).length > 0;
+  const serializedAnswers = hasAnswers ? JSON.stringify(answers) : undefined;
 
   const { data: existing } = await supabase
     .from('activity_submissions')
@@ -411,6 +484,7 @@ export async function toggleActivityCompletionAction(activityId: string, orgId: 
       .update({
         status: newStatus,
         updated_at: new Date().toISOString(),
+        ...(serializedAnswers ? { teacher_feedback: serializedAnswers } : {}),
       })
       .eq('id', existing.id);
 
@@ -426,6 +500,7 @@ export async function toggleActivityCompletionAction(activityId: string, orgId: 
         student_id: user.id,
         status: 'completed',
         submitted_at: new Date().toISOString(),
+        ...(serializedAnswers ? { teacher_feedback: serializedAnswers } : {}),
       });
 
     if (error) throw new Error(error.message);
@@ -445,12 +520,18 @@ export async function submitStudentActivityAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Não autenticado');
 
+  const safeAnswers = answers && typeof answers === 'object' ? answers : {};
+  const serializedAnswers = JSON.stringify(safeAnswers);
+  const nowIso = new Date().toISOString();
+
   const { data: existing } = await supabase
     .from('activity_submissions')
-    .select('id')
+    .select('id, teacher_feedback')
     .eq('activity_id', activityId)
     .eq('student_id', user.id)
     .maybeSingle();
+
+  let submissionId: string | null = existing?.id || null;
 
   if (existing) {
     const { error } = await supabase
@@ -458,13 +539,14 @@ export async function submitStudentActivityAction(
       .update({
         status: 'completed',
         score: score ?? null,
-        submitted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        teacher_feedback: serializedAnswers,
+        submitted_at: nowIso,
+        updated_at: nowIso,
       })
       .eq('id', existing.id);
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('activity_submissions')
       .insert({
         organization_id: orgId,
@@ -472,11 +554,45 @@ export async function submitStudentActivityAction(
         student_id: user.id,
         status: 'completed',
         score: score ?? null,
-        submitted_at: new Date().toISOString(),
-      });
+        teacher_feedback: serializedAnswers,
+        submitted_at: nowIso,
+      })
+      .select('id')
+      .single();
     if (error) throw new Error(error.message);
+    submissionId = inserted?.id || null;
+  }
+
+  // Persiste também na tabela relacional activity_answers vinculada ao submission_id
+  if (submissionId && Object.keys(safeAnswers).length > 0) {
+    try {
+      await supabase
+        .from('activity_answers')
+        .delete()
+        .eq('submission_id', submissionId);
+
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+      const answerRows = Object.entries(safeAnswers)
+        .filter(([itemId]) => uuidRegex.test(itemId))
+        .map(([itemId, val]) => ({
+          submission_id: submissionId as string,
+          item_id: itemId,
+          student_answer:
+            typeof val === 'string' ? val : val !== undefined && val !== null ? JSON.stringify(val) : null,
+          answered_at: nowIso,
+        }));
+
+      if (answerRows.length > 0) {
+        await supabase.from('activity_answers').insert(answerRows);
+      }
+    } catch {
+      // Fallback já garantido em activity_submissions
+    }
   }
 
   revalidatePath('/student/activities');
-  return { success: true };
+  revalidatePath(`/professor/students/${user.id}`);
+  return { success: true, submissionId, answers: safeAnswers };
 }

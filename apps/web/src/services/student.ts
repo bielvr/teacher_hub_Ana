@@ -15,22 +15,25 @@ export async function getStudentContext(supabase: SupabaseClient<Database>, orgI
 
   if (!member) return null;
 
-  // 2. Busca turma do aluno (se houver matrícula)
-  const { data: enrollment } = await supabase
+  // 2. Busca turmas do aluno (se houver matrícula)
+  const { data: enrollments } = await supabase
     .from('class_students')
     .select('class_id, classes (id, name, level)')
-    .eq('student_id', member.id)
-    .maybeSingle();
+    .in('student_id', [member.id, user.id]);
 
-  const classData = (enrollment as any)?.classes || null;
+  const enrollmentList = (enrollments as any[]) || [];
+  const classData = enrollmentList[0]?.classes || null;
+  const classIds = Array.from(
+    new Set(enrollmentList.map((e) => e.class_id).filter(Boolean))
+  );
 
   // 3. Busca a próxima live session (se tiver turma)
   let nextSession = null;
-  if (classData?.id) {
+  if (classIds.length > 0) {
     const { data: session } = await supabase
       .from('live_sessions')
       .select('id, title, scheduled_at, duration_minutes, meet_url')
-      .eq('class_id', classData.id)
+      .in('class_id', classIds)
       .eq('status', 'scheduled')
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true })
@@ -40,7 +43,7 @@ export async function getStudentContext(supabase: SupabaseClient<Database>, orgI
     nextSession = session;
   }
 
-  // 4. Busca trilhas liberadas da organização
+  // 4. Busca trilhas liberadas da organização (incluindo description das lessons)
   const { data: tracks } = await supabase
     .from('tracks')
     .select(`
@@ -54,6 +57,7 @@ export async function getStudentContext(supabase: SupabaseClient<Database>, orgI
         lessons (
           id,
           title,
+          description,
           order_index,
           release_type,
           activities (

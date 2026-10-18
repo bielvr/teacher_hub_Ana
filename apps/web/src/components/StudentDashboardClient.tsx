@@ -113,10 +113,10 @@ export function StudentDashboardClient({
                       📅
                     </div>
                     <h3 className="text-sm font-semibold text-[#2B2426]">
-                      Nenhuma aula ao vivo agendada no momento
+                      Nenhuma aula agendada no momento
                     </h3>
                     <p className="text-xs text-[#6F6865] mt-1 max-w-sm mx-auto">
-                      Aguarde o agendamento da próxima sessão pelo seu professor.
+                      Aguarde o agendamento da próxima sessão da sua turma pelo professor.
                     </p>
                   </div>
                 )}

@@ -228,8 +228,7 @@ export async function getDashboardData(
           )
         )
       `)
-      .eq('organization_id', activeOrgId)
-      .limit(4);
+      .eq('organization_id', activeOrgId);
 
     let needsPrepLesson: { id: string; title: string } | null = null;
     let prepCount = 0;
@@ -241,7 +240,10 @@ export async function getDashboardData(
             if (l.description) {
               try {
                 const parsed = JSON.parse(l.description);
-                if (parsed.preparation_status === 'needs_prep') {
+                if (
+                  parsed.preparation_status === 'need_prep' ||
+                  parsed.preparation_status === 'needs_prep'
+                ) {
                   prepCount++;
                   if (!needsPrepLesson) {
                     needsPrepLesson = { id: l.id, title: l.title };
@@ -262,9 +264,9 @@ export async function getDashboardData(
         type: 'prep',
         urgency: 'medium',
         title: prepCount > 1 ? `${prepCount} lições precisam de preparação` : 'Conteúdo a preparar antes da aula',
-        description: `Lição "${needsPrepLesson.title}" está marcada como "Precisa preparar".`,
+        description: `Lição "${needsPrepLesson.title}" está marcada como "Preciso preparar".`,
         actionLabel: 'Preparar lição',
-        actionHref: `/professor/tracks?org=${activeOrgId}`,
+        actionHref: `/professor/planning?status=need_prep&org=${activeOrgId}`,
         badgeText: 'Material didático',
       });
     }

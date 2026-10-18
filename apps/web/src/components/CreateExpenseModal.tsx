@@ -174,9 +174,9 @@ export function CreateExpenseModal({
                     name="status"
                     className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
                   >
-                    <option value="pendente">Pendente</option>
-                    <option value="paga">Paga</option>
-                    <option value="vencida">Vencida</option>
+                    <option value="pending">Pendente</option>
+                    <option value="paid">Paga</option>
+                    <option value="overdue">Vencida</option>
                   </select>
                 </div>
               </div>

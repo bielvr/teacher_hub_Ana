@@ -21,7 +21,7 @@ export default async function ProfessorStudentsPage({
     );
   }
 
-  // 1. Busca membros com papel de aluna (student) vinculados à organização
+  // 1. Busca membros com papel de aluna (student) vinculados à organização + turmas via FK organization_members.id
   const { data: rawMembers } = await supabase
     .from('organization_members')
     .select(`
@@ -34,19 +34,28 @@ export default async function ProfessorStudentsPage({
         full_name,
         email,
         phone
+      ),
+      class_students (
+        student_id,
+        classes (
+          id,
+          name,
+          level
+        )
       )
     `)
     .eq('organization_id', activeOrgId)
     .eq('role', 'student');
 
-  // 2. Busca vínculos de turma
+  // 2. Busca vínculos de turma diretamente para fallback seguro (tanto por organization_members.id quanto por profile_id)
   const { data: rawClassStudents } = await supabase
     .from('class_students')
     .select(`
       student_id,
       classes (
         id,
-        name
+        name,
+        level
       )
     `);
 
@@ -61,8 +70,29 @@ export default async function ProfessorStudentsPage({
 
   const studentsList: StudentListItem[] = (rawMembers || []).map((m: any) => {
     const prof = m.profiles || {};
-    const classRel = (rawClassStudents || []).find((cs: any) => cs.student_id === m.profile_id);
-    const className = (classRel as any)?.classes?.name || null;
+    const joinedEnrollments = Array.isArray(m.class_students)
+      ? m.class_students
+      : m.class_students
+      ? [m.class_students]
+      : [];
+
+    const directEnrollments = (rawClassStudents || []).filter(
+      (cs: any) => cs.student_id === m.id || cs.student_id === m.profile_id
+    );
+
+    const allEnrollments = [...joinedEnrollments, ...directEnrollments];
+    const uniqueClassNames = Array.from(
+      new Set(
+        allEnrollments
+          .map((cs: any) => cs?.classes?.name)
+          .filter(Boolean)
+      )
+    ) as string[];
+
+    const firstLevel =
+      allEnrollments.map((cs: any) => cs?.classes?.level).find(Boolean) || null;
+
+    const className = uniqueClassNames.length > 0 ? uniqueClassNames.join(', ') : null;
 
     return {
       id: prof.id || m.profile_id,
@@ -71,7 +101,7 @@ export default async function ProfessorStudentsPage({
       phone: prof.phone || null,
       status: m.status || 'active',
       class_name: className,
-      level_name: null,
+      level_name: firstLevel,
       joined_at: m.joined_at,
     };
   });

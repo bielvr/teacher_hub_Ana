@@ -27,6 +27,7 @@ export default async function StudentActivitiesPage({
 
   let activities: any[] = [];
   let completedIds: string[] = [];
+  let initialAnswersByActivity: Record<string, Record<string, any>> = {};
 
   if (activeOrgId) {
     const { data: tracksData } = await supabase
@@ -76,15 +77,53 @@ export default async function StudentActivitiesPage({
 
     activities = acts || [];
 
-    // Busca atividades já concluídas pelo estudante logado
+    // Busca atividades concluídas e respostas salvas pelo estudante logado
     if (userId) {
       const { data: submissions } = await supabase
         .from('activity_submissions')
-        .select('activity_id')
-        .eq('student_id', userId)
-        .eq('status', 'completed');
+        .select(`
+          id,
+          activity_id,
+          status,
+          score,
+          teacher_feedback,
+          activity_answers (
+            item_id,
+            student_answer
+          )
+        `)
+        .eq('student_id', userId);
 
-      completedIds = (submissions || []).map((s: any) => s.activity_id);
+      completedIds = (submissions || [])
+        .filter((s: any) => s.status === 'completed')
+        .map((s: any) => s.activity_id);
+
+      (submissions || []).forEach((s: any) => {
+        const restored: Record<string, any> = {};
+
+        if (typeof s.teacher_feedback === 'string' && s.teacher_feedback.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(s.teacher_feedback);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              Object.assign(restored, parsed);
+            }
+          } catch {
+            // Ignora caso não seja JSON de respostas
+          }
+        }
+
+        if (Array.isArray(s.activity_answers) && s.activity_answers.length > 0) {
+          s.activity_answers.forEach((ans: any) => {
+            if (ans.item_id) {
+              restored[ans.item_id] = ans.student_answer ?? '';
+            }
+          });
+        }
+
+        if (Object.keys(restored).length > 0) {
+          initialAnswersByActivity[s.activity_id] = restored;
+        }
+      });
     }
   }
 
@@ -102,6 +141,7 @@ export default async function StudentActivitiesPage({
       activities={activities}
       orgId={activeOrgId}
       initialCompletedIds={completedIds}
+      initialAnswersByActivity={initialAnswersByActivity}
     />
   );
 }

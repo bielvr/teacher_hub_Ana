@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { scheduleSessionAction } from '../actions/calendar';
 
 interface ClassOption {
@@ -15,6 +16,7 @@ export function ScheduleSessionModal({
   orgId: string;
   classes: ClassOption[];
 }) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -25,6 +27,7 @@ export function ScheduleSessionModal({
     try {
       await scheduleSessionAction(formData);
       setIsOpen(false);
+      router.refresh();
     } catch (err: any) {
       alert(err.message || 'Erro ao agendar aula');
     } finally {
