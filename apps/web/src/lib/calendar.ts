@@ -1,6 +1,50 @@
 /**
- * Utilitários para sincronização de calendário com Google Agenda e iCal (.ics)
+ * Utilitários para sincronização de calendário com Google Agenda, iCal (.ics) e Cálculo de Recorrência
  */
+
+export interface RecurringScheduleParams {
+  startDate: string;
+  time: string;
+  daysOfWeek: number[];
+  endCriteria: 'count' | 'date';
+  totalSessions?: number;
+  endDate?: string;
+}
+
+export function calculateRecurringDates(params: RecurringScheduleParams): string[] {
+  const { startDate, time, daysOfWeek, endCriteria, totalSessions = 20, endDate } = params;
+  if (!daysOfWeek || daysOfWeek.length === 0 || !startDate || !time) return [];
+
+  const results: string[] = [];
+  const parts = startDate.split('-').map(Number);
+  let current = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+
+  let endLimit: Date | null = null;
+  if (endCriteria === 'date' && endDate) {
+    const endParts = endDate.split('-').map(Number);
+    endLimit = new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59);
+  }
+
+  const maxSessions = endCriteria === 'count' ? Math.min(Math.max(totalSessions, 1), 120) : 120;
+  let safetyLoop = 0;
+  const maxDaysToScan = 730; // Limite de 2 anos para evitar loops infinitos
+
+  while (results.length < maxSessions && safetyLoop < maxDaysToScan) {
+    if (endLimit && current > endLimit) break;
+    const dayOfWeek = current.getDay();
+    if (daysOfWeek.includes(dayOfWeek)) {
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, '0');
+      const dd = String(current.getDate()).padStart(2, '0');
+      const isoString = new Date(`${yyyy}-${mm}-${dd}T${time}:00`).toISOString();
+      results.push(isoString);
+    }
+    current.setDate(current.getDate() + 1);
+    safetyLoop++;
+  }
+
+  return results;
+}
 
 export function formatGoogleDates(scheduledAtIso: string, durationMinutes: number = 60): string {
   const start = new Date(scheduledAtIso);

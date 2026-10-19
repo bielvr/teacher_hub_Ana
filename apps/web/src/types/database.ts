@@ -596,6 +596,130 @@ export interface Database {
         ];
       };
 
+      class_sessions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          student_id: string;
+          lesson_id: string | null;
+          title: string;
+          scheduled_at: string;
+          duration_minutes: number;
+          meet_url: string | null;
+          status: SessionStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          student_id: string;
+          lesson_id?: string | null;
+          title: string;
+          scheduled_at: string;
+          duration_minutes?: number;
+          meet_url?: string | null;
+          status?: SessionStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          student_id?: string;
+          lesson_id?: string | null;
+          title?: string;
+          scheduled_at?: string;
+          duration_minutes?: number;
+          meet_url?: string | null;
+          status?: SessionStatus;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'class_sessions_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'class_sessions_student_id_fkey';
+            columns: ['student_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'class_sessions_lesson_id_fkey';
+            columns: ['lesson_id'];
+            isOneToOne: false;
+            referencedRelation: 'lessons';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      group_sessions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          class_id: string;
+          lesson_id: string | null;
+          title: string;
+          scheduled_at: string;
+          duration_minutes: number;
+          meet_url: string | null;
+          status: SessionStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          lesson_id?: string | null;
+          title: string;
+          scheduled_at: string;
+          duration_minutes?: number;
+          meet_url?: string | null;
+          status?: SessionStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          class_id?: string;
+          lesson_id?: string | null;
+          title?: string;
+          scheduled_at?: string;
+          duration_minutes?: number;
+          meet_url?: string | null;
+          status?: SessionStatus;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'group_sessions_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'group_sessions_class_id_fkey';
+            columns: ['class_id'];
+            isOneToOne: false;
+            referencedRelation: 'classes';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'group_sessions_lesson_id_fkey';
+            columns: ['lesson_id'];
+            isOneToOne: false;
+            referencedRelation: 'lessons';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
       direct_messages: {
         Row: {
           id: string;
