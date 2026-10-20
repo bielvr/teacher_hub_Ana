@@ -216,3 +216,183 @@ export async function deleteSessionAction(
     return { success: false, error: err.message || 'Erro ao excluir evento.' };
   }
 }
+
+export async function updateSessionAction(payload: {
+  sessionId: string;
+  source?: 'class_session' | 'group_session' | 'live_session';
+  title?: string;
+  scheduled_at?: string;
+  duration_minutes?: number;
+  status?: 'scheduled' | 'completed' | 'cancelled' | 'in_progress';
+  meet_url?: string | null;
+  notes?: string | null;
+  studentId?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { sessionId, title, scheduled_at, duration_minutes, status, meet_url, notes, studentId } = payload;
+
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title;
+    if (scheduled_at !== undefined) updateData.scheduled_at = scheduled_at;
+    if (duration_minutes !== undefined) updateData.duration_minutes = duration_minutes;
+    if (status !== undefined) {
+      updateData.status = status === 'completed' ? 'finished' : status === 'in_progress' ? 'live' : status;
+    }
+    if (meet_url !== undefined) updateData.meet_url = meet_url;
+    if (notes !== undefined) updateData.notes = notes;
+
+    await Promise.allSettled([
+      supabase.from('class_sessions').update(updateData).eq('id', sessionId),
+      supabase.from('group_sessions').update(updateData).eq('id', sessionId),
+      supabase.from('live_sessions').update(updateData).eq('id', sessionId),
+    ]);
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/calendar');
+    if (studentId) {
+      revalidatePath(`/professor/students/${studentId}`);
+    }
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao atualizar aula.' };
+  }
+}
+
+export async function bulkUpdateSessionsStatusAction(
+  sessionIds: string[],
+  newStatus: 'scheduled' | 'completed' | 'cancelled' | 'in_progress',
+  studentId?: string
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    if (!sessionIds || sessionIds.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const supabase = await createClient();
+
+    const mappedStatus = (newStatus === 'completed' ? 'finished' : newStatus === 'in_progress' ? 'live' : newStatus) as any;
+    await Promise.allSettled([
+      supabase.from('class_sessions').update({ status: mappedStatus }).in('id', sessionIds),
+      supabase.from('group_sessions').update({ status: mappedStatus }).in('id', sessionIds),
+      supabase.from('live_sessions').update({ status: mappedStatus }).in('id', sessionIds),
+    ]);
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/calendar');
+    if (studentId) {
+      revalidatePath(`/professor/students/${studentId}`);
+    }
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true, count: sessionIds.length };
+  } catch (err: any) {
+    return { success: false, count: 0, error: err.message || 'Erro ao atualizar status em lote.' };
+  }
+}
+
+export async function bulkRescheduleSessionsAction(payload: {
+  sessionIds: string[];
+  newTime?: string;
+  shiftDays?: number;
+  newDateTime?: string;
+  studentId?: string;
+}): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const { sessionIds, newTime, shiftDays, newDateTime, studentId } = payload;
+    if (!sessionIds || sessionIds.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const supabase = await createClient();
+
+    // 1. Se informou data/horário fixo para todas:
+    if (newDateTime) {
+      const iso = new Date(newDateTime).toISOString();
+      await Promise.allSettled([
+        supabase.from('class_sessions').update({ scheduled_at: iso }).in('id', sessionIds),
+        supabase.from('group_sessions').update({ scheduled_at: iso }).in('id', sessionIds),
+        supabase.from('live_sessions').update({ scheduled_at: iso }).in('id', sessionIds),
+      ]);
+    } else if (newTime || shiftDays) {
+      // 2. Busca sessões para calcular nova data preservando o dia base ou deslocando dias
+      const [classRes, groupRes, liveRes] = await Promise.all([
+        supabase.from('class_sessions').select('id, scheduled_at').in('id', sessionIds),
+        supabase.from('group_sessions').select('id, scheduled_at').in('id', sessionIds),
+        supabase.from('live_sessions').select('id, scheduled_at').in('id', sessionIds),
+      ]);
+
+      const allRows = [
+        ...(classRes.data || []),
+        ...(groupRes.data || []),
+        ...(liveRes.data || []),
+      ];
+
+      for (const row of allRows) {
+        let dateObj = new Date(row.scheduled_at);
+
+        if (shiftDays) {
+          dateObj.setDate(dateObj.getDate() + shiftDays);
+        }
+
+        if (newTime) {
+          const [hours, minutes] = newTime.split(':').map(Number);
+          if (!isNaN(hours) && !isNaN(minutes)) {
+            dateObj.setHours(hours, minutes, 0, 0);
+          }
+        }
+
+        const newIso = dateObj.toISOString();
+
+        await Promise.allSettled([
+          supabase.from('class_sessions').update({ scheduled_at: newIso }).eq('id', row.id),
+          supabase.from('group_sessions').update({ scheduled_at: newIso }).eq('id', row.id),
+          supabase.from('live_sessions').update({ scheduled_at: newIso }).eq('id', row.id),
+        ]);
+      }
+    }
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/calendar');
+    if (studentId) {
+      revalidatePath(`/professor/students/${studentId}`);
+    }
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true, count: sessionIds.length };
+  } catch (err: any) {
+    return { success: false, count: 0, error: err.message || 'Erro ao remarcar aulas em lote.' };
+  }
+}
+
+export async function bulkDeleteSessionsAction(
+  sessionIds: string[],
+  studentId?: string
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    if (!sessionIds || sessionIds.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const supabase = await createClient();
+
+    await Promise.allSettled([
+      supabase.from('class_sessions').delete().in('id', sessionIds),
+      supabase.from('group_sessions').delete().in('id', sessionIds),
+      supabase.from('live_sessions').delete().in('id', sessionIds),
+    ]);
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/calendar');
+    if (studentId) {
+      revalidatePath(`/professor/students/${studentId}`);
+    }
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    return { success: true, count: sessionIds.length };
+  } catch (err: any) {
+    return { success: false, count: 0, error: err.message || 'Erro ao excluir aulas em lote.' };
+  }
+}

@@ -7,6 +7,7 @@ import {
   TrackItem,
   AttendanceRecord,
   SubmissionItem,
+  StudentSessionItem,
 } from '../../../../src/components/StudentProfileDetailsClient';
 
 export default async function StudentProfilePage({
@@ -115,6 +116,14 @@ export default async function StudentProfilePage({
 
   const className = uniqueClassNames.length > 0 ? uniqueClassNames.join(', ') : null;
 
+  const classIds = Array.from(
+    new Set(
+      allEnrollments
+        .map((rel: any) => rel?.classes?.id)
+        .filter(Boolean)
+    )
+  ) as string[];
+
   // 4. Busca trilhas/níveis da organização
   const { data: tracksData } = await supabase
     .from('tracks')
@@ -152,7 +161,7 @@ export default async function StudentProfilePage({
 
   const unlockedTrackIds = (unlockedItems || []).map((u: any) => u.item_id);
 
-  // 6. Busca notas (para chamada e saldo)
+  // 6. Busca notas (para saldo e histórico legado)
   const { data: rawNotes } = await supabase
     .from('lesson_notes')
     .select('*')
@@ -184,7 +193,6 @@ export default async function StudentProfilePage({
         if (parsed.notes) notes = parsed.notes;
         if (parsed.duration_minutes) duration_minutes = parsed.duration_minutes;
       } catch {
-        // Fallback do título
         const match = n.title.match(/\[Chamada\]\s*([^-]+)(?:\s*-\s*(.*))?/);
         if (match) {
           status = match[1].trim();
@@ -241,11 +249,94 @@ export default async function StudentProfilePage({
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', activeOrgId);
 
+  // 9. CRONOGRAMA DE AULAS (class_sessions e group_sessions)
+  const [individualRes, groupRes] = await Promise.all([
+    supabase
+      .from('class_sessions')
+      .select('*')
+      .eq('organization_id', activeOrgId)
+      .in('student_id', candidateIds)
+      .order('scheduled_at', { ascending: true }),
+    classIds.length > 0
+      ? supabase
+          .from('group_sessions')
+          .select('*, classes (id, name)')
+          .eq('organization_id', activeOrgId)
+          .in('class_id', classIds)
+          .order('scheduled_at', { ascending: true })
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const studentSessions: StudentSessionItem[] = [];
+
+  (individualRes.data || []).forEach((s: any) => {
+    studentSessions.push({
+      id: s.id,
+      source: 'class_session',
+      title: s.title,
+      scheduled_at: s.scheduled_at,
+      duration_minutes: s.duration_minutes || 60,
+      status: (s.status as any) || 'scheduled',
+      meet_url: s.meet_url,
+      notes: s.notes,
+      class_name: 'VIP Individual',
+    });
+  });
+
+  (groupRes.data || []).forEach((s: any) => {
+    studentSessions.push({
+      id: s.id,
+      source: 'group_session',
+      title: s.title,
+      scheduled_at: s.scheduled_at,
+      duration_minutes: s.duration_minutes || 60,
+      status: (s.status as any) || 'scheduled',
+      meet_url: s.meet_url,
+      notes: s.notes,
+      class_name: s.classes?.name ? `Turma: ${s.classes.name}` : 'Turma',
+    });
+  });
+
+  // Se não houver sessões nas novas tabelas mas houver registros em chamadas anteriores, inclui no diário
+  if (studentSessions.length === 0 && attendanceRecords.length > 0) {
+    attendanceRecords.forEach((att) => {
+      let st: 'scheduled' | 'completed' | 'cancelled' | 'in_progress' = 'completed';
+      if (att.status.includes('Não realizada')) st = 'cancelled';
+      studentSessions.push({
+        id: att.id,
+        source: 'attendance_note',
+        title: att.lesson_title || `Aula (${att.status})`,
+        scheduled_at: att.lesson_date ? `${att.lesson_date}T12:00:00.000Z` : att.created_at,
+        duration_minutes: att.duration_minutes || 60,
+        status: st,
+        notes: att.notes,
+        class_name: className || 'VIP Individual',
+      });
+    });
+  }
+
+  // Ordena cronologicamente
+  studentSessions.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
+  // Numeração cronológica (#01, #02...)
+  studentSessions.forEach((s, idx) => {
+    s.session_number = idx + 1;
+  });
+
   const studentData: StudentProfileData = {
     id: profile.id,
     full_name: profile.full_name || 'Aluna',
     email: profile.email || null,
     phone: profile.phone || null,
+    whatsapp: profile.whatsapp || profile.phone || null,
+    birth_date: profile.birth_date || null,
+    cep: profile.cep || null,
+    street: profile.street || null,
+    number: profile.number || null,
+    complement: profile.complement || null,
+    neighborhood: profile.neighborhood || null,
+    city: profile.city || null,
+    state: profile.state || null,
     status: member?.status || 'active',
     created_at: profile.created_at,
     joined_at: member?.joined_at || profile.created_at,
@@ -259,6 +350,7 @@ export default async function StudentProfilePage({
       tracks={tracks}
       initialUnlockedTrackIds={unlockedTrackIds}
       attendanceRecords={attendanceRecords}
+      sessions={studentSessions}
       contractedLessons={contractedLessons}
       submissions={submissions}
       totalActivitiesCount={totalActsCount || 0}

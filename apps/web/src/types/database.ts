@@ -31,6 +31,15 @@ export interface Database {
           full_name: string;
           avatar_url: string | null;
           phone: string | null;
+          whatsapp: string | null;
+          birth_date: string | null;
+          cep: string | null;
+          street: string | null;
+          number: string | null;
+          complement: string | null;
+          neighborhood: string | null;
+          city: string | null;
+          state: string | null;
           email: string | null;
           email_reminders_enabled: boolean;
           class_reminder_1h: boolean;
@@ -42,6 +51,15 @@ export interface Database {
           full_name: string;
           avatar_url?: string | null;
           phone?: string | null;
+          whatsapp?: string | null;
+          birth_date?: string | null;
+          cep?: string | null;
+          street?: string | null;
+          number?: string | null;
+          complement?: string | null;
+          neighborhood?: string | null;
+          city?: string | null;
+          state?: string | null;
           email?: string | null;
           email_reminders_enabled?: boolean;
           class_reminder_1h?: boolean;
@@ -53,6 +71,15 @@ export interface Database {
           full_name?: string;
           avatar_url?: string | null;
           phone?: string | null;
+          whatsapp?: string | null;
+          birth_date?: string | null;
+          cep?: string | null;
+          street?: string | null;
+          number?: string | null;
+          complement?: string | null;
+          neighborhood?: string | null;
+          city?: string | null;
+          state?: string | null;
           email?: string | null;
           email_reminders_enabled?: boolean;
           class_reminder_1h?: boolean;
@@ -544,6 +571,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes: number;
           meet_url: string | null;
+          notes?: string | null;
           status: SessionStatus;
           created_at: string;
         };
@@ -556,6 +584,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
         };
@@ -568,6 +597,7 @@ export interface Database {
           scheduled_at?: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
         };
@@ -606,6 +636,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes: number;
           meet_url: string | null;
+          notes?: string | null;
           status: SessionStatus;
           created_at: string;
         };
@@ -618,6 +649,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
         };
@@ -630,6 +662,7 @@ export interface Database {
           scheduled_at?: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
         };
@@ -668,6 +701,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes: number;
           meet_url: string | null;
+          notes?: string | null;
           status: SessionStatus;
           created_at: string;
         };
@@ -680,6 +714,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
         };
@@ -692,6 +727,7 @@ export interface Database {
           scheduled_at?: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
         };

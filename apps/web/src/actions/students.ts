@@ -304,3 +304,60 @@ export async function updateStudentContractedLessonsAction(
     return { success: false, error: err.message || 'Erro ao atualizar saldo de aulas contratadas.' };
   }
 }
+
+export async function updateStudentProfileAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const studentId = formData.get('student_id') as string;
+    const organizationId = formData.get('organization_id') as string;
+    const full_name = (formData.get('full_name') as string)?.trim();
+    const emailRaw = (formData.get('email') as string)?.trim();
+    const email = emailRaw ? emailRaw.toLowerCase() : null;
+    const phone = (formData.get('phone') as string)?.trim() || null;
+    const whatsapp = (formData.get('whatsapp') as string)?.trim() || phone;
+    const birth_date = (formData.get('birth_date') as string)?.trim() || null;
+    const cep = (formData.get('cep') as string)?.trim() || null;
+    const street = (formData.get('street') as string)?.trim() || null;
+    const number = (formData.get('number') as string)?.trim() || null;
+    const complement = (formData.get('complement') as string)?.trim() || null;
+    const neighborhood = (formData.get('neighborhood') as string)?.trim() || null;
+    const city = (formData.get('city') as string)?.trim() || null;
+    const state = (formData.get('state') as string)?.trim() || null;
+
+    if (!studentId || !full_name) {
+      return { success: false, error: 'O nome do aluno é obrigatório.' };
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name,
+        email,
+        phone,
+        whatsapp,
+        birth_date: birth_date || null,
+        cep,
+        street,
+        number,
+        complement,
+        neighborhood,
+        city,
+        state,
+      })
+      .eq('id', studentId);
+
+    if (error) {
+      console.error('Erro ao salvar perfil do aluno:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath(`/professor/students/${studentId}`);
+    revalidatePath('/professor/students');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao salvar perfil.' };
+  }
+}
