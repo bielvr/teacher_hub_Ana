@@ -6,6 +6,7 @@ import {
   type AdminCommissionRecord,
   type AdminPartnerSummary,
   type AdminPayoutRecord,
+  type AdminCouponLogRecord,
 } from '../../../../src/components/affiliates/AffiliateAdminClient';
 import type {
   AffiliateCommissionStatus,
@@ -65,8 +66,8 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
     );
   }
 
-  // Busca todas as parceiras, indicações, comissões e repasses
-  const [partnersRes, referralsRes, commissionsRes, payoutsRes] = await Promise.all([
+  // Busca todas as parceiras, indicações, comissões, repasses e logs de cupons
+  const [partnersRes, referralsRes, commissionsRes, payoutsRes, logsRes] = await Promise.all([
     supabase
       .from('affiliate_partners')
       .select('*, profiles:profile_id(full_name, email)')
@@ -83,12 +84,18 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
       .from('affiliate_payouts')
       .select('*')
       .order('paid_at', { ascending: false }),
+    supabase
+      .from('affiliate_coupon_logs')
+      .select('id, partner_id, referral_code, buyer_profile_id, attempt_status, rejection_reason, plan_chosen, cycle_chosen, discount_calculated, created_at, profiles:buyer_profile_id(full_name, email)')
+      .order('created_at', { ascending: false })
+      .limit(200),
   ]);
 
   const rawPartners = partnersRes.data || [];
   const rawReferrals = referralsRes.data || [];
   const rawCommissions = commissionsRes.data || [];
   const rawPayouts = payoutsRes.data || [];
+  const rawLogs = logsRes.data || [];
 
   const partnerMap = new Map<string, { name: string; code: string }>();
 
@@ -123,6 +130,8 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
       .filter((pay) => pay.partner_id === p.id)
       .reduce((acc, pay) => acc + Number(pay.amount || 0), 0);
 
+    const partnerAttemptsCount = rawLogs.filter((l) => l.partner_id === p.id).length;
+
     return {
       id: p.id,
       profileId: p.profile_id,
@@ -138,6 +147,21 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
       availableBalance,
       paidBalance: Math.max(paidCommissionsSum, partnerPayoutsSum),
       availableCommissionIds: availableCommissions.map((c) => c.id),
+      discountType: (p.discount_type as 'percentage' | 'fixed') || 'percentage',
+      discountValue: Number(p.discount_value ?? 20),
+      validPlans: (p.valid_plans as 'both' | 'monthly' | 'yearly') || 'both',
+      durationType:
+        (p.duration_type as 'first_charge' | 'multiple_months' | 'lifetime') || 'first_charge',
+      durationMonths: p.duration_months !== null ? Number(p.duration_months) : null,
+      startDate: p.start_date || p.created_at,
+      expirationDate: p.expiration_date || null,
+      maxRedemptions:
+        p.max_redemptions !== null && p.max_redemptions !== undefined
+          ? Number(p.max_redemptions)
+          : null,
+      currentRedemptions: Number(p.current_redemptions || 0),
+      allowStacking: Boolean(p.allow_stacking),
+      totalAttemptsCount: partnerAttemptsCount,
     };
   });
 
@@ -172,6 +196,25 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
     };
   });
 
+  const formattedLogs: AdminCouponLogRecord[] = rawLogs.map((log: any) => {
+    const info = partnerMap.get(log.partner_id);
+    const buyerObj = Array.isArray(log.profiles) ? log.profiles[0] : log.profiles;
+    return {
+      id: log.id,
+      partnerId: log.partner_id,
+      partnerName: info?.name || '—',
+      referralCode: log.referral_code,
+      buyerName: buyerObj?.full_name || 'Pessoa Compradora',
+      buyerEmail: buyerObj?.email || '—',
+      attemptStatus: log.attempt_status,
+      rejectionReason: log.rejection_reason || null,
+      planChosen: log.plan_chosen || null,
+      cycleChosen: log.cycle_chosen || null,
+      discountCalculated: Number(log.discount_calculated || 0),
+      createdAt: log.created_at,
+    };
+  });
+
   return (
     <div className="space-y-6">
       <AffiliateAdminClient
@@ -179,6 +222,7 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
         partners={partnersSummary}
         commissions={formattedCommissions}
         payouts={formattedPayouts}
+        couponLogs={formattedLogs}
       />
     </div>
   );

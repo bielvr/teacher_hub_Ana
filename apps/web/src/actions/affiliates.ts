@@ -549,3 +549,740 @@ export async function updatePartnerAdminSettingsAction(params: {
   revalidatePath('/professor/affiliates');
   return { success: true };
 }
+
+
+/**
+ * Busca perfis de usuários na plataforma para a titular selecionar na criação de parceira.
+ */
+export async function searchProfilesAction(query: string): Promise<{
+  success: boolean;
+  profiles: Array<{ id: string; full_name: string; email: string }>;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const cleanQ = (query || '').trim();
+    if (!cleanQ || cleanQ.length < 2) {
+      return { success: true, profiles: [] };
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .or(`full_name.ilike.%${cleanQ}%,email.ilike.%${cleanQ}%`)
+      .limit(10);
+
+    if (error) {
+      return { success: false, profiles: [], error: error.message };
+    }
+
+    return {
+      success: true,
+      profiles: (data || []).map((p: any) => ({
+        id: p.id,
+        full_name: p.full_name || 'Usuário Sem Nome',
+        email: p.email || '',
+      })),
+    };
+  } catch (err: any) {
+    return { success: false, profiles: [], error: err.message };
+  }
+}
+
+/**
+ * Criação direta de parceira pela Titular com configuração avançada de cupom.
+ */
+export async function adminCreatePartnerAction(params: {
+  orgId: string;
+  referralCode: string;
+  profileId?: string;
+  inviteName?: string;
+  inviteEmail?: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  validPlans: 'monthly' | 'yearly' | 'both';
+  durationType: 'first_charge' | 'multiple_months' | 'lifetime';
+  durationMonths?: number | null;
+  startDate?: string;
+  expirationDate?: string | null;
+  maxRedemptions?: number | null;
+  allowStacking?: boolean;
+  status?: AffiliatePartnerStatus;
+}): Promise<{
+  success: boolean;
+  partnerId?: string;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: 'Autenticação necessária.' };
+    }
+
+    // Valida se o usuário é titular da organização
+    const { data: member } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', params.orgId)
+      .eq('profile_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!member || member.role !== 'owner') {
+      return { success: false, error: 'Apenas a titular da escola pode cadastrar novas parceiras.' };
+    }
+
+    // Normalização e validação de código promocional
+    const cleanCode = (params.referralCode || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '');
+
+    if (!cleanCode || cleanCode.length < 2) {
+      return {
+        success: false,
+        error: 'O código promocional deve conter no mínimo 2 caracteres alfanuméricos.',
+      };
+    }
+
+    // Checagem de unicidade do código promocional no banco
+    const { data: existingCode } = await supabase
+      .from('affiliate_partners')
+      .select('id, referral_code')
+      .ilike('referral_code', cleanCode)
+      .maybeSingle();
+
+    if (existingCode) {
+      return {
+        success: false,
+        error: `O código promocional "${cleanCode}" já está em uso por outra pessoa parceira.`,
+      };
+    }
+
+    let targetProfileId = params.profileId;
+
+    // Se não informou profileId mas informou inviteEmail
+    if (!targetProfileId && params.inviteEmail) {
+      const cleanEmail = params.inviteEmail.trim().toLowerCase();
+      const cleanName = (params.inviteName || '').trim();
+
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (existingProfile) {
+        targetProfileId = existingProfile.id;
+      } else {
+        const newUid = crypto.randomUUID();
+        const { data: createdProfile, error: profError } = await supabase
+          .from('profiles')
+          .insert({
+            id: newUid,
+            email: cleanEmail,
+            full_name: cleanName || cleanEmail.split('@')[0],
+          })
+          .select('id')
+          .single();
+
+        if (profError) {
+          return { success: false, error: 'Erro ao criar perfil de parceira: ' + profError.message };
+        }
+        targetProfileId = createdProfile.id;
+      }
+    }
+
+    if (!targetProfileId) {
+      return {
+        success: false,
+        error: 'Selecione uma conta existente ou informe Nome e E-mail para a parceira.',
+      };
+    }
+
+    // Garante que o profile não possua já um cadastro em affiliate_partners
+    const { data: partnerAlready } = await supabase
+      .from('affiliate_partners')
+      .select('id')
+      .eq('profile_id', targetProfileId)
+      .maybeSingle();
+
+    if (partnerAlready) {
+      return {
+        success: false,
+        error: 'Este perfil já possui um cadastro de parceira ativo na plataforma.',
+      };
+    }
+
+    // Insere o novo parceiro com a configuração avançada do cupom
+    const { data: newPartner, error: partnerError } = await supabase
+      .from('affiliate_partners')
+      .insert({
+        profile_id: targetProfileId,
+        referral_code: cleanCode,
+        status: params.status || 'active',
+        discount_type: params.discountType || 'percentage',
+        discount_value: Number(params.discountValue) || 20,
+        valid_plans: params.validPlans || 'both',
+        duration_type: params.durationType || 'first_charge',
+        duration_months:
+          params.durationType === 'multiple_months' ? Number(params.durationMonths) || 3 : null,
+        start_date: params.startDate || new Date().toISOString(),
+        expiration_date: params.expirationDate || null,
+        max_redemptions: params.maxRedemptions ? Number(params.maxRedemptions) : null,
+        current_redemptions: 0,
+        allow_stacking: Boolean(params.allowStacking),
+        current_quarter_paid_referrals: 0,
+        pix_key: null,
+      })
+      .select('id')
+      .single();
+
+    if (partnerError) {
+      return { success: false, error: partnerError.message || 'Erro ao cadastrar parceira.' };
+    }
+
+    revalidatePath('/professor/admin/affiliates');
+    revalidatePath('/professor/affiliates');
+    return { success: true, partnerId: newPartner.id };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao cadastrar parceira.' };
+  }
+}
+
+/**
+ * Atualização das regras do cupom da parceira pela Titular.
+ * Imutabilidade histórica: afeta APENAS novas contratações.
+ */
+export async function adminUpdatePartnerCouponAction(params: {
+  orgId: string;
+  partnerId: string;
+  referralCode: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  validPlans: 'monthly' | 'yearly' | 'both';
+  durationType: 'first_charge' | 'multiple_months' | 'lifetime';
+  durationMonths?: number | null;
+  startDate?: string;
+  expirationDate?: string | null;
+  maxRedemptions?: number | null;
+  allowStacking?: boolean;
+  status: AffiliatePartnerStatus;
+  pixKey?: string | null;
+}): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: 'Autenticação necessária.' };
+
+    const { data: member } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', params.orgId)
+      .eq('profile_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!member || member.role !== 'owner') {
+      return { success: false, error: 'Apenas a titular da escola pode editar regras de cupons.' };
+    }
+
+    const cleanCode = (params.referralCode || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '');
+
+    if (!cleanCode) {
+      return { success: false, error: 'Código promocional é obrigatório.' };
+    }
+
+    // Verifica se alterou o código e se o novo já existe
+    const { data: existingCode } = await supabase
+      .from('affiliate_partners')
+      .select('id')
+      .ilike('referral_code', cleanCode)
+      .neq('id', params.partnerId)
+      .maybeSingle();
+
+    if (existingCode) {
+      return {
+        success: false,
+        error: `O código promocional "${cleanCode}" já pertence a outra parceira.`,
+      };
+    }
+
+    const { error: updateError } = await supabase
+      .from('affiliate_partners')
+      .update({
+        referral_code: cleanCode,
+        discount_type: params.discountType,
+        discount_value: Number(params.discountValue) || 20,
+        valid_plans: params.validPlans,
+        duration_type: params.durationType,
+        duration_months:
+          params.durationType === 'multiple_months' ? Number(params.durationMonths) || 3 : null,
+        start_date: params.startDate || new Date().toISOString(),
+        expiration_date: params.expirationDate || null,
+        max_redemptions: params.maxRedemptions ? Number(params.maxRedemptions) : null,
+        allow_stacking: Boolean(params.allowStacking),
+        status: params.status,
+        pix_key: params.pixKey ? params.pixKey.trim() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.partnerId);
+
+    if (updateError) {
+      return { success: false, error: updateError.message || 'Erro ao atualizar cupom.' };
+    }
+
+    revalidatePath('/professor/admin/affiliates');
+    revalidatePath('/professor/affiliates');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao atualizar cupom.' };
+  }
+}
+
+/**
+ * Validação de cupom no Checkout com bloqueio de autoindicação, validação de vigência, limites e planos.
+ */
+export async function validateCouponAction(params: {
+  referralCode: string;
+  planSlug: string;
+  cycle: 'monthly' | 'yearly';
+  originalAmount: number;
+  buyerProfileId?: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  partnerId?: string;
+  referralCode?: string;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount?: number;
+  finalAmount?: number;
+  durationType?: 'first_charge' | 'multiple_months' | 'lifetime';
+  durationMonths?: number | null;
+  durationNotice?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const cleanCode = (params.referralCode || '').trim().toUpperCase();
+
+    if (!cleanCode) {
+      return { success: false, error: 'Por favor, informe o código do cupom.' };
+    }
+
+    // Busca a parceira detentora do código
+    const { data: partner } = await supabase
+      .from('affiliate_partners')
+      .select('*')
+      .ilike('referral_code', cleanCode)
+      .maybeSingle();
+
+    if (!partner) {
+      await supabase.from('affiliate_coupon_logs').insert({
+        referral_code: cleanCode,
+        buyer_profile_id: params.buyerProfileId || null,
+        attempt_status: 'rejected',
+        rejection_reason: 'Código promocional inexistente.',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: 0,
+      });
+
+      return { success: false, error: 'Cupom promocional inválido ou não encontrado.' };
+    }
+
+    if (partner.status !== 'active') {
+      await supabase.from('affiliate_coupon_logs').insert({
+        partner_id: partner.id,
+        referral_code: cleanCode,
+        buyer_profile_id: params.buyerProfileId || null,
+        attempt_status: 'rejected',
+        rejection_reason: 'Cupom desativado.',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: 0,
+      });
+
+      return { success: false, error: 'Este cupom promocional está desativado no momento.' };
+    }
+
+    // Bloqueio de autoindicação:
+    // Rejeitar se o comprador for a própria parceira detentora do código
+    if (params.buyerProfileId && partner.profile_id === params.buyerProfileId) {
+      await supabase.from('affiliate_coupon_logs').insert({
+        partner_id: partner.id,
+        referral_code: cleanCode,
+        buyer_profile_id: params.buyerProfileId,
+        attempt_status: 'rejected',
+        rejection_reason: 'Autoindicação não permitida.',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: 0,
+      });
+
+      return {
+        success: false,
+        error: 'Você não pode utilizar seu próprio código de indicação (bloqueio de autoindicação).',
+      };
+    }
+
+    // Validação de vigência temporal
+    const now = new Date();
+    if (partner.start_date && new Date(partner.start_date) > now) {
+      await supabase.from('affiliate_coupon_logs').insert({
+        partner_id: partner.id,
+        referral_code: cleanCode,
+        buyer_profile_id: params.buyerProfileId || null,
+        attempt_status: 'rejected',
+        rejection_reason: 'Cupom ainda não vigente.',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: 0,
+      });
+
+      return { success: false, error: 'Este cupom promocional ainda não está vigente.' };
+    }
+
+    if (partner.expiration_date && new Date(partner.expiration_date) < now) {
+      await supabase.from('affiliate_coupon_logs').insert({
+        partner_id: partner.id,
+        referral_code: cleanCode,
+        buyer_profile_id: params.buyerProfileId || null,
+        attempt_status: 'rejected',
+        rejection_reason: 'Cupom expirado.',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: 0,
+      });
+
+      return { success: false, error: 'Este cupom promocional expirou e não pode mais ser utilizado.' };
+    }
+
+    // Validação de limite máximo de utilizações
+    if (partner.max_redemptions !== null && partner.max_redemptions !== undefined) {
+      if (partner.current_redemptions >= partner.max_redemptions) {
+        await supabase.from('affiliate_coupon_logs').insert({
+          partner_id: partner.id,
+          referral_code: cleanCode,
+          buyer_profile_id: params.buyerProfileId || null,
+          attempt_status: 'rejected',
+          rejection_reason: 'Limite máximo de utilizações atingido.',
+          plan_chosen: params.planSlug,
+          cycle_chosen: params.cycle,
+          discount_calculated: 0,
+        });
+
+        return { success: false, error: 'O limite máximo de utilizações deste cupom já foi atingido.' };
+      }
+    }
+
+    // Validação de plano elegível
+    if (partner.valid_plans === 'monthly' && params.cycle !== 'monthly') {
+      await supabase.from('affiliate_coupon_logs').insert({
+        partner_id: partner.id,
+        referral_code: cleanCode,
+        buyer_profile_id: params.buyerProfileId || null,
+        attempt_status: 'rejected',
+        rejection_reason: 'Válido apenas para plano mensal.',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: 0,
+      });
+
+      return { success: false, error: 'Este cupom é exclusivo para contratações no plano mensal.' };
+    }
+
+    if (partner.valid_plans === 'yearly' && params.cycle !== 'yearly') {
+      await supabase.from('affiliate_coupon_logs').insert({
+        partner_id: partner.id,
+        referral_code: cleanCode,
+        buyer_profile_id: params.buyerProfileId || null,
+        attempt_status: 'rejected',
+        rejection_reason: 'Válido apenas para plano anual.',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: 0,
+      });
+
+      return { success: false, error: 'Este cupom é exclusivo para contratações no plano anual.' };
+    }
+
+    // Cálculo do desconto
+    const orig = Math.max(0, Number(params.originalAmount) || 0);
+    let discount = 0;
+
+    if (partner.discount_type === 'percentage') {
+      const pct = Math.max(0, Math.min(100, Number(partner.discount_value) || 0));
+      discount = (orig * pct) / 100;
+    } else {
+      discount = Math.min(orig, Math.max(0, Number(partner.discount_value) || 0));
+    }
+
+    const final = Math.max(0, orig - discount);
+
+    let durationNotice = '';
+    if (partner.duration_type === 'first_charge') {
+      durationNotice = `Desconto aplicado apenas na 1ª cobrança. As cobranças seguintes serão no valor integral de R$ ${orig.toFixed(2).replace('.', ',')}.`;
+    } else if (partner.duration_type === 'multiple_months') {
+      const months = partner.duration_months || 3;
+      durationNotice = `Desconto aplicado durante as primeiras ${months} cobranças. A partir da ${months + 1}ª cobrança, o valor será integral de R$ ${orig.toFixed(2).replace('.', ',')}.`;
+    } else {
+      durationNotice = 'Desconto vitalício durante toda a vigência da assinatura.';
+    }
+
+    // Registra tentativa no log com status 'attempt'
+    await supabase.from('affiliate_coupon_logs').insert({
+      partner_id: partner.id,
+      referral_code: cleanCode,
+      buyer_profile_id: params.buyerProfileId || null,
+      attempt_status: 'attempt',
+      plan_chosen: params.planSlug,
+      cycle_chosen: params.cycle,
+      discount_calculated: Number(discount.toFixed(2)),
+    });
+
+    return {
+      success: true,
+      partnerId: partner.id,
+      referralCode: cleanCode,
+      discountType: partner.discount_type,
+      discountValue: partner.discount_value,
+      discountAmount: Number(discount.toFixed(2)),
+      finalAmount: Number(final.toFixed(2)),
+      durationType: partner.duration_type,
+      durationMonths: partner.duration_months,
+      durationNotice,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao validar cupom.' };
+  }
+}
+
+/**
+ * Registro definitivo da contratação com snapshot em affiliate_referrals,
+ * incremento em current_redemptions e registro em affiliate_coupon_logs.
+ */
+export async function completeSubscriptionCheckoutAction(params: {
+  planSlug: string;
+  cycle: 'monthly' | 'yearly';
+  originalAmount: number;
+  couponCode?: string;
+  customerName: string;
+  customerEmail: string;
+  cpfCnpj?: string;
+  phone?: string;
+  buyerProfileId?: string;
+}): Promise<{
+  success: boolean;
+  referralId?: string;
+  finalAmount?: number;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const cleanEmail = params.customerEmail.trim().toLowerCase();
+    const cleanName = params.customerName.trim();
+
+    let buyerId = params.buyerProfileId;
+    if (!buyerId) {
+      // Localiza profile pelo e-mail se existente
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      buyerId = prof?.id;
+    }
+
+    const orig = Math.max(0, Number(params.originalAmount) || 0);
+    let final = orig;
+    let discountApplied = 0;
+    let partnerToCredit: any = null;
+
+    // Se forneceu cupom promocional, valida com as regras estritas
+    if (params.couponCode && params.couponCode.trim()) {
+      const val = await validateCouponAction({
+        referralCode: params.couponCode,
+        planSlug: params.planSlug,
+        cycle: params.cycle,
+        originalAmount: orig,
+        buyerProfileId: buyerId,
+      });
+
+      if (!val.success) {
+        return { success: false, error: val.error };
+      }
+
+      final = val.finalAmount ?? orig;
+      discountApplied = val.discountAmount ?? 0;
+
+      if (!val.partnerId) {
+        return { success: false, error: 'Parceira do cupom não identificada.' };
+      }
+
+      const { data: partnerRec } = await supabase
+        .from('affiliate_partners')
+        .select('*')
+        .eq('id', val.partnerId)
+        .single();
+
+      partnerToCredit = partnerRec;
+    }
+
+    let createdReferralId: string | undefined = undefined;
+
+    // Se houve cupom válido aplicado com sucesso
+    if (partnerToCredit) {
+      // 1. Salva snapshot imutável em affiliate_referrals
+      const { data: referral, error: refError } = await supabase
+        .from('affiliate_referrals')
+        .insert({
+          partner_id: partnerToCredit.id,
+          referred_profile_id: buyerId || null,
+          plan_slug: params.planSlug,
+          cycle: params.cycle,
+          status: 'active',
+          original_amount: orig,
+          discount_applied: discountApplied,
+          final_amount: final,
+          discount_type: partnerToCredit.discount_type,
+          discount_value: partnerToCredit.discount_value,
+          duration_type: partnerToCredit.duration_type,
+          duration_months: partnerToCredit.duration_months,
+        })
+        .select('*')
+        .single();
+
+      if (refError) {
+        return { success: false, error: 'Erro ao registrar vínculo de indicação: ' + refError.message };
+      }
+
+      createdReferralId = referral.id;
+
+      // 2. Incrementa utilizações (current_redemptions) da parceira
+      await supabase
+        .from('affiliate_partners')
+        .update({
+          current_redemptions: (partnerToCredit.current_redemptions || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', partnerToCredit.id);
+
+      // 3. Calcula e lança comissão (20% mensal / 25% anual sobre o valor efetivamente contratado)
+      const { grossAmount, commissionPercentage, commissionAmount } =
+        await calculateAffiliateCommission(final, params.cycle);
+
+      await supabase.from('affiliate_commissions').insert({
+        partner_id: partnerToCredit.id,
+        referral_id: referral.id,
+        gross_amount: grossAmount,
+        commission_percentage: commissionPercentage,
+        commission_amount: commissionAmount,
+        status: 'available',
+      });
+
+      // 4. Registra conclusão no log com status 'completed'
+      await supabase.from('affiliate_coupon_logs').insert({
+        partner_id: partnerToCredit.id,
+        referral_code: partnerToCredit.referral_code,
+        buyer_profile_id: buyerId || null,
+        attempt_status: 'completed',
+        plan_chosen: params.planSlug,
+        cycle_chosen: params.cycle,
+        discount_calculated: discountApplied,
+      });
+
+      // 5. Atualiza meta trimestral da parceira
+      const nextQuarterCount = (partnerToCredit.current_quarter_paid_referrals || 0) + 1;
+      let nextFreeEndDate = partnerToCredit.free_months_end_date;
+
+      if (nextQuarterCount > 0 && nextQuarterCount % 5 === 0) {
+        const baseDate =
+          partnerToCredit.free_months_end_date && new Date(partnerToCredit.free_months_end_date) > new Date()
+            ? new Date(partnerToCredit.free_months_end_date)
+            : new Date();
+        baseDate.setMonth(baseDate.getMonth() + 3);
+        nextFreeEndDate = baseDate.toISOString().split('T')[0];
+      }
+
+      await supabase
+        .from('affiliate_partners')
+        .update({
+          current_quarter_paid_referrals: nextQuarterCount,
+          free_months_end_date: nextFreeEndDate,
+        })
+        .eq('id', partnerToCredit.id);
+    }
+
+    revalidatePath('/professor/admin/affiliates');
+    revalidatePath('/professor/affiliates');
+
+    return {
+      success: true,
+      referralId: createdReferralId,
+      finalAmount: final,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao concluir assinatura.' };
+  }
+}
+
+/**
+ * Busca logs de auditoria de cupons para o painel da Titular.
+ */
+export async function getAdminCouponLogsAction(orgId: string, partnerId?: string) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const { data: member } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', orgId)
+      .eq('profile_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!member || member.role !== 'owner') {
+      return [];
+    }
+
+    let query = supabase
+      .from('affiliate_coupon_logs')
+      .select('id, partner_id, referral_code, buyer_profile_id, attempt_status, rejection_reason, plan_chosen, cycle_chosen, discount_calculated, created_at, profiles:buyer_profile_id(full_name, email)')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (partnerId) {
+      query = query.eq('partner_id', partnerId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Erro ao buscar logs de cupons:', error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('Erro ao buscar logs de cupons:', err);
+    return [];
+  }
+}

@@ -1105,6 +1105,61 @@ export interface Database {
         ];
       };
 
+      
+      affiliate_coupon_logs: {
+        Row: {
+          id: string;
+          partner_id: string | null;
+          referral_code: string;
+          buyer_profile_id: string | null;
+          attempt_status: 'attempt' | 'applied' | 'rejected' | 'completed';
+          rejection_reason: string | null;
+          plan_chosen: string | null;
+          cycle_chosen: string | null;
+          discount_calculated: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          partner_id?: string | null;
+          referral_code: string;
+          buyer_profile_id?: string | null;
+          attempt_status?: 'attempt' | 'applied' | 'rejected' | 'completed';
+          rejection_reason?: string | null;
+          plan_chosen?: string | null;
+          cycle_chosen?: string | null;
+          discount_calculated?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          partner_id?: string | null;
+          referral_code?: string;
+          buyer_profile_id?: string | null;
+          attempt_status?: 'attempt' | 'applied' | 'rejected' | 'completed';
+          rejection_reason?: string | null;
+          plan_chosen?: string | null;
+          cycle_chosen?: string | null;
+          discount_calculated?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'affiliate_coupon_logs_partner_id_fkey';
+            columns: ['partner_id'];
+            isOneToOne: false;
+            referencedRelation: 'affiliate_partners';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'affiliate_coupon_logs_buyer_profile_id_fkey';
+            columns: ['buyer_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
       affiliate_partners: {
         Row: {
           id: string;
@@ -1114,6 +1169,16 @@ export interface Database {
           free_months_end_date: string | null;
           current_quarter_paid_referrals: number;
           pix_key: string | null;
+          discount_type: 'percentage' | 'fixed';
+          discount_value: number;
+          valid_plans: 'monthly' | 'yearly' | 'both';
+          duration_type: 'first_charge' | 'multiple_months' | 'lifetime';
+          duration_months: number | null;
+          start_date: string;
+          expiration_date: string | null;
+          max_redemptions: number | null;
+          current_redemptions: number;
+          allow_stacking: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1125,6 +1190,16 @@ export interface Database {
           free_months_end_date?: string | null;
           current_quarter_paid_referrals?: number;
           pix_key?: string | null;
+          discount_type?: 'percentage' | 'fixed';
+          discount_value?: number;
+          valid_plans?: 'monthly' | 'yearly' | 'both';
+          duration_type?: 'first_charge' | 'multiple_months' | 'lifetime';
+          duration_months?: number | null;
+          start_date?: string;
+          expiration_date?: string | null;
+          max_redemptions?: number | null;
+          current_redemptions?: number;
+          allow_stacking?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1136,6 +1211,16 @@ export interface Database {
           free_months_end_date?: string | null;
           current_quarter_paid_referrals?: number;
           pix_key?: string | null;
+          discount_type?: 'percentage' | 'fixed';
+          discount_value?: number;
+          valid_plans?: 'monthly' | 'yearly' | 'both';
+          duration_type?: 'first_charge' | 'multiple_months' | 'lifetime';
+          duration_months?: number | null;
+          start_date?: string;
+          expiration_date?: string | null;
+          max_redemptions?: number | null;
+          current_redemptions?: number;
+          allow_stacking?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1159,6 +1244,13 @@ export interface Database {
           cycle: AffiliatePlanCycle;
           asaas_customer_id: string | null;
           status: string;
+          original_amount: number | null;
+          discount_applied: number | null;
+          final_amount: number | null;
+          discount_type: string | null;
+          discount_value: number | null;
+          duration_type: string | null;
+          duration_months: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -1170,6 +1262,13 @@ export interface Database {
           cycle: AffiliatePlanCycle;
           asaas_customer_id?: string | null;
           status?: string;
+          original_amount?: number | null;
+          discount_applied?: number | null;
+          final_amount?: number | null;
+          discount_type?: string | null;
+          discount_value?: number | null;
+          duration_type?: string | null;
+          duration_months?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1181,6 +1280,13 @@ export interface Database {
           cycle?: AffiliatePlanCycle;
           asaas_customer_id?: string | null;
           status?: string;
+          original_amount?: number | null;
+          discount_applied?: number | null;
+          final_amount?: number | null;
+          discount_type?: string | null;
+          discount_value?: number | null;
+          duration_type?: string | null;
+          duration_months?: number | null;
           created_at?: string;
           updated_at?: string;
         };

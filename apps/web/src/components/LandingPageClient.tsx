@@ -317,9 +317,8 @@ export function LandingPageClient({ plans }: LandingPageClientProps) {
 
                 {/* Botão CTA */}
                 <div className="mt-10 pt-6 border-t border-[#E6E1D8]">
-                  <button
-                    type="button"
-                    onClick={() => openLogin(plan.slug || plan.id)}
+                  <Link
+                    href={`/checkout?plan=${plan.slug || 'fikra-pro'}`}
                     className={`w-full py-3.5 px-4 font-bold rounded-xl text-sm text-center block transition-all shadow-sm cursor-pointer ${
                       isPopular
                         ? 'bg-[#6C0F37] hover:bg-[#57102E] text-white hover:shadow-md'
@@ -327,7 +326,7 @@ export function LandingPageClient({ plans }: LandingPageClientProps) {
                     }`}
                   >
                     {isPopular ? 'Assinar Plano Pro' : 'Começar agora'}
-                  </button>
+                  </Link>
                 </div>
               </div>
             );

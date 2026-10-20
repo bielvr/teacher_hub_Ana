@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { CreateEditPartnerModal } from './CreateEditPartnerModal';
 import {
   registerAffiliatePayoutAction,
   registerReferralAndCommissionAction,
@@ -29,6 +30,17 @@ export interface AdminPartnerSummary {
   availableBalance: number;
   paidBalance: number;
   availableCommissionIds: string[];
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  validPlans: 'monthly' | 'yearly' | 'both';
+  durationType: 'first_charge' | 'multiple_months' | 'lifetime';
+  durationMonths: number | null;
+  startDate: string;
+  expirationDate: string | null;
+  maxRedemptions: number | null;
+  currentRedemptions: number;
+  allowStacking: boolean;
+  totalAttemptsCount?: number;
 }
 
 export interface AdminCommissionRecord {
@@ -42,6 +54,22 @@ export interface AdminCommissionRecord {
   status: AffiliateCommissionStatus;
   paidAt: string | null;
   transferReceiptUrl: string | null;
+  createdAt: string;
+}
+
+
+export interface AdminCouponLogRecord {
+  id: string;
+  partnerId: string | null;
+  partnerName?: string;
+  referralCode: string;
+  buyerName?: string;
+  buyerEmail?: string;
+  attemptStatus: 'attempt' | 'applied' | 'rejected' | 'completed';
+  rejectionReason: string | null;
+  planChosen: string | null;
+  cycleChosen: string | null;
+  discountCalculated: number;
   createdAt: string;
 }
 
@@ -61,6 +89,7 @@ interface AffiliateAdminClientProps {
   partners: AdminPartnerSummary[];
   commissions: AdminCommissionRecord[];
   payouts: AdminPayoutRecord[];
+  couponLogs?: AdminCouponLogRecord[];
 }
 
 function formatBRL(value: number): string {
@@ -88,8 +117,13 @@ export function AffiliateAdminClient({
   partners,
   commissions,
   payouts,
+  couponLogs = [],
 }: AffiliateAdminClientProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'payouts' | 'goals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payouts' | 'goals' | 'logs'>('overview');
+  const [isCreatePartnerModalOpen, setIsCreatePartnerModalOpen] = useState(false);
+  const [partnerToEditCoupon, setPartnerToEditCoupon] = useState<AdminPartnerSummary | null>(null);
+  const [logFilterStatus, setLogFilterStatus] = useState<'all' | 'completed' | 'attempt' | 'rejected'>('all');
+  const [logSearchQuery, setLogSearchQuery] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(
     null
@@ -283,6 +317,16 @@ export function AffiliateAdminClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              setPartnerToEditCoupon(null);
+              setIsCreatePartnerModalOpen(true);
+            }}
+            className="px-5 py-2.5 rounded-xl bg-[#D7CE36] hover:bg-[#C2B92F] text-[#6C0F37] text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <span>+ Cadastrar Parceira / Cupom</span>
+          </button>
           <Link
             href={`/professor/affiliates?org=${orgId}`}
             className="px-4 py-2.5 rounded-xl border border-[#E6E1D8] bg-white hover:bg-[#F7F4ED] text-[#2B2426] text-xs font-semibold transition-colors"
@@ -408,7 +452,21 @@ export function AffiliateAdminClient({
                 : 'bg-white border border-[#E6E1D8] text-[#6F6865] hover:text-[#2B2426]'
             }`}
           >
-            3. Acompanhamento de Metas & Gratuidade
+            3. Metas & Gratuidade
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('logs')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'logs'
+                ? 'bg-[#6C0F37] text-white'
+                : 'bg-white border border-[#E6E1D8] text-[#6F6865] hover:text-[#2B2426]'
+            }`}
+          >
+            <span>4. Auditoria & Tentativas de Uso</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'logs' ? 'bg-white text-[#6C0F37]' : 'bg-[#FAF8F5] text-[#6C0F37]'}`}>
+              {couponLogs.length}
+            </span>
           </button>
         </div>
 
@@ -455,11 +513,11 @@ export function AffiliateAdminClient({
                   <tr className="border-b border-[#E6E1D8] text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">
                     <th className="py-3 pr-3">Parceira</th>
                     <th className="py-3 px-3">Código</th>
-                    <th className="py-3 px-3">Chave PIX</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3">Pendente</th>
+                    <th className="py-3 px-3">Desconto & Duração</th>
+                    <th className="py-3 px-3">Planos</th>
+                    <th className="py-3 px-3">Usos</th>
                     <th className="py-3 px-3">Disponível</th>
-                    <th className="py-3 px-3">Total Pago</th>
+                    <th className="py-3 px-3">Status</th>
                     <th className="py-3 pl-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -475,41 +533,74 @@ export function AffiliateAdminClient({
                         )}
                       </td>
                       <td className="py-3.5 px-3">
-                        <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-[#F7F4ED] text-[#6C0F37]">
+                        <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-[#F7F4ED] text-[#6C0F37] border border-[#6C0F37]/20">
                           {partner.referralCode}
                         </span>
                       </td>
-                      <td className="py-3.5 px-3 font-mono text-xs text-[#2B2426]">
-                        {partner.pixKey || <span className="text-[#6F6865] italic">Não cadastrada</span>}
-                      </td>
                       <td className="py-3.5 px-3">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                            partner.status === 'active'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-stone-100 text-stone-600'
-                          }`}
-                        >
-                          {partner.status === 'active' ? 'Ativa' : partner.status}
+                        <span className="text-xs font-bold text-[#2B2426] block">
+                          {partner.discountType === 'percentage'
+                            ? `${partner.discountValue}% OFF`
+                            : `${formatBRL(partner.discountValue)} OFF`}
+                        </span>
+                        <span className="text-[11px] text-[#6F6865]">
+                          {partner.durationType === 'first_charge'
+                            ? '1ª cobrança'
+                            : partner.durationType === 'multiple_months'
+                            ? `${partner.durationMonths || 3} meses`
+                            : 'Vitalício'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-3 text-amber-700 font-medium">
-                        {formatBRL(partner.pendingBalance)}
+                      <td className="py-3.5 px-3 text-xs text-[#2B2426]">
+                        {partner.validPlans === 'both'
+                          ? 'Mensal & Anual'
+                          : partner.validPlans === 'monthly'
+                          ? 'Apenas Mensal'
+                          : 'Apenas Anual'}
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <span className="text-xs font-bold text-[#2B2426] block">
+                          {partner.currentRedemptions} / {partner.maxRedemptions ?? '∞'}
+                        </span>
+                        <span className="text-[10px] text-[#6F6865]">
+                          {partner.totalAttemptsCount || 0} tentativa(s)
+                        </span>
                       </td>
                       <td className="py-3.5 px-3 font-bold text-emerald-700">
                         {formatBRL(partner.availableBalance)}
                       </td>
-                      <td className="py-3.5 px-3 font-medium text-[#6C0F37]">
-                        {formatBRL(partner.paidBalance)}
+                      <td className="py-3.5 px-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            partner.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-stone-100 text-stone-600 border border-stone-200'
+                          }`}
+                        >
+                          {partner.status === 'active' ? 'Ativo' : 'Desativado'}
+                        </span>
                       </td>
                       <td className="py-3.5 pl-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openPayoutModalForPartner(partner)}
-                          className="px-3 py-1.5 rounded-lg bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Registrar Repasse
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPartnerToEditCoupon(partner);
+                              setIsCreatePartnerModalOpen(true);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg border border-[#E6E1D8] hover:bg-[#FAF8F5] text-xs font-semibold text-[#2B2426] transition-colors cursor-pointer"
+                            title="Editar regras do cupom"
+                          >
+                            ⚙️ Cupom
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openPayoutModalForPartner(partner)}
+                            className="px-3 py-1.5 rounded-lg bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            💸 Repassar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -776,6 +867,216 @@ export function AffiliateAdminClient({
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      
+      {/* ABA 4: AUDITORIA & TENTATIVAS DE CUPOM */}
+      {activeTab === 'logs' && (
+        <div className="space-y-6">
+          {/* Métricas dos Logs */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-xs">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#6F6865]">
+                Tentativas Totais
+              </span>
+              <p className="text-2xl font-bold text-[#2B2426] mt-1">{couponLogs.length}</p>
+              <span className="text-[11px] text-[#6F6865]">Registros de verificação no checkout</span>
+            </div>
+
+            <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-xs">
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                Contratações Concluídas
+              </span>
+              <p className="text-2xl font-bold text-emerald-700 mt-1">
+                {couponLogs.filter((l) => l.attemptStatus === 'completed').length}
+              </p>
+              <span className="text-[11px] text-[#6F6865]">Assinaturas ativas com cupom</span>
+            </div>
+
+            <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-xs">
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                Testes no Checkout
+              </span>
+              <p className="text-2xl font-bold text-blue-700 mt-1">
+                {couponLogs.filter((l) => l.attemptStatus === 'attempt').length}
+              </p>
+              <span className="text-[11px] text-[#6F6865]">Aplicados aguardando finalização</span>
+            </div>
+
+            <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-xs">
+              <span className="text-xs font-semibold uppercase tracking-wider text-red-700">
+                Rejeições / Bloqueios
+              </span>
+              <p className="text-2xl font-bold text-red-700 mt-1">
+                {couponLogs.filter((l) => l.attemptStatus === 'rejected').length}
+              </p>
+              <span className="text-[11px] text-[#6F6865]">Expirados, limites ou autoindicação</span>
+            </div>
+          </div>
+
+          {/* Listagem de Logs */}
+          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-[#2B2426]">
+                  Registro Detalhado de Utilizações e Tentativas
+                </h3>
+                <p className="text-xs text-[#6F6865]">
+                  Auditoria em tempo real de cada validação de cupom no checkout da Fikra.
+                </p>
+              </div>
+
+              {/* Filtros da Aba de Logs */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <select
+                  value={logFilterStatus}
+                  onChange={(e) => setLogFilterStatus(e.target.value as any)}
+                  className="px-3 py-1.5 rounded-xl border border-[#E6E1D8] bg-white text-xs font-medium text-[#2B2426] focus:outline-none focus:border-[#6C0F37]"
+                >
+                  <option value="all">Todos os Status</option>
+                  <option value="completed">Concluídas (Contratadas)</option>
+                  <option value="attempt">Tentativas no Checkout</option>
+                  <option value="rejected">Rejeitadas / Inválidas</option>
+                </select>
+
+                <input
+                  type="text"
+                  value={logSearchQuery}
+                  onChange={(e) => setLogSearchQuery(e.target.value)}
+                  placeholder="Filtrar por código ou comprador..."
+                  className="px-3.5 py-1.5 rounded-xl border border-[#E6E1D8] bg-white text-xs text-[#2B2426] focus:outline-none focus:border-[#6C0F37]"
+                />
+              </div>
+            </div>
+
+            {(() => {
+              const filteredLogs = couponLogs.filter((log) => {
+                if (logFilterStatus !== 'all' && log.attemptStatus !== logFilterStatus) {
+                  return false;
+                }
+                const q = logSearchQuery.trim().toLowerCase();
+                if (!q) return true;
+                return (
+                  log.referralCode.toLowerCase().includes(q) ||
+                  (log.buyerName || '').toLowerCase().includes(q) ||
+                  (log.buyerEmail || '').toLowerCase().includes(q) ||
+                  (log.partnerName || '').toLowerCase().includes(q)
+                );
+              });
+
+              if (filteredLogs.length === 0) {
+                return (
+                  <div className="py-12 text-center bg-[#FAF8F5] rounded-xl border border-dashed border-[#E6E1D8]">
+                    <p className="text-sm font-semibold text-[#2B2426]">
+                      Nenhum registro de log encontrado
+                    </p>
+                    <p className="text-xs text-[#6F6865] mt-1">
+                      Assim que novos cupons forem testados ou aplicados no checkout, o histórico aparecerá aqui.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#E6E1D8] text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">
+                        <th className="py-3 pr-3">Data / Hora</th>
+                        <th className="py-3 px-3">Código</th>
+                        <th className="py-3 px-3">Parceira</th>
+                        <th className="py-3 px-3">Pessoa Compradora</th>
+                        <th className="py-3 px-3">Plano & Ciclo</th>
+                        <th className="py-3 px-3">Status</th>
+                        <th className="py-3 pl-3">Motivo / Detalhes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E6E1D8]/70 text-sm">
+                      {filteredLogs.map((log) => {
+                        let statusBadge = (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
+                            {log.attemptStatus}
+                          </span>
+                        );
+                        if (log.attemptStatus === 'completed') {
+                          statusBadge = (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                              ✓ Contratação Ativa
+                            </span>
+                          );
+                        } else if (log.attemptStatus === 'attempt') {
+                          statusBadge = (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                              Tentativa no Checkout
+                            </span>
+                          );
+                        } else if (log.attemptStatus === 'rejected') {
+                          statusBadge = (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                              ✕ Rejeitado
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <tr key={log.id} className="hover:bg-[#FAF8F5] transition-colors">
+                            <td className="py-3.5 pr-3 text-xs text-[#6F6865]">
+                              {formatDateBR(log.createdAt)}{' '}
+                              <span className="text-[10px] text-[#A8A29E]">
+                                {new Date(log.createdAt).toLocaleTimeString('pt-BR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3">
+                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#F7F4ED] text-[#6C0F37]">
+                                {log.referralCode}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3 text-xs font-medium text-[#2B2426]">
+                              {log.partnerName}
+                            </td>
+                            <td className="py-3.5 px-3">
+                              <span className="font-medium text-xs text-[#2B2426] block">
+                                {log.buyerName}
+                              </span>
+                              {log.buyerEmail && log.buyerEmail !== '—' && (
+                                <span className="text-[11px] text-[#6F6865]">{log.buyerEmail}</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-3 text-xs text-[#2B2426]">
+                              {log.planChosen || '—'}{' '}
+                              {log.cycleChosen && (
+                                <span className="text-[11px] text-[#6F6865]">
+                                  ({log.cycleChosen === 'yearly' ? 'Anual' : 'Mensal'})
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-3">{statusBadge}</td>
+                            <td className="py-3.5 pl-3 text-xs">
+                              {log.rejectionReason ? (
+                                <span className="text-red-700 font-medium">
+                                  {log.rejectionReason}
+                                </span>
+                              ) : log.discountCalculated > 0 ? (
+                                <span className="text-emerald-700 font-medium">
+                                  Desconto de {formatBRL(log.discountCalculated)}
+                                </span>
+                              ) : (
+                                <span className="text-[#6F6865]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1129,6 +1430,19 @@ export function AffiliateAdminClient({
           </div>
         </div>
       )}
+          {/* MODAL AVANÇADO: CADASTRAR OU CONFIGURAR CUPOM */}
+      <CreateEditPartnerModal
+        isOpen={isCreatePartnerModalOpen}
+        onClose={() => {
+          setIsCreatePartnerModalOpen(false);
+          setPartnerToEditCoupon(null);
+        }}
+        orgId={orgId}
+        partnerToEdit={partnerToEditCoupon}
+        onSuccess={(msg) => {
+          setFeedback({ type: 'success', text: msg });
+        }}
+      />
     </div>
   );
 }
