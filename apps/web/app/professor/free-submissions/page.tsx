@@ -2,6 +2,7 @@ import { createClient } from '../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../src/services/organizations';
 import { reviewFreeProductionAction } from '../../../src/actions/studies';
 import { PageHeader } from '../../../src/components/PageHeader';
+import { RichMarkdownRenderer } from '../../../src/components/PaginatedContent';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
 
@@ -66,8 +67,8 @@ export default async function ProfessorFreeSubmissionsPage({
                 </span>
               </div>
 
-              <div className="p-4 bg-stone-50 rounded-lg text-xs leading-relaxed text-stone-800 whitespace-pre-wrap border border-stone-200/60">
-                {sub.content}
+              <div className="p-4 bg-stone-50 rounded-lg text-xs leading-relaxed text-stone-800 border border-stone-200/60">
+                <RichMarkdownRenderer content={sub.content} />
               </div>
 
               {/* Form de Feedback da Professora */}

@@ -532,24 +532,24 @@ export function ActivityBankClient({
           <button
             type="button"
             onClick={() => setSelectedTrackId('all')}
-            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+            className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
               selectedTrackId === 'all'
-                ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-md ring-2 ring-[#6C0F37]/30'
-                : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/40 hover:bg-[#FAF8F5]'
+                ? 'bg-[#6C0F37] text-white border-[#57102E] shadow-md'
+                : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/30'
             }`}
           >
             <div>
               <span className="text-lg block mb-1">📚</span>
-              <h3 className={`text-xs sm:text-sm font-bold leading-snug ${
-                selectedTrackId === 'all' ? 'text-white font-extrabold' : 'text-[#2B2426]'
+              <h3 className={`text-base font-bold transition-colors ${
+                selectedTrackId === 'all' ? 'text-white' : 'text-[#6C0F37]'
               }`}>
                 Todos os Níveis
               </h3>
             </div>
-            <div className={`mt-3 pt-2 border-t text-[11px] font-semibold ${
-              selectedTrackId === 'all' ? 'border-white/20 text-white' : 'border-[#E6E1D8] text-[#6F6865]'
-            }`}>
-              {trackStats.totalCount} atividades totais
+            <div className={`mt-3 pt-2 border-t ${selectedTrackId === 'all' ? 'border-white/20' : 'border-[#E6E1D8]'}`}>
+              <span className={`text-xs ${selectedTrackId === 'all' ? 'text-[#FFFDF7]/80' : 'text-[#6F6865]'}`}>
+                {trackStats.totalCount} atividades totais
+              </span>
             </div>
           </button>
 
@@ -563,29 +563,29 @@ export function ActivityBankClient({
                 key={trk.id}
                 type="button"
                 onClick={() => setSelectedTrackId(trk.id)}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
                   isSelected
-                    ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-md ring-2 ring-[#6C0F37]/30'
-                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/40 hover:bg-[#FAF8F5]'
+                    ? 'bg-[#6C0F37] text-white border-[#57102E] shadow-md'
+                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/30'
                 }`}
               >
                 <div>
                   <span className="text-lg block mb-1">🎓</span>
-                  <h3 className={`text-xs sm:text-sm font-bold leading-snug line-clamp-1 ${
-                    isSelected ? 'text-white font-extrabold' : 'text-[#2B2426]'
+                  <h3 className={`text-base font-bold transition-colors line-clamp-1 ${
+                    isSelected ? 'text-white' : 'text-[#6C0F37]'
                   }`}>
                     {trk.title}
                   </h3>
-                  <span className={`text-[10px] block mt-0.5 ${
-                    isSelected ? 'text-white/90 font-medium' : 'text-[#6F6865]'
+                  <span className={`text-xs block mt-0.5 ${
+                    isSelected ? 'text-[#FFFDF7]/80' : 'text-[#6F6865]'
                   }`}>
                     {stats.lessonCount} {stats.lessonCount === 1 ? 'aula' : 'aulas'}
                   </span>
                 </div>
-                <div className={`mt-3 pt-2 border-t text-[11px] font-semibold ${
-                  isSelected ? 'border-white/20 text-white' : 'border-[#E6E1D8] text-[#6F6865]'
-                }`}>
-                  {stats.activityCount} {stats.activityCount === 1 ? 'atividade' : 'atividades'}
+                <div className={`mt-3 pt-2 border-t ${isSelected ? 'border-white/20' : 'border-[#E6E1D8]'}`}>
+                  <span className={`text-xs ${isSelected ? 'text-[#FFFDF7]/80' : 'text-[#6F6865]'}`}>
+                    {stats.activityCount} atividades totais
+                  </span>
                 </div>
               </button>
             );
@@ -595,29 +595,29 @@ export function ActivityBankClient({
           <button
             type="button"
             onClick={() => setSelectedTrackId('general')}
-            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+            className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
               selectedTrackId === 'general'
-                ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-md ring-2 ring-[#6C0F37]/30'
-                : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/40 hover:bg-[#FAF8F5]'
+                ? 'bg-[#6C0F37] text-white border-[#57102E] shadow-md'
+                : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/30'
             }`}
           >
             <div>
               <span className="text-lg block mb-1">🌐</span>
-              <h3 className={`text-xs sm:text-sm font-bold leading-snug ${
-                selectedTrackId === 'general' ? 'text-white font-extrabold' : 'text-[#2B2426]'
+              <h3 className={`text-base font-bold transition-colors ${
+                selectedTrackId === 'general' ? 'text-white' : 'text-[#6C0F37]'
               }`}>
                 Atividades Gerais
               </h3>
-              <span className={`text-[10px] block mt-0.5 ${
-                selectedTrackId === 'general' ? 'text-white/90 font-medium' : 'text-[#6F6865]'
+              <span className={`text-xs block mt-0.5 ${
+                selectedTrackId === 'general' ? 'text-[#FFFDF7]/80' : 'text-[#6F6865]'
               }`}>
                 Banco livre
               </span>
             </div>
-            <div className={`mt-3 pt-2 border-t text-[11px] font-semibold ${
-              selectedTrackId === 'general' ? 'border-white/20 text-white' : 'border-[#E6E1D8] text-[#6F6865]'
-            }`}>
-              {trackStats.generalCount} atividades
+            <div className={`mt-3 pt-2 border-t ${selectedTrackId === 'general' ? 'border-white/20' : 'border-[#E6E1D8]'}`}>
+              <span className={`text-xs ${selectedTrackId === 'general' ? 'text-[#FFFDF7]/80' : 'text-[#6F6865]'}`}>
+                {trackStats.generalCount} atividades totais
+              </span>
             </div>
           </button>
         </div>

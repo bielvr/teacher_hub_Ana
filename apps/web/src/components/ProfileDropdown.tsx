@@ -45,13 +45,13 @@ export function ProfileDropdown({
       path: '/professor/account?tab=profile',
       label: 'Meu perfil',
     },
-    // Conexão Fikra: Renderizado APENAS se titular ou parceira ativa
-    ...(canAccessAffiliates
+    // Conexão Fikra: Renderizado APENAS se titular
+    ...(isOwner
       ? [
           {
             href: `/professor/affiliates?org=${activeOrgId}`,
             path: '/professor/affiliates',
-            label: 'Conexão Fikra (Parcerias)',
+            label: 'Conexão Fikra',
           },
         ]
       : []),

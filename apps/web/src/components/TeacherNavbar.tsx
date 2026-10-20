@@ -31,7 +31,7 @@ interface TeacherNavbarProps {
 }
 
 export function TeacherNavbar({
-  memberships: _memberships,
+  memberships,
   activeOrgId,
   teacherName = 'Docente',
   hasAffiliateAccess: hasAffiliateAccessProp,
@@ -132,8 +132,8 @@ export function TeacherNavbar({
   ];
 
   const activeMembership =
-    _memberships.find((m) => m.organizations?.id === activeOrgId) || _memberships[0];
-  const isOwner = isOwnerProp !== undefined ? isOwnerProp : activeMembership?.role === 'owner';
+    memberships?.find((m) => m.organizations?.id === activeOrgId) || memberships?.[0];
+  const isOwner = isOwnerProp !== undefined ? isOwnerProp : memberships?.some((m) => m.role === 'owner');
 
   // Blindagem de Acesso ao Menu Conexão Fikra / Parcerias:
   // O item DEVE SER OCULTO por padrão para usuários comuns.
@@ -165,7 +165,7 @@ export function TeacherNavbar({
     });
   }, [isOwner, hasAffiliateAccessProp]);
 
-  const canAccessAffiliates = isOwner || hasAffiliateAccessProp === true || hasAffiliatePartner;
+  const canAccessAffiliates = isOwner;
 
   const financialLinks = [
     { href: `/professor/billing?org=${activeOrgId}`, path: '/professor/billing', label: 'Visão geral' },
@@ -428,8 +428,8 @@ export function TeacherNavbar({
                 )}
               </div>
 
-              {/* 5. Conexão Fikra (Link direto para área da parceira) - Apenas se titular ou parceira ativa */}
-              {canAccessAffiliates && (
+              {/* 5. Conexão Fikra (Link direto para área da parceira) - Apenas se titular */}
+              {isOwner && (
                 <Link
                   href={`/professor/affiliates?org=${activeOrgId}`}
                   onClick={() => setOpenMenu(null)}
@@ -549,6 +549,20 @@ export function TeacherNavbar({
                 Início
               </Link>
             </div>
+
+            {isOwner && (
+              <div>
+                <Link
+                  href={`/professor/affiliates?org=${activeOrgId}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    isAffiliatesActive ? 'bg-[#57102E] text-[#D7CE36]' : 'text-[#FFFDF7] hover:text-[#D7CE36]'
+                  }`}
+                >
+                  Conexão Fikra
+                </Link>
+              </div>
+            )}
 
             <div>
               <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-[#D7CE36]/80 mb-1">

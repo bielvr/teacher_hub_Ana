@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { RichMarkdownRenderer } from './PaginatedContent';
 import { reviewActivitySubmissionAction } from '../actions/studies';
 
 export interface SubmissionItem {
@@ -152,8 +153,8 @@ export function CorrectionsReviewModal({
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
               <span>✍️</span> Resposta / Produção do Estudante
             </h3>
-            <div className="p-4 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] leading-relaxed whitespace-pre-wrap font-sans">
-              {submission.content || 'Nenhum texto anexado na entrega.'}
+            <div className="p-4 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] leading-relaxed font-sans">
+              <RichMarkdownRenderer content={submission.content || 'Nenhum texto anexado na entrega.'} />
             </div>
           </div>
 

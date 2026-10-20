@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { renderInlineMarkdown } from './PaginatedContent';
 import { EditLessonModal } from './EditLessonModal';
 import { LessonDetailModal } from './LessonDetailModal';
 
@@ -494,9 +495,10 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
                               </h4>
 
                               {meta.communicative_objectives && (
-                                <p className="text-[10px] text-[#6F6865] line-clamp-1 italic">
-                                  🎯 {meta.communicative_objectives.split('\n')[0]}
-                                </p>
+                                <div className="text-[10px] text-[#6F6865] line-clamp-1 italic flex items-center gap-1">
+                                  <span>🎯</span>
+                                  <span>{renderInlineMarkdown(meta.communicative_objectives.split('\n')[0])}</span>
+                                </div>
                               )}
                             </div>
 

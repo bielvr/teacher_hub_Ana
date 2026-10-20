@@ -4,7 +4,7 @@ import { createClient } from '../../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../../src/services/organizations';
 import { Card } from '../../../../src/components/Card';
 import { EmptyState } from '../../../../src/components/EmptyState';
-import { PaginatedContent } from '../../../../src/components/PaginatedContent';
+import { PaginatedContent, renderInlineMarkdown } from '../../../../src/components/PaginatedContent';
 
 function getYouTubeEmbedUrl(url: string | null) {
   if (!url) return null;

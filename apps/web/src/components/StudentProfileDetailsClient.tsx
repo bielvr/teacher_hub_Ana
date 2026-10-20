@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
+import { renderInlineMarkdown } from './PaginatedContent';
 import Link from 'next/link';
 import { Card } from './Card';
 import { EmptyState } from './EmptyState';
@@ -1096,9 +1097,10 @@ export function StudentProfileDetailsClient({
                                 {sess.title}
                               </div>
                               {sess.notes && (
-                                <p className="text-[11px] text-[#6F6865] mt-0.5 line-clamp-1 italic">
-                                  📝 {sess.notes}
-                                </p>
+                                <div className="text-[11px] text-[#6F6865] mt-0.5 line-clamp-1 italic flex items-center gap-1">
+                                  <span>📝</span>
+                                  <span>{renderInlineMarkdown(sess.notes)}</span>
+                                </div>
                               )}
                             </td>
 
@@ -1230,9 +1232,9 @@ export function StudentProfileDetailsClient({
 
                       <h3 className="text-base font-bold text-[#2B2426] leading-snug">{trk.title}</h3>
                       {trk.description && (
-                        <p className="text-xs text-[#6F6865] mt-1 line-clamp-2 leading-relaxed">
-                          {trk.description}
-                        </p>
+                        <div className="text-xs text-[#6F6865] mt-1 line-clamp-2 leading-relaxed">
+                          {renderInlineMarkdown(trk.description)}
+                        </div>
                       )}
                     </div>
 

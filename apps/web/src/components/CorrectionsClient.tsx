@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { CorrectionsReviewModal, SubmissionItem } from './CorrectionsReviewModal';
+import { renderInlineMarkdown } from './PaginatedContent';
 
 interface CorrectionsClientProps {
   initialSubmissions: SubmissionItem[];
@@ -264,9 +265,9 @@ export function CorrectionsClient({
                     {sub.activity_title}
                   </h3>
 
-                  <p className="text-xs text-[#6F6865] line-clamp-1">
-                    {sub.content}
-                  </p>
+                  <div className="text-xs text-[#6F6865] line-clamp-1">
+                    {renderInlineMarkdown(sub.content || '')}
+                  </div>
 
                   <div className="flex items-center gap-3 text-[11px] text-[#6F6865] pt-1">
                     <span>

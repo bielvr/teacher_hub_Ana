@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { renderInlineMarkdown, RichMarkdownRenderer } from './PaginatedContent';
 import Link from 'next/link';
 import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
 
@@ -178,7 +179,7 @@ export function LessonDetailModal({
                 </h3>
                 <ul className="space-y-1 pl-4 list-disc text-xs text-[#2B2426] leading-relaxed">
                   {objectivesList.map((obj: string, i: number) => (
-                    <li key={i}>{obj}</li>
+                    <li key={i}>{renderInlineMarkdown(obj)}</li>
                   ))}
                 </ul>
               </div>
@@ -196,7 +197,7 @@ export function LessonDetailModal({
                         key={i}
                         className="bg-[#F7F4ED] text-[#6C0F37] border border-[#E6E1D8] text-xs px-2.5 py-1 rounded-md"
                       >
-                        {voc}
+                        {renderInlineMarkdown(voc)}
                       </span>
                     ))}
                   </div>
@@ -214,13 +215,24 @@ export function LessonDetailModal({
                         key={i}
                         className="bg-[#F7F4ED] text-[#6C0F37] border border-[#E6E1D8] text-xs px-2.5 py-1 rounded-md"
                       >
-                        {gr}
+                        {renderInlineMarkdown(gr)}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
             </div>
+
+            {metadata.notes && (
+              <div className="p-4 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2">
+                <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📌</span> Notas Pedagógicas
+                </h3>
+                <div className="text-xs sm:text-sm text-[#2B2426] leading-relaxed">
+                  <RichMarkdownRenderer content={metadata.notes} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Materiais Anexados */}

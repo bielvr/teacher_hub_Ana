@@ -6,6 +6,7 @@ import { CreateTrackModal } from '../../../src/components/CreateTrackModal';
 import { CreateUnitModal } from '../../../src/components/CreateUnitModal';
 import { TrackCardMenu } from '../../../src/components/TrackCardMenu';
 import { AssignTrackModal } from '../../../src/components/AssignTrackModal';
+import { renderInlineMarkdown } from '../../../src/components/PaginatedContent';
 
 export default async function TracksPage({
   searchParams,
@@ -197,9 +198,9 @@ export default async function TracksPage({
                 </div>
 
                 {track.description && (
-                  <p className="text-xs text-[#6F6865] line-clamp-2 leading-relaxed">
-                    {track.description}
-                  </p>
+                  <div className="text-xs text-[#6F6865] line-clamp-2 leading-relaxed">
+                    {renderInlineMarkdown(track.description)}
+                  </div>
                 )}
 
                 {/* Resumo de contadores no padrão: X unidades • Y aulas • Z materiais */}

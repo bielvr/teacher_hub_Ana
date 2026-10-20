@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { renderInlineMarkdown } from '../PaginatedContent';
 import { ActionItem } from '../../services/dashboard';
 
 interface ActionRadarCardProps {
@@ -103,9 +104,9 @@ export function ActionRadarCard({ orgId, items }: ActionRadarCardProps) {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-[#6F6865] mt-1 line-clamp-2">
-                      {item.description}
-                    </p>
+                    <div className="text-xs text-[#6F6865] mt-1 line-clamp-2">
+                      {renderInlineMarkdown(item.description)}
+                    </div>
                   </div>
                 </div>
 

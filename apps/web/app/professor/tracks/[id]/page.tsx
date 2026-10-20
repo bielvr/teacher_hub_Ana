@@ -5,6 +5,7 @@ import { getUserOrganizations } from '../../../../src/services/organizations';
 import { CreateUnitModal } from '../../../../src/components/CreateUnitModal';
 import { CreateLessonModal } from '../../../../src/components/CreateLessonModal';
 import { TrackUnitsList } from '../../../../src/components/TrackUnitsList';
+import { renderInlineMarkdown } from '../../../../src/components/PaginatedContent';
 
 export default async function ProfessorTrackDetailPage({
   params,
@@ -122,9 +123,9 @@ export default async function ProfessorTrackDetailPage({
               </span>
             </div>
             {track.description && (
-              <p className="text-xs sm:text-sm text-[#6F6865] max-w-2xl leading-relaxed">
-                {track.description}
-              </p>
+              <div className="text-xs sm:text-sm text-[#6F6865] max-w-2xl leading-relaxed">
+                {renderInlineMarkdown(track.description)}
+              </div>
             )}
           </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
+import { renderInlineMarkdown } from './PaginatedContent';
 import Link from 'next/link';
 import {
   createPlanningLessonAction,
@@ -746,9 +747,9 @@ export function PlanningLessonCard({
             </h4>
 
             {lesson.communicativeGoals || lesson.notes ? (
-              <p className="text-[10px] text-[#6F6865] line-clamp-2 leading-tight">
-                {lesson.communicativeGoals || lesson.notes}
-              </p>
+              <div className="text-[10px] text-[#6F6865] line-clamp-2 leading-tight">
+                {renderInlineMarkdown(lesson.communicativeGoals || lesson.notes || '')}
+              </div>
             ) : (
               <p className="text-[10px] text-[#A8A29E] italic">
                 Sem anotações ou objetivos definidos.

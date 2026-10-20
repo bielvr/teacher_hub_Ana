@@ -4,6 +4,7 @@ import { getUserOrganizations } from '../../../src/services/organizations';
 import { getStudentContext } from '../../../src/services/student';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
+import { renderInlineMarkdown } from '../../../src/components/PaginatedContent';
 
 interface ParsedLessonMeta {
   communicativeGoals: string;
@@ -117,7 +118,7 @@ export default async function StudentTracksPage({
                       </span>
                     </div>
                     {track.description && (
-                      <p className="text-xs text-[#6F6865] mt-0.5">{track.description}</p>
+                      <div className="text-xs text-[#6F6865] mt-0.5">{renderInlineMarkdown(track.description)}</div>
                     )}
                   </div>
                 </div>
@@ -143,7 +144,7 @@ export default async function StudentTracksPage({
                     </span>
                   </div>
                   {track.description && (
-                    <p className="text-xs text-[#6F6865] mt-0.5">{track.description}</p>
+                    <div className="text-xs text-[#6F6865] mt-0.5">{renderInlineMarkdown(track.description)}</div>
                   )}
                 </div>
                 <Link
