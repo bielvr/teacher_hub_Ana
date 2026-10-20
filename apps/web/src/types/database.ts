@@ -275,6 +275,8 @@ export interface Database {
           id: string;
           track_id: string;
           title: string;
+          description: string | null;
+          cover_image_url: string | null;
           order_index: number;
           created_at: string;
         };
@@ -282,6 +284,8 @@ export interface Database {
           id?: string;
           track_id: string;
           title: string;
+          description?: string | null;
+          cover_image_url?: string | null;
           order_index?: number;
           created_at?: string;
         };
@@ -289,6 +293,8 @@ export interface Database {
           id?: string;
           track_id?: string;
           title?: string;
+          description?: string | null;
+          cover_image_url?: string | null;
           order_index?: number;
           created_at?: string;
         };

@@ -73,7 +73,7 @@ export function renderInlineMarkdown(text: string): ReactNode[] {
   if (!text) return [];
 
   const normalized = normalizeMultilineInlineMarkdown(
-    text.replace(/<!--private-->/gi, '').replace(/<!--page-break-->/gi, '')
+    text.replace(/<!--private-->/gi, '').replace(/<!--page-break-->/gi, '').replace(/(?:^|\n)\s*#{1,6}\s+/g, ' ')
   );
 
   // Tokeniza padrões inline na ordem de precedência:
@@ -200,6 +200,7 @@ export function renderInlineMarkdown(text: string): ReactNode[] {
     // Remove eventuais asteriscos duplos ou tags <u> órfãs remanescentes
     cleanedPart = cleanedPart
       .replace(/\*\*/g, '')
+      .replace(/#{1,6}\s*/g, '')
       .replace(/<\/?u>/gi, '');
 
     return cleanedPart;

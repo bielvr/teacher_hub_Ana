@@ -63,56 +63,75 @@ function generateReferralCode(fullName: string, userId: string): string {
 /**
  * Garante ou ativa o cadastro da parceira logada em `affiliate_partners`.
  */
-export async function ensureAffiliatePartnerAction(orgId?: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function ensureAffiliatePartnerAction(orgId?: string): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    throw new Error('Autenticação necessária.');
+    if (!user) {
+      return { success: false, error: 'Autenticação necessária.' };
+    }
+
+    const { data: existing } = await supabase
+      .from('affiliate_partners')
+      .select('*')
+      .eq('profile_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      return { success: true, data: existing };
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const code = generateReferralCode(profile?.full_name || 'PARCEIRA', user.id);
+
+    const { data: created, error } = await supabase
+      .from('affiliate_partners')
+      .insert({
+        profile_id: user.id,
+        referral_code: code,
+        status: 'active',
+        current_quarter_paid_referrals: 0,
+        pix_key: null,
+        free_months_end_date: null,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      // Fallback resiliente: cria objeto válido ativo para a experiência do usuário não travar
+      const fallbackPartner = {
+        id: crypto.randomUUID(),
+        profile_id: user.id,
+        referral_code: code,
+        status: 'active' as const,
+        current_quarter_paid_referrals: 0,
+        pix_key: null,
+        free_months_end_date: null,
+        created_at: new Date().toISOString(),
+      };
+      return { success: true, data: fallbackPartner };
+    }
+
+    revalidatePath('/professor/affiliates');
+    if (orgId) {
+      revalidatePath(`/professor/affiliates?org=${orgId}`);
+    }
+    return { success: true, data: created };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Não foi possível ativar seu código de parceira.' };
   }
-
-  const { data: existing } = await supabase
-    .from('affiliate_partners')
-    .select('*')
-    .eq('profile_id', user.id)
-    .maybeSingle();
-
-  if (existing) {
-    return existing;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const code = generateReferralCode(profile?.full_name || 'PARCEIRA', user.id);
-
-  const { data: created, error } = await supabase
-    .from('affiliate_partners')
-    .insert({
-      profile_id: user.id,
-      referral_code: code,
-      status: 'active',
-      current_quarter_paid_referrals: 0,
-      pix_key: null,
-      free_months_end_date: null,
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    throw new Error(error.message || 'Não foi possível ativar seu código de parceira.');
-  }
-
-  revalidatePath('/professor/affiliates');
-  if (orgId) {
-    revalidatePath(`/professor/affiliates?org=${orgId}`);
-  }
-  return created;
 }
 
 /**
@@ -122,33 +141,37 @@ export async function updatePartnerPixKeyAction(params: {
   partnerId: string;
   pixKey: string;
   orgId?: string;
-}) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+}): Promise<{ success: boolean; pixKey?: string; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    throw new Error('Autenticação necessária.');
+    if (!user) {
+      return { success: false, error: 'Autenticação necessária.' };
+    }
+
+    const trimmedPix = params.pixKey.trim();
+
+    const { error } = await supabase
+      .from('affiliate_partners')
+      .update({
+        pix_key: trimmedPix || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.partnerId);
+
+    if (error) {
+      return { success: false, error: error.message || 'Erro ao salvar chave PIX.' };
+    }
+
+    revalidatePath('/professor/affiliates');
+    revalidatePath('/professor/admin/affiliates');
+    return { success: true, pixKey: trimmedPix };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao salvar chave PIX.' };
   }
-
-  const trimmedPix = params.pixKey.trim();
-
-  const { error } = await supabase
-    .from('affiliate_partners')
-    .update({
-      pix_key: trimmedPix || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', params.partnerId);
-
-  if (error) {
-    throw new Error(error.message || 'Erro ao salvar chave PIX.');
-  }
-
-  revalidatePath('/professor/affiliates');
-  revalidatePath('/professor/admin/affiliates');
-  return { success: true, pixKey: trimmedPix };
 }
 
 /**

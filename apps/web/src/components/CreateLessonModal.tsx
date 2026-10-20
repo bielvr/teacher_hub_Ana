@@ -39,8 +39,6 @@ export function CreateLessonModal({
   const [selectedMaterialType, setSelectedMaterialType] = useState('Documento/PDF');
   const [materialSource, setMaterialSource] = useState<'upload' | 'link'>('upload');
   const [coverSource, setCoverSource] = useState<'file' | 'url'>('url');
-  const [status, setStatus] = useState<'todo' | 'in_progress' | 'done'>('todo');
-  const [preparationStatus, setPreparationStatus] = useState<'ready' | 'needs_prep'>('ready');
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -193,39 +191,7 @@ export function CreateLessonModal({
                 </div>
               </div>
 
-              {/* Linha 2: Status da Lição e Indicador de Preparação */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl">
-                <div>
-                  <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    Status da Lição
-                  </label>
-                  <select
-                    name="status"
-                    value={status}
-                    onChange={(e: any) => setStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] cursor-pointer"
-                  >
-                    <option value="todo">A FAZER (To-do)</option>
-                    <option value="in_progress">EM ANDAMENTO (In progress)</option>
-                    <option value="done">CONCLUÍDO (Done)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    Preparação do Professor
-                  </label>
-                  <select
-                    name="preparation_status"
-                    value={preparationStatus}
-                    onChange={(e: any) => setPreparationStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] cursor-pointer"
-                  >
-                    <option value="ready">Pronto para uso</option>
-                    <option value="needs_prep">Precisa preparar material</option>
-                  </select>
-                </div>
-              </div>
+              
 
               {/* Bloco Pedagógico Enriquecido: Objetivos, Vocabulário e Gramática */}
               <div className="space-y-3 pt-2 border-t border-[#E6E1D8]">

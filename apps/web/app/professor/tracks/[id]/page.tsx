@@ -37,7 +37,7 @@ export default async function ProfessorTrackDetailPage({
   // 2. Busca unidades (modules)
   const { data: modules } = await supabase
     .from('modules')
-    .select('id, track_id, title, order_index')
+    .select('id, track_id, title, description, cover_image_url, order_index')
     .eq('track_id', trackId)
     .order('order_index', { ascending: true });
 

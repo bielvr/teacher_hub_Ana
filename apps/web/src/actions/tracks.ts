@@ -176,58 +176,108 @@ export async function duplicateTrackAction(formData: FormData) {
   revalidatePath('/professor/tracks');
 }
 
-export async function createModuleAction(formData: FormData) {
-  const supabase = await createClient();
+export async function createModuleAction(
+  formData: FormData
+): Promise<{ success: boolean; moduleId?: string; error?: string }> {
+  try {
+    const supabase = await createClient();
 
-  const track_id = formData.get('track_id') as string;
-  const title = (formData.get('title') as string)?.trim();
-  const rawOrder = formData.get('order_index') as string;
+    const track_id = formData.get('track_id') as string;
+    const title = (formData.get('title') as string)?.trim();
+    const description = (formData.get('description') as string)?.trim() || null;
+    let cover_image_url = (formData.get('cover_image_url') as string)?.trim() || null;
+    const rawOrder = formData.get('order_index') as string;
 
-  if (!track_id || !title) {
-    throw new Error('Título da unidade é obrigatório.');
-  }
+    if (!track_id || !title) {
+      return { success: false, error: 'Título da unidade é obrigatório.' };
+    }
 
-  let order_index = rawOrder ? parseInt(rawOrder, 10) : 0;
-  if (!rawOrder) {
-    const { count } = await supabase
+    // Upload de imagem de capa se fornecido
+    const coverUpload = formData.get('cover_image_file') as File | null;
+    if (coverUpload && coverUpload.size > 0 && typeof coverUpload.name === 'string') {
+      const cleanFileName = coverUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = `units/${track_id}/${Date.now()}-${cleanFileName}`;
+      const uploadedCover = await uploadToStorage(supabase, 'course-materials', storagePath, coverUpload);
+      if (uploadedCover) {
+        cover_image_url = uploadedCover;
+      }
+    }
+
+    let order_index = rawOrder ? parseInt(rawOrder, 10) : 0;
+    if (!rawOrder) {
+      const { count } = await supabase
+        .from('modules')
+        .select('*', { count: 'exact', head: true })
+        .eq('track_id', track_id);
+      order_index = (count || 0) + 1;
+    }
+
+    const { data: createdModule, error } = await supabase
       .from('modules')
-      .select('*', { count: 'exact', head: true })
-      .eq('track_id', track_id);
-    order_index = (count || 0) + 1;
+      .insert({
+        track_id,
+        title,
+        description,
+        cover_image_url,
+        order_index,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/professor/tracks');
+    revalidatePath(`/professor/tracks/${track_id}`);
+    return { success: true, moduleId: createdModule.id };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao criar unidade.' };
   }
-
-  const { error } = await supabase.from('modules').insert({
-    track_id,
-    title,
-    order_index,
-  });
-
-  if (error) throw new Error(error.message);
-
-  revalidatePath('/professor/tracks');
-  revalidatePath(`/professor/tracks/${track_id}`);
 }
 
-export async function updateModuleAction(formData: FormData) {
-  const supabase = await createClient();
-  const module_id = formData.get('module_id') as string;
-  const track_id = formData.get('track_id') as string;
-  const title = (formData.get('title') as string)?.trim();
+export async function updateModuleAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const module_id = formData.get('module_id') as string;
+    const track_id = formData.get('track_id') as string;
+    const title = (formData.get('title') as string)?.trim();
+    const description = (formData.get('description') as string)?.trim() || null;
+    let cover_image_url = (formData.get('cover_image_url') as string)?.trim() || null;
 
-  if (!module_id || !title) {
-    throw new Error('ID e título da unidade são obrigatórios.');
+    if (!module_id || !title) {
+      return { success: false, error: 'ID e título da unidade são obrigatórios.' };
+    }
+
+    const coverUpload = formData.get('cover_image_file') as File | null;
+    if (coverUpload && coverUpload.size > 0 && typeof coverUpload.name === 'string') {
+      const cleanFileName = coverUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = `units/${track_id}/${Date.now()}-${cleanFileName}`;
+      const uploadedCover = await uploadToStorage(supabase, 'course-materials', storagePath, coverUpload);
+      if (uploadedCover) {
+        cover_image_url = uploadedCover;
+      }
+    }
+
+    const updatePayload: any = { title };
+    if (description !== undefined) updatePayload.description = description;
+    if (cover_image_url) updatePayload.cover_image_url = cover_image_url;
+
+    const { error } = await supabase
+      .from('modules')
+      .update(updatePayload)
+      .eq('id', module_id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/professor/tracks');
+    if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao atualizar unidade.' };
   }
-
-  const { error } = await supabase
-    .from('modules')
-    .update({ title })
-    .eq('id', module_id);
-
-  if (error) throw new Error(error.message);
-
-  revalidatePath('/professor/tracks');
-  if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
-  return { success: true };
 }
 
 export async function deleteModuleAction(formData: FormData) {

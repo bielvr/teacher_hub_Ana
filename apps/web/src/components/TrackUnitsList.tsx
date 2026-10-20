@@ -7,6 +7,7 @@ import { DeleteUnitModal } from './DeleteUnitModal';
 import { EditLessonModal } from './EditLessonModal';
 import { DeleteLessonModal } from './DeleteLessonModal';
 import { LessonDetailModal } from './LessonDetailModal';
+import { renderInlineMarkdown } from './PaginatedContent';
 
 interface ActivityItem {
   id: string;
@@ -34,6 +35,8 @@ interface UnitItem {
   track_id: string;
   title: string;
   order_index: number;
+  description?: string | null;
+  cover_image_url?: string | null;
   lessons: LessonItem[];
 }
 
@@ -161,30 +164,6 @@ export function TrackUnitsList({
                   const preparationStatus = metadata.preparation_status || 'ready';
                   const coverImageUrl = metadata.cover_image_url;
 
-                  const getStatusTag = () => {
-                    switch (status) {
-                      case 'done':
-                        return (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold text-[#6C0F37] bg-[#6C0F37]/10 border border-[#6C0F37]/20 rounded">
-                            CONCLUÍDO
-                          </span>
-                        );
-                      case 'in_progress':
-                        return (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold text-[#6C0F37] bg-[#D7CE36] rounded">
-                            EM ANDAMENTO
-                          </span>
-                        );
-                      case 'todo':
-                      default:
-                        return (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold text-[#6F6865] bg-[#F0EBE1] border border-[#E6E1D8] rounded">
-                            A FAZER
-                          </span>
-                        );
-                    }
-                  };
-
                   return (
                     <div
                       key={lesson.id}
@@ -222,14 +201,12 @@ export function TrackUnitsList({
                         <div className="space-y-1.5">
                           {/* Tags de Status e Preparação */}
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {getStatusTag()}
-                            {preparationStatus === 'needs_prep' ? (
-                              <span className="px-1.5 py-0.5 text-[9px] font-medium text-amber-700 bg-amber-50 rounded">
-                                Preparar
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 bg-emerald-50 rounded">
-                                Pronto
+                            <span className="px-2 py-0.5 text-[10px] font-bold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded-md">
+                              Aula #{lIdx + 1}
+                            </span>
+                            {activities.length > 0 && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-medium text-[#6F6865] bg-stone-100 rounded">
+                                {activities.length} {activities.length === 1 ? 'material' : 'materiais'}
                               </span>
                             )}
                           </div>
@@ -241,7 +218,7 @@ export function TrackUnitsList({
                           {/* Resumo de Metas se houver */}
                           {metadata.communicative_objectives && (
                             <p className="text-[10px] text-[#6F6865] line-clamp-1 italic">
-                              🎯 {metadata.communicative_objectives.split('\n')[0]}
+                              🎯 {renderInlineMarkdown(metadata.communicative_objectives.split('\n')[0])}
                             </p>
                           )}
                         </div>

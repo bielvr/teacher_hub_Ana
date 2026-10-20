@@ -540,9 +540,15 @@ export function ActivityBankClient({
           >
             <div>
               <span className="text-lg block mb-1">📚</span>
-              <h3 className="text-xs sm:text-sm font-bold leading-snug">Todos os Níveis</h3>
+              <h3 className={`text-xs sm:text-sm font-bold leading-snug ${
+                selectedTrackId === 'all' ? 'text-white font-extrabold' : 'text-[#2B2426]'
+              }`}>
+                Todos os Níveis
+              </h3>
             </div>
-            <div className="mt-3 pt-2 border-t border-current/20 text-[11px] opacity-80">
+            <div className={`mt-3 pt-2 border-t text-[11px] font-semibold ${
+              selectedTrackId === 'all' ? 'border-white/20 text-white' : 'border-[#E6E1D8] text-[#6F6865]'
+            }`}>
               {trackStats.totalCount} atividades totais
             </div>
           </button>
@@ -565,14 +571,20 @@ export function ActivityBankClient({
               >
                 <div>
                   <span className="text-lg block mb-1">🎓</span>
-                  <h3 className="text-xs sm:text-sm font-bold leading-snug line-clamp-1">
+                  <h3 className={`text-xs sm:text-sm font-bold leading-snug line-clamp-1 ${
+                    isSelected ? 'text-white font-extrabold' : 'text-[#2B2426]'
+                  }`}>
                     {trk.title}
                   </h3>
-                  <span className="text-[10px] block opacity-70 mt-0.5">
+                  <span className={`text-[10px] block mt-0.5 ${
+                    isSelected ? 'text-white/90 font-medium' : 'text-[#6F6865]'
+                  }`}>
                     {stats.lessonCount} {stats.lessonCount === 1 ? 'aula' : 'aulas'}
                   </span>
                 </div>
-                <div className="mt-3 pt-2 border-t border-current/20 text-[11px] font-semibold opacity-90">
+                <div className={`mt-3 pt-2 border-t text-[11px] font-semibold ${
+                  isSelected ? 'border-white/20 text-white' : 'border-[#E6E1D8] text-[#6F6865]'
+                }`}>
                   {stats.activityCount} {stats.activityCount === 1 ? 'atividade' : 'atividades'}
                 </div>
               </button>
@@ -591,10 +603,20 @@ export function ActivityBankClient({
           >
             <div>
               <span className="text-lg block mb-1">🌐</span>
-              <h3 className="text-xs sm:text-sm font-bold leading-snug">Atividades Gerais</h3>
-              <span className="text-[10px] block opacity-70 mt-0.5">Banco livre</span>
+              <h3 className={`text-xs sm:text-sm font-bold leading-snug ${
+                selectedTrackId === 'general' ? 'text-white font-extrabold' : 'text-[#2B2426]'
+              }`}>
+                Atividades Gerais
+              </h3>
+              <span className={`text-[10px] block mt-0.5 ${
+                selectedTrackId === 'general' ? 'text-white/90 font-medium' : 'text-[#6F6865]'
+              }`}>
+                Banco livre
+              </span>
             </div>
-            <div className="mt-3 pt-2 border-t border-current/20 text-[11px] font-semibold opacity-90">
+            <div className={`mt-3 pt-2 border-t text-[11px] font-semibold ${
+              selectedTrackId === 'general' ? 'border-white/20 text-white' : 'border-[#E6E1D8] text-[#6F6865]'
+            }`}>
               {trackStats.generalCount} atividades
             </div>
           </button>

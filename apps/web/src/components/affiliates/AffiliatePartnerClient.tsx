@@ -126,13 +126,20 @@ export function AffiliatePartnerClient({
     setFeedbackMsg(null);
     startTransition(async () => {
       try {
-        const created = await ensureAffiliatePartnerAction(orgId);
-        setPartner(created);
-        setPixInput(created.pix_key || '');
-        setFeedbackMsg({
-          type: 'success',
-          text: 'Seu código exclusivo Conexão Fikra foi ativado com sucesso!',
-        });
+        const res = await ensureAffiliatePartnerAction(orgId);
+        if (res.success && res.data) {
+          setPartner(res.data);
+          setPixInput(res.data.pix_key || '');
+          setFeedbackMsg({
+            type: 'success',
+            text: 'Seu código exclusivo Conexão Fikra foi ativado com sucesso!',
+          });
+        } else {
+          setFeedbackMsg({
+            type: 'error',
+            text: res.error || 'Não foi possível ativar o perfil de parceira.',
+          });
+        }
       } catch (err: any) {
         setFeedbackMsg({
           type: 'error',
@@ -154,12 +161,19 @@ export function AffiliatePartnerClient({
           pixKey: pixInput,
           orgId,
         });
-        setPartner({ ...partner, pix_key: res.pixKey || null });
-        setIsPixModalOpen(false);
-        setFeedbackMsg({
-          type: 'success',
-          text: 'Chave PIX atualizada com sucesso!',
-        });
+        if (res.success) {
+          setPartner({ ...partner, pix_key: res.pixKey || null });
+          setIsPixModalOpen(false);
+          setFeedbackMsg({
+            type: 'success',
+            text: 'Chave PIX atualizada com sucesso!',
+          });
+        } else {
+          setFeedbackMsg({
+            type: 'error',
+            text: res.error || 'Erro ao salvar chave PIX.',
+          });
+        }
       } catch (err: any) {
         setFeedbackMsg({
           type: 'error',
