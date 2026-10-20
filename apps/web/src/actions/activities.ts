@@ -19,13 +19,19 @@ export async function createActivityAction(formData: FormData) {
 
   const rawLessonId = (formData.get('lesson_id') as string)?.trim();
   const rawTitle = (formData.get('title') as string)?.trim();
-  const rawType = (formData.get('type') as string) || 'text';
+  const rawType = (formData.get('type') as string) || 'quiz';
   const content_url = (formData.get('content_url') as string)?.trim() || null;
   const content_markdown = (formData.get('content_markdown') as string)?.trim() || null;
 
   // Campos do Banco de Atividades Avançado
   const category = (formData.get('category') as string)?.trim() || 'Exercício e prática';
-  const correction_type = (formData.get('correction_type') as string)?.trim() || 'manual';
+  const rawCorrectionType = (formData.get('correction_type') as string)?.trim() || 'manual';
+  const no_correction_needed =
+    formData.get('no_correction_needed') === 'true' ||
+    formData.get('no_correction_needed') === 'on' ||
+    formData.get('no_correction_needed') === '1';
+
+  const correction_type = no_correction_needed ? 'external' : rawCorrectionType;
   const status = (formData.get('status') as string)?.trim() || 'published';
   const rawTargetSkills = formData.get('target_skills') as string;
   const rawBlocks = formData.get('blocks') as string;
@@ -87,12 +93,13 @@ export async function createActivityAction(formData: FormData) {
   ];
   const type: ActivityType = validTypes.includes(rawType as ActivityType)
     ? (rawType as ActivityType)
-    : 'text';
+    : 'quiz';
 
   const metadata: any = {
     category,
     target_skills,
     correction_type,
+    no_correction_needed,
     status,
     blocks,
     items,
@@ -134,7 +141,13 @@ export async function updateActivityAction(formData: FormData) {
   const rawLessonId = (formData.get('lesson_id') as string)?.trim();
   const content_markdown = (formData.get('content_markdown') as string)?.trim() || null;
   const category = (formData.get('category') as string)?.trim();
-  const correction_type = (formData.get('correction_type') as string)?.trim();
+  const rawCorrectionType = (formData.get('correction_type') as string)?.trim();
+  const no_correction_needed =
+    formData.get('no_correction_needed') === 'true' ||
+    formData.get('no_correction_needed') === 'on' ||
+    formData.get('no_correction_needed') === '1';
+
+  const correction_type = no_correction_needed ? 'external' : rawCorrectionType;
   const rawTargetSkills = formData.get('target_skills') as string;
   const rawBlocks = formData.get('blocks') as string;
 
@@ -151,12 +164,15 @@ export async function updateActivityAction(formData: FormData) {
 
   const currentMetadata: any = existing?.metadata || {};
   if (category) currentMetadata.category = category;
+  currentMetadata.no_correction_needed = no_correction_needed;
   if (correction_type) currentMetadata.correction_type = correction_type;
+
   if (rawTargetSkills) {
     try {
       currentMetadata.target_skills = JSON.parse(rawTargetSkills);
     } catch {}
   }
+
   if (rawBlocks) {
     try {
       const parsedBlocks = JSON.parse(rawBlocks);
@@ -189,6 +205,7 @@ export async function updateActivityAction(formData: FormData) {
 
   revalidatePath('/professor/activities');
   revalidatePath('/student/activities');
+  revalidatePath('/professor/corrections');
 }
 
 export async function duplicateActivityAction(activityId: string) {
@@ -247,7 +264,6 @@ export async function assignActivityAction(formData: FormData) {
     throw new Error('Selecione a atividade e o aluno/turma de destino.');
   }
 
-  // Registra no metadata da atividade ou em notifications
   const { data: existing } = await supabase
     .from('activities')
     .select('metadata, title')
@@ -270,6 +286,52 @@ export async function assignActivityAction(formData: FormData) {
 
   revalidatePath('/professor/activities');
   revalidatePath('/professor/corrections');
+}
+
+export async function bulkAssignActivitiesAction(formData: FormData): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const activityIdsRaw = formData.getAll('activity_ids') as string[];
+    const targetType = formData.get('target_type') as 'student' | 'class';
+    const targetId = formData.get('target_id') as string;
+
+    if (!activityIdsRaw || activityIdsRaw.length === 0 || !targetId) {
+      throw new Error('Selecione as atividades e o aluno/turma de destino.');
+    }
+
+    const assignedAt = new Date().toISOString();
+
+    for (const actId of activityIdsRaw) {
+      const { data: existing } = await supabase
+        .from('activities')
+        .select('metadata')
+        .eq('id', actId)
+        .single();
+
+      if (existing) {
+        const meta: any = existing.metadata || {};
+        const assignedList = meta.assigned_to || [];
+        assignedList.push({
+          target_type: targetType,
+          target_id: targetId,
+          assigned_at: assignedAt,
+        });
+        meta.assigned_to = assignedList;
+
+        await supabase
+          .from('activities')
+          .update({ metadata: meta })
+          .eq('id', actId);
+      }
+    }
+
+    revalidatePath('/professor/activities');
+    revalidatePath('/professor/corrections');
+    return { success: true, count: activityIdsRaw.length };
+  } catch (err: any) {
+    return { success: false, count: 0, error: err.message || 'Erro ao atribuir atividades em lote.' };
+  }
 }
 
 export async function deleteActivityAction(activityId: string) {

@@ -5,6 +5,7 @@ import { CreateActivityModal } from './CreateActivityModal';
 import { ActivityCardMenu } from './ActivityCardMenu';
 import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
 import { renderInlineMarkdown } from './PaginatedContent';
+import { bulkAssignActivitiesAction } from '../actions/activities';
 
 interface ActivityItem {
   id: string;
@@ -51,6 +52,14 @@ export function ActivityBankClient({
   const [categoryFilter, setCategoryFilter] = useState('');
   const [correctionFilter, setCorrectionFilter] = useState('all');
   const [previewActivity, setPreviewActivity] = useState<ActivityItem | null>(null);
+
+  // REQUISITO 1: Edição Completa de Atividades via Construtor Completo
+  const [editingActivity, setEditingActivity] = useState<ActivityItem | null>(null);
+
+  // REQUISITO 3: Seleção Múltipla via Checkboxes e Atribuição em Lote
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+  const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
 
   // Mapeamento e contagens de níveis
   const trackStats = useMemo(() => {
@@ -105,13 +114,61 @@ export function ActivityBankClient({
 
       // 4. Filtro por formato de correção
       if (correctionFilter !== 'all') {
-        const corrType = act.metadata?.correction_type || 'manual';
-        if (corrType !== correctionFilter) return false;
+        const isExternal =
+          act.metadata?.no_correction_needed ||
+          act.metadata?.external_correction ||
+          act.metadata?.correction_type === 'external';
+
+        if (correctionFilter === 'external') {
+          if (!isExternal) return false;
+        } else {
+          if (isExternal) return false;
+          const corrType = act.metadata?.correction_type || 'manual';
+          if (corrType !== correctionFilter) return false;
+        }
       }
 
       return true;
     });
   }, [initialActivities, search, selectedTrackId, categoryFilter, correctionFilter]);
+
+  // Funções de Seleção em Lote
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredActivities.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredActivities.map((a) => a.id));
+    }
+  };
+
+  const handleBulkAssignSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setBulkAssignLoading(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      selectedIds.forEach((id) => formData.append('activity_ids', id));
+      const res = await bulkAssignActivitiesAction(formData);
+
+      if (res.success) {
+        setIsBulkAssignOpen(false);
+        setSelectedIds([]);
+        alert(`${res.count} atividades atribuídas com sucesso!`);
+      } else {
+        alert(res.error || 'Erro ao atribuir atividades em lote.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Erro inesperado ao atribuir atividades.');
+    } finally {
+      setBulkAssignLoading(false);
+    }
+  };
 
   // Agrupamento por aula quando um nível específico está ativo
   const groupedByLesson = useMemo(() => {
@@ -120,7 +177,6 @@ export function ActivityBankClient({
     const currentTrack = tracks.find((t) => t.id === selectedTrackId);
     if (!currentTrack) return null;
 
-    // Coleta todas as aulas deste track
     const lessonMap: Record<string, { lesson: any; activities: ActivityItem[] }> = {};
     const moduleList = currentTrack.modules || [];
 
@@ -160,7 +216,7 @@ export function ActivityBankClient({
     return Array.from(set);
   }, [initialActivities]);
 
-  // Renderizador de um Card de Atividade Individual
+  // Renderizador de um Card de Atividade Individual com Checkbox de Seleção em Lote
   const renderActivityCard = (act: ActivityItem) => {
     const meta = act.metadata || {};
     const itemsCount = meta.item_count ?? (meta.items?.length || 0);
@@ -175,10 +231,15 @@ export function ActivityBankClient({
       (meta.items?.filter((q: any) => manualTypes.includes(q.type)).length || 0);
     const autoCount = meta.auto_count ?? Math.max(0, itemsCount - manualCount);
 
-    const correctionType = meta.correction_type || (itemsCount > 0 && manualCount === 0 ? 'auto' : 'manual');
+    const isExternalCorrection =
+      meta.no_correction_needed ||
+      meta.external_correction ||
+      meta.correction_type === 'external';
+
+    const correctionType =
+      meta.correction_type || (itemsCount > 0 && manualCount === 0 ? 'auto' : 'manual');
     const targetSkills: string[] = meta.target_skills || [];
 
-    // Vínculo curricular
     const trackName = act.lessons?.modules?.tracks?.title;
     const moduleName = act.lessons?.modules?.title;
     const lessonName = act.lessons?.title;
@@ -188,67 +249,94 @@ export function ActivityBankClient({
       ? `Aula: ${lessonName}`
       : 'Atividade Geral';
 
+    const isSelected = selectedIds.includes(act.id);
+
     return (
       <div
         key={act.id}
-        className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-[0_2px_8px_rgba(44,30,34,0.06)] hover:border-[#6C0F37]/50 hover:shadow-md transition-all flex flex-col justify-between gap-4"
+        className={`bg-white border rounded-2xl p-5 shadow-[0_2px_8px_rgba(44,30,34,0.06)] hover:border-[#6C0F37]/50 hover:shadow-md transition-all flex flex-col justify-between gap-4 ${
+          isSelected ? 'border-[#6C0F37] ring-2 ring-[#6C0F37]/20 bg-[#FAF8F5]/40' : 'border-[#E6E1D8]'
+        }`}
       >
         <div className="space-y-3">
-          {/* Topo do Card: Categoria, Correção e Menu de Ações */}
+          {/* Topo do Card: Checkbox + Categoria, Correção e Menu de Ações */}
           <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1.5 flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {/* Badge de Objetivo Geral */}
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8]">
-                  {meta.category || act.type}
-                </span>
+            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+              {/* REQUISITO 3: Checkbox individual para atribuição em lote */}
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelect(act.id)}
+                className="w-4 h-4 text-[#6C0F37] border-[#E6E1D8] rounded focus:ring-[#6C0F37] mt-0.5 cursor-pointer accent-[#6C0F37] shrink-0"
+                title="Selecionar para atribuição em lote"
+              />
 
-                {/* Badge de Status de Correção */}
-                <span
-                  className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
-                    correctionType === 'auto'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : correctionType === 'mixed'
-                      ? 'bg-purple-50 text-purple-800 border-purple-200'
-                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}
-                >
-                  {correctionType === 'auto'
-                    ? '⚡ Automática'
-                    : correctionType === 'mixed'
-                    ? '🔀 Mista'
-                    : '✍️ Manual'}
-                </span>
-              </div>
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {/* Badge de Objetivo Geral */}
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8]">
+                    {meta.category || act.type}
+                  </span>
 
-              {/* Badges Secundárias das Habilidades Trabalhadas */}
-              {targetSkills.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-0.5">
-                  {targetSkills.slice(0, 3).map((skill) => (
-                    <span
-                      key={skill}
-                      className="text-[9.5px] font-medium bg-[#FAF8F5] text-[#6F6865] px-1.5 py-0.5 rounded border border-[#E6E1D8]"
-                    >
-                      {skill}
+                  {/* Badge de Status de Correção (com suporte a Correção Externa) */}
+                  {isExternalCorrection ? (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded border bg-blue-50 text-blue-800 border-blue-200">
+                      🌐 Externa / Sem pendência
                     </span>
-                  ))}
-                  {targetSkills.length > 3 && (
-                    <span className="text-[9.5px] text-[#6F6865] font-semibold self-center">
-                      +{targetSkills.length - 3}
+                  ) : (
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                        correctionType === 'auto'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : correctionType === 'mixed'
+                          ? 'bg-purple-50 text-purple-800 border-purple-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      {correctionType === 'auto'
+                        ? '⚡ Automática'
+                        : correctionType === 'mixed'
+                        ? '🔀 Mista'
+                        : '✍️ Manual'}
                     </span>
                   )}
                 </div>
-              )}
 
-              <p className="text-[11px] text-[#6F6865] font-medium truncate pt-0.5" title={curricularPath}>
-                {curricularPath}
-              </p>
+                {/* Badges Secundárias das Habilidades Trabalhadas */}
+                {targetSkills.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {targetSkills.slice(0, 3).map((skill) => (
+                      <span
+                        key={skill}
+                        className="text-[9.5px] font-medium bg-[#FAF8F5] text-[#6F6865] px-1.5 py-0.5 rounded border border-[#E6E1D8]"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                    {targetSkills.length > 3 && (
+                      <span className="text-[9.5px] text-[#6F6865] font-semibold self-center">
+                        +{targetSkills.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <p
+                  className="text-[11px] text-[#6F6865] font-medium truncate pt-0.5"
+                  title={curricularPath}
+                >
+                  {curricularPath}
+                </p>
+              </div>
             </div>
 
+            {/* Menu de Ações com Edição Completa Integrada */}
             <ActivityCardMenu
               activity={act}
               students={students}
               classes={classes}
+              tracks={tracks}
+              onEdit={(activityToEdit) => setEditingActivity(activityToEdit)}
             />
           </div>
 
@@ -277,12 +365,15 @@ export function ActivityBankClient({
             <span className="font-semibold text-[#2B2426]">
               {itemsCount} {itemsCount === 1 ? 'questão' : 'questões'}
             </span>{' '}
-            {itemsCount > 0 && (
+            {itemsCount > 0 && !isExternalCorrection && (
               <span>
-                ({autoCount} {autoCount === 1 ? 'automática' : 'automáticas'}, {manualCount} {manualCount === 1 ? 'manual' : 'manuais'})
+                ({autoCount} auto, {manualCount} manual)
               </span>
             )}{' '}
-            • <span>{resourcesCount} {resourcesCount === 1 ? 'mídia' : 'mídias'}</span>
+            •{' '}
+            <span>
+              {resourcesCount} {resourcesCount === 1 ? 'mídia' : 'mídias'}
+            </span>
           </div>
 
           <div className="flex items-center justify-between pt-1">
@@ -302,6 +393,38 @@ export function ActivityBankClient({
 
   return (
     <div className="space-y-6">
+      {/* REQUISITO 3: Barra Flutuante de Ação em Lote */}
+      {selectedIds.length > 0 && (
+        <div className="bg-[#6C0F37] text-white p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg animate-in fade-in duration-150">
+          <div className="flex items-center gap-3">
+            <span className="bg-[#D7CE36] text-[#6C0F37] font-bold text-xs px-2.5 py-1 rounded-xl shadow-xs">
+              {selectedIds.length} {selectedIds.length === 1 ? 'selecionada' : 'selecionadas'}
+            </span>
+            <span className="text-xs font-semibold">
+              Atividades selecionadas para atribuição coletiva a alunos ou turmas.
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-1.5 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
+            >
+              Limpar seleção
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBulkAssignOpen(true)}
+              className="px-4 py-2 bg-[#D7CE36] hover:bg-[#C2B92F] text-[#6C0F37] font-bold text-xs rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              <span>🎯</span>
+              <span>Atribuir selecionadas ao aluno</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Barra de Busca + Botão Nova Atividade */}
       <div className="bg-white border border-[#E6E1D8] rounded-2xl p-4 sm:p-5 shadow-[0_2px_8px_rgba(44,30,34,0.06)] space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -309,7 +432,12 @@ export function ActivityBankClient({
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#6F6865]">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
             </span>
             <input
@@ -331,8 +459,8 @@ export function ActivityBankClient({
           </div>
         </div>
 
-        {/* Filtros Auxiliares (Categoria e Correção) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-[#E6E1D8]">
+        {/* Filtros Auxiliares + Checkbox Selecionar Todas */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#E6E1D8] items-end">
           {/* Filtro por Categoria / Objetivo */}
           <div>
             <label className="block text-[11px] font-semibold text-[#6F6865] mb-1">
@@ -366,7 +494,24 @@ export function ActivityBankClient({
               <option value="auto">Automática (Gabarito)</option>
               <option value="manual">Manual (Pela Professora)</option>
               <option value="mixed">Mista</option>
+              <option value="external">Correção Externa / Sem Pendência</option>
             </select>
+          </div>
+
+          {/* Checkbox de Selecionar Todas as Visíveis */}
+          <div className="pb-1">
+            <label className="flex items-center gap-2 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={
+                  filteredActivities.length > 0 &&
+                  selectedIds.length === filteredActivities.length
+                }
+                onChange={handleSelectAll}
+                className="w-4 h-4 text-[#6C0F37] border-[#E6E1D8] rounded focus:ring-[#6C0F37] accent-[#6C0F37] cursor-pointer"
+              />
+              <span>Selecionar todas as visíveis ({filteredActivities.length})</span>
+            </label>
           </div>
         </div>
       </div>
@@ -420,7 +565,9 @@ export function ActivityBankClient({
               >
                 <div>
                   <span className="text-lg block mb-1">🎓</span>
-                  <h3 className="text-xs sm:text-sm font-bold leading-snug line-clamp-1">{trk.title}</h3>
+                  <h3 className="text-xs sm:text-sm font-bold leading-snug line-clamp-1">
+                    {trk.title}
+                  </h3>
                   <span className="text-[10px] block opacity-70 mt-0.5">
                     {stats.lessonCount} {stats.lessonCount === 1 ? 'aula' : 'aulas'}
                   </span>
@@ -459,7 +606,10 @@ export function ActivityBankClient({
         <div className="space-y-8">
           {/* Aulas do Nível Selecionado */}
           {groupedByLesson.lessonsWithActs.map(({ lesson, activities: lessonActs }) => (
-            <div key={lesson.id} className="space-y-3 bg-[#FAF8F5]/60 border border-[#E6E1D8] rounded-2xl p-5">
+            <div
+              key={lesson.id}
+              className="space-y-3 bg-[#FAF8F5]/60 border border-[#E6E1D8] rounded-2xl p-5"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E6E1D8] pb-3">
                 <div className="flex items-center gap-2.5">
                   <span className="px-2.5 py-1 bg-[#6C0F37] text-white rounded-lg text-xs font-bold shrink-0">
@@ -490,7 +640,7 @@ export function ActivityBankClient({
             </div>
           ))}
 
-          {/* Atividades Gerais deste Nível (sem lição direta) */}
+          {/* Atividades Gerais deste Nível */}
           {groupedByLesson.unassignedActivities.length > 0 && (
             <div className="space-y-3 bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-5">
               <h3 className="text-sm font-bold text-[#6C0F37] uppercase tracking-wider">
@@ -502,26 +652,140 @@ export function ActivityBankClient({
             </div>
           )}
         </div>
+      ) : filteredActivities.length === 0 ? (
+        <div className="bg-white border border-[#E6E1D8] rounded-2xl p-12 text-center shadow-[0_2px_8px_rgba(44,30,34,0.06)]">
+          <div className="w-12 h-12 rounded-full bg-[#F7F4ED] text-[#6C0F37] flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+            💡
+          </div>
+          <h3 className="text-base font-bold text-[#2B2426]">Nenhuma atividade encontrada</h3>
+          <p className="text-xs text-[#6F6865] mt-1 max-w-sm mx-auto mb-5">
+            {search || categoryFilter || correctionFilter !== 'all'
+              ? 'Nenhuma atividade corresponde aos filtros selecionados. Tente ajustar os termos de busca.'
+              : 'Seu Banco de Atividades está pronto. Clique abaixo para cadastrar seu primeiro modelo reutilizável.'}
+          </p>
+          <CreateActivityModal
+            tracks={tracks}
+            triggerText="+ Nova atividade"
+            organizationId={organizationId}
+          />
+        </div>
       ) : (
-        /* Modo "Todos os Níveis" ou "Atividades Gerais" */
-        filteredActivities.length === 0 ? (
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-12 text-center shadow-[0_2px_8px_rgba(44,30,34,0.06)]">
-            <div className="w-12 h-12 rounded-full bg-[#F7F4ED] text-[#6C0F37] flex items-center justify-center mx-auto mb-3 text-xl font-bold">
-              💡
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredActivities.map(renderActivityCard)}
+        </div>
+      )}
+
+      {/* REQUISITO 1: Construtor Completo Aberto em Modo de Edição */}
+      {editingActivity && (
+        <CreateActivityModal
+          tracks={tracks}
+          initialData={editingActivity}
+          isOpen={Boolean(editingActivity)}
+          onClose={() => setEditingActivity(null)}
+          organizationId={organizationId}
+        />
+      )}
+
+      {/* REQUISITO 3: Modal de Atribuição em Lote */}
+      {isBulkAssignOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !bulkAssignLoading) setIsBulkAssignOpen(false);
+          }}
+        >
+          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-2xl w-full max-w-lg relative animate-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-[#6C0F37]">Atribuir em Lote</h3>
+                <p className="text-xs text-[#6F6865]">
+                  Atribuir <strong>{selectedIds.length}</strong> atividades selecionadas para um aluno individual ou turma inteira.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkAssignOpen(false)}
+                className="text-[#6F6865] hover:text-[#2B2426] p-1 font-bold cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
-            <h3 className="text-base font-bold text-[#2B2426]">Nenhuma atividade encontrada</h3>
-            <p className="text-xs text-[#6F6865] mt-1 max-w-sm mx-auto mb-5">
-              {search || categoryFilter || correctionFilter !== 'all'
-                ? 'Nenhuma atividade corresponde aos filtros selecionados. Tente ajustar os termos de busca.'
-                : 'Seu Banco de Atividades está pronto. Clique abaixo para cadastrar seu primeiro modelo reutilizável.'}
-            </p>
-            <CreateActivityModal tracks={tracks} triggerText="+ Nova atividade" organizationId={organizationId} />
+
+            {/* Lista das atividades selecionadas */}
+            <div className="max-h-36 overflow-y-auto p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-1.5 text-xs">
+              <span className="font-bold text-[#2B2426] block mb-1">
+                Atividades que serão atribuídas:
+              </span>
+              {initialActivities
+                .filter((a) => selectedIds.includes(a.id))
+                .map((a) => (
+                  <div key={a.id} className="flex items-center gap-1.5 text-[#6C0F37] font-medium">
+                    <span>✓</span>
+                    <span className="truncate">{a.title}</span>
+                  </div>
+                ))}
+            </div>
+
+            <form onSubmit={handleBulkAssignSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#2B2426] mb-1">
+                  Destino da Atribuição
+                </label>
+                <select
+                  name="target_type"
+                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426]"
+                >
+                  <option value="student">Aluno Individual</option>
+                  <option value="class">Turma Completa</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2B2426] mb-1">
+                  Selecione o Aluno ou Turma
+                </label>
+                <select
+                  name="target_id"
+                  required
+                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426]"
+                >
+                  <optgroup label="Alunos">
+                    {students.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Turmas">
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E1D8]">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkAssignOpen(false)}
+                  disabled={bulkAssignLoading}
+                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:bg-[#F7F4ED] rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={bulkAssignLoading}
+                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {bulkAssignLoading ? 'Atribuindo...' : `Atribuir ${selectedIds.length} Atividades`}
+                </button>
+              </div>
+            </form>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredActivities.map(renderActivityCard)}
-          </div>
-        )
+        </div>
       )}
 
       {/* Modal de Pré-visualização da Atividade */}
@@ -538,7 +802,12 @@ export function ActivityBankClient({
             previewActivity.metadata?.items ||
             []
           }
-          correctionType={previewActivity.metadata?.correction_type || 'manual'}
+          correctionType={
+            previewActivity.metadata?.no_correction_needed ||
+            previewActivity.metadata?.external_correction
+              ? 'external'
+              : previewActivity.metadata?.correction_type || 'manual'
+          }
         />
       )}
     </div>

@@ -178,13 +178,10 @@ export function ActivityPreviewModal({
                   key={block.id}
                   className="p-5 rounded-xl border border-[#E6E1D8] bg-white shadow-xs space-y-3"
                 >
-                  {/* Cabeçalho do Bloco */}
+                  {/* Cabeçalho do Bloco com numeração limpa */}
                   <div className="flex items-center justify-between border-b border-[#E6E1D8]/60 pb-2">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
-                      {block.kind === 'resource' ? `Recurso #${idx + 1}` : `Questão #${idx + 1}`}
-                    </span>
-                    <span className="text-[10px] font-semibold text-[#6F6865] bg-[#FAF8F5] border border-[#E6E1D8] px-2 py-0.5 rounded">
-                      {block.type}
+                      {block.kind === 'resource' ? `Material de Apoio #${idx + 1}` : `Questão #${idx + 1}`}
                     </span>
                   </div>
 

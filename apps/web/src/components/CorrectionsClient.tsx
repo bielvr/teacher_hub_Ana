@@ -25,10 +25,15 @@ export function CorrectionsClient({
   const [correctionFilter, setCorrectionFilter] = useState('');
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null);
 
-  // Contagem por aba
+  // Contagem por aba (atividades com 'Não precisa de correção / Correção externa' nunca geram pendências)
   const counts = useMemo(() => {
     return {
-      pending_review: initialSubmissions.filter((s) => s.status === 'pending_review' || (s.status === 'submitted' && !s.teacher_feedback)).length,
+      pending_review: initialSubmissions.filter(
+        (s) =>
+          !s.no_correction_needed &&
+          s.correction_type !== 'external' &&
+          (s.status === 'pending_review' || (s.status === 'submitted' && !s.teacher_feedback))
+      ).length,
       submitted: initialSubmissions.filter((s) => s.status === 'submitted').length,
       in_progress: initialSubmissions.filter((s) => s.status === 'in_progress').length,
       reviewed: initialSubmissions.filter((s) => s.status === 'reviewed').length,
@@ -39,9 +44,11 @@ export function CorrectionsClient({
   // Filtra as submissões
   const filteredSubmissions = useMemo(() => {
     return initialSubmissions.filter((sub) => {
-      // 1. Filtro pela aba ativa
+      // 1. Filtro pela aba ativa (exclui atividades sem necessidade de correção da aba pendente)
       if (activeTab === 'pending_review') {
-        const isPending = sub.status === 'pending_review' || (sub.status === 'submitted' && !sub.teacher_feedback);
+        if (sub.no_correction_needed || sub.correction_type === 'external') return false;
+        const isPending =
+          sub.status === 'pending_review' || (sub.status === 'submitted' && !sub.teacher_feedback);
         if (!isPending) return false;
       } else if (sub.status !== activeTab) {
         return false;

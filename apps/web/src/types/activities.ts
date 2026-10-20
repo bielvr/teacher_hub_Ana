@@ -98,7 +98,7 @@ export interface QuestionBlock {
 
 export type ActivityBlock = ResourceBlock | QuestionBlock;
 
-export type CorrectionType = 'auto' | 'manual' | 'mixed';
+export type CorrectionType = 'auto' | 'manual' | 'mixed' | 'external';
 
 export const AUTOMATIC_QUESTION_TYPES: QuestionBlockType[] = [
   'multiple_choice',
@@ -139,6 +139,7 @@ export interface ActivityMetadata {
   curricular_module_id?: string;
   curricular_lesson_id?: string;
   correction_type: CorrectionType;
+  no_correction_needed?: boolean;
   status: 'published' | 'draft';
   blocks: ActivityBlock[];
   items?: any[]; // compatibilidade com estrutura anterior

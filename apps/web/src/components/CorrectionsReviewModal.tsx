@@ -15,7 +15,8 @@ export interface SubmissionItem {
   content: string;
   teacher_feedback?: string | null;
   score?: string | null;
-  correction_type?: 'auto' | 'manual' | 'mixed';
+  correction_type?: 'auto' | 'manual' | 'mixed' | 'external';
+  no_correction_needed?: boolean;
   auto_results?: {
     question: string;
     student_answer: string;

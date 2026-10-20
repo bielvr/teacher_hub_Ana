@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createActivityAction } from '../actions/activities';
+import { createActivityAction, updateActivityAction } from '../actions/activities';
 import {
   PedagogicalObjective,
   TargetSkill,
@@ -18,7 +18,7 @@ import {
 } from '../types/activities';
 import { ActivityBlockSelector } from './activities/ActivityBlockSelector';
 import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
-import { RichMarkdownRenderer, renderInlineMarkdown } from './PaginatedContent';
+import { RichMarkdownRenderer } from './PaginatedContent';
 
 interface TrackOption {
   id: string;
@@ -30,23 +30,111 @@ interface TrackOption {
   }[];
 }
 
+interface ActivityInitialData {
+  id: string;
+  title: string;
+  type?: string;
+  content_markdown?: string | null;
+  lesson_id?: string | null;
+  metadata?: any;
+  lessons?: {
+    id: string;
+    title: string;
+    modules?: {
+      id: string;
+      title: string;
+      tracks?: {
+        id: string;
+        title: string;
+      } | null;
+    } | null;
+  } | null;
+}
+
 interface CreateActivityModalProps {
   tracks: TrackOption[];
   triggerText?: string;
   defaultOpen?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
   organizationId?: string;
+  initialData?: ActivityInitialData | null;
+}
+
+function getQuestionTypeLabel(type: QuestionBlockType): string {
+  switch (type) {
+    case 'multiple_choice':
+      return 'Múltipla Escolha';
+    case 'multiple_select':
+      return 'Múltipla Seleção';
+    case 'true_false':
+      return 'Verdadeiro ou Falso';
+    case 'fill_blank':
+      return 'Preencher Lacunas';
+    case 'short_answer_auto':
+      return 'Resposta Curta (Gabarito)';
+    case 'translation':
+      return 'Tradução';
+    case 'error_correction':
+      return 'Correção de Erros';
+    case 'ordering':
+      return 'Ordenação';
+    case 'match_columns':
+      return 'Associação de Colunas';
+    case 'sequence_ranking':
+      return 'Sequência e Ranking';
+    case 'categorize':
+      return 'Categorização';
+    case 'short_answer_manual':
+      return 'Resposta Discursiva';
+    case 'long_answer_manual':
+      return 'Redação / Texto Longo';
+    case 'open_production_manual':
+      return 'Produção Livre / Áudio';
+    default:
+      return 'Questão';
+  }
+}
+
+function getResourceTypeLabel(type: ResourceBlockType): string {
+  switch (type) {
+    case 'text':
+      return 'Texto de Apoio';
+    case 'video':
+      return 'Vídeo';
+    case 'audio':
+      return 'Áudio';
+    case 'pdf':
+      return 'Documento PDF';
+    case 'image':
+      return 'Imagem';
+    case 'link':
+      return 'Link Externo';
+    default:
+      return 'Recurso';
+  }
 }
 
 export function CreateActivityModal({
   tracks,
   triggerText = '+ Nova atividade',
   defaultOpen = false,
+  isOpen: controlledIsOpen,
+  onClose,
   organizationId,
+  initialData,
 }: CreateActivityModalProps) {
   const searchParams = useSearchParams();
   const shouldOpenFromUrl = searchParams.get('new') === 'true';
 
-  const [isOpen, setIsOpen] = useState(defaultOpen || shouldOpenFromUrl);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen || shouldOpenFromUrl);
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalOpen;
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    else setInternalOpen(false);
+  };
+
   const [activeStep, setActiveStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -56,32 +144,135 @@ export function CreateActivityModal({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // ETAPA 1: Informações Básicas
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<PedagogicalObjective>('Exercício e prática');
-  const [targetSkills, setTargetSkills] = useState<TargetSkill[]>(['Gramática']);
-  const [selectedTrackId, setSelectedTrackId] = useState('');
-  const [selectedModuleId, setSelectedModuleId] = useState('');
-  const [selectedLessonId, setSelectedLessonId] = useState('');
-  const [instructions, setInstructions] = useState('');
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [category, setCategory] = useState<PedagogicalObjective>(
+    (initialData?.metadata?.category as PedagogicalObjective) || 'Exercício e prática'
+  );
+  const [targetSkills, setTargetSkills] = useState<TargetSkill[]>(
+    initialData?.metadata?.target_skills || ['Gramática']
+  );
+  const [selectedTrackId, setSelectedTrackId] = useState(
+    initialData?.lessons?.modules?.tracks?.id || initialData?.metadata?.track_id || ''
+  );
+  const [selectedModuleId, setSelectedModuleId] = useState(
+    initialData?.lessons?.modules?.id || initialData?.metadata?.module_id || ''
+  );
+  const [selectedLessonId, setSelectedLessonId] = useState(
+    initialData?.lessons?.id || initialData?.lesson_id || ''
+  );
+  const [instructions, setInstructions] = useState(initialData?.content_markdown || '');
   const [instructionTab, setInstructionTab] = useState<'edit' | 'preview'>('edit');
 
+  // Flag: Não precisa de correção / Correção externa
+  const [noCorrectionNeeded, setNoCorrectionNeeded] = useState<boolean>(
+    Boolean(
+      initialData?.metadata?.no_correction_needed ||
+        initialData?.metadata?.external_correction ||
+        initialData?.metadata?.correction_type === 'external'
+    )
+  );
+
   // ETAPA 2: Blocos de Atividade
-  const [blocks, setBlocks] = useState<ActivityBlock[]>([]);
+  const [blocks, setBlocks] = useState<ActivityBlock[]>(() => {
+    if (initialData?.metadata?.blocks && Array.isArray(initialData.metadata.blocks)) {
+      return initialData.metadata.blocks;
+    }
+    // Reconstrução de blocos legados (items e resources)
+    const legacyBlocks: ActivityBlock[] = [];
+    if (Array.isArray(initialData?.metadata?.resources)) {
+      initialData.metadata.resources.forEach((r: any, idx: number) => {
+        legacyBlocks.push({
+          id: r.id || `res-${idx}-${Date.now()}`,
+          kind: 'resource',
+          type: r.type || 'text',
+          title: r.title || 'Recurso',
+          url: r.url || '',
+          content_markdown: r.content_markdown || '',
+        });
+      });
+    }
+    if (Array.isArray(initialData?.metadata?.items)) {
+      initialData.metadata.items.forEach((q: any, idx: number) => {
+        legacyBlocks.push({
+          id: q.id || `q-${idx}-${Date.now()}`,
+          kind: 'question',
+          type: q.type || 'multiple_choice',
+          prompt: q.prompt || '',
+          options: q.options || (q.type === 'multiple_choice' ? ['Opção 1', 'Opção 2'] : undefined),
+          answer_key: q.answer_key || undefined,
+        });
+      });
+    }
+    return legacyBlocks;
+  });
+
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [resourceBlockTab, setResourceBlockTab] = useState<'edit' | 'preview'>('edit');
+
+  // Sincroniza initialData caso mude em modo de edição
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setCategory((initialData.metadata?.category as PedagogicalObjective) || 'Exercício e prática');
+      setTargetSkills(initialData.metadata?.target_skills || ['Gramática']);
+      setSelectedTrackId(
+        initialData.lessons?.modules?.tracks?.id || initialData.metadata?.track_id || ''
+      );
+      setSelectedModuleId(
+        initialData.lessons?.modules?.id || initialData.metadata?.module_id || ''
+      );
+      setSelectedLessonId(initialData.lessons?.id || initialData.lesson_id || '');
+      setInstructions(initialData.content_markdown || '');
+      setNoCorrectionNeeded(
+        Boolean(
+          initialData.metadata?.no_correction_needed ||
+            initialData.metadata?.external_correction ||
+            initialData.metadata?.correction_type === 'external'
+        )
+      );
+
+      if (initialData.metadata?.blocks && Array.isArray(initialData.metadata.blocks)) {
+        setBlocks(initialData.metadata.blocks);
+      } else if (initialData.metadata?.items || initialData.metadata?.resources) {
+        const loaded: ActivityBlock[] = [];
+        (initialData.metadata.resources || []).forEach((r: any, i: number) => {
+          loaded.push({
+            id: r.id || `res-${i}-${Date.now()}`,
+            kind: 'resource',
+            type: r.type || 'text',
+            title: r.title || 'Recurso',
+            url: r.url || '',
+            content_markdown: r.content_markdown || '',
+          });
+        });
+        (initialData.metadata.items || []).forEach((q: any, i: number) => {
+          loaded.push({
+            id: q.id || `q-${i}-${Date.now()}`,
+            kind: 'question',
+            type: q.type || 'multiple_choice',
+            prompt: q.prompt || '',
+            options: q.options,
+            answer_key: q.answer_key,
+          });
+        });
+        setBlocks(loaded);
+      }
+    }
+  }, [initialData]);
 
   // Filtros encadeados de Nível -> Unidade -> Aula
   const availableModules = tracks.find((t) => t.id === selectedTrackId)?.modules || [];
   const availableLessons = availableModules.find((m) => m.id === selectedModuleId)?.lessons || [];
 
-  // Motor de Correção Automático
-  const correctionType: CorrectionType = computeCorrectionType(blocks);
+  // Motor de Correção
+  const computedCorrection = computeCorrectionType(blocks);
+  const correctionType: CorrectionType = noCorrectionNeeded ? 'external' : computedCorrection;
 
   // Fecha no ESC
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && isOpen && !isSelectorOpen && !isPreviewOpen) {
-        setIsOpen(false);
+        handleClose();
       }
     }
     if (isOpen) document.addEventListener('keydown', handleKeyDown);
@@ -138,7 +329,10 @@ export function CreateActivityModal({
   };
 
   // Adição de bloco via catálogo
-  const handleAddBlock = (type: QuestionBlockType | ResourceBlockType, kind: 'question' | 'resource') => {
+  const handleAddBlock = (
+    type: QuestionBlockType | ResourceBlockType,
+    kind: 'question' | 'resource'
+  ) => {
     const id = Date.now().toString();
 
     if (kind === 'resource') {
@@ -146,7 +340,7 @@ export function CreateActivityModal({
         id,
         kind: 'resource',
         type: type as ResourceBlockType,
-        title: `Recurso (${type})`,
+        title: `Recurso: ${getResourceTypeLabel(type as ResourceBlockType)}`,
         url: '',
         content_markdown: '',
       };
@@ -157,12 +351,17 @@ export function CreateActivityModal({
         id,
         kind: 'question',
         type: type as QuestionBlockType,
-        prompt: 'Descreva a pergunta ou instrução aqui...',
+        prompt: '',
         options:
           type === 'multiple_choice' || type === 'multiple_select'
-            ? ['Opção 1', 'Opção 2', 'Opção 3', 'Opção 4']
+            ? ['Opção A', 'Opção B', 'Opção C', 'Opção D']
             : undefined,
-        answer_key: type === 'true_false' ? 'Verdadeiro' : undefined,
+        answer_key:
+          type === 'true_false'
+            ? 'True'
+            : type === 'multiple_choice'
+            ? 'Opção A'
+            : undefined,
       };
       setBlocks([...blocks, newQuestion]);
       setEditingBlockId(id);
@@ -202,7 +401,7 @@ export function CreateActivityModal({
     );
   };
 
-  // Submissão
+  // Submissão (Criação ou Edição)
   const handleSubmit = async (status: 'published' | 'draft') => {
     if (!title.trim()) {
       setErrorMsg('Informe o título da atividade.');
@@ -223,23 +422,29 @@ export function CreateActivityModal({
       formData.append('category', category);
       formData.append('target_skills', JSON.stringify(targetSkills));
       formData.append('correction_type', correctionType);
+      formData.append('no_correction_needed', noCorrectionNeeded ? 'true' : 'false');
       formData.append('status', status);
       formData.append('blocks', JSON.stringify(blocks));
 
-      // Compatibilidade legada com items e resources
       const items = blocks.filter((b) => b.kind === 'question');
       const resources = blocks.filter((b) => b.kind === 'resource');
       formData.append('items', JSON.stringify(items));
       formData.append('resources', JSON.stringify(resources));
 
-      await createActivityAction(formData);
+      if (initialData?.id) {
+        formData.append('activity_id', initialData.id);
+        await updateActivityAction(formData);
+      } else {
+        await createActivityAction(formData);
+      }
 
-      setIsOpen(false);
-      // Reset
-      setTitle('');
-      setInstructions('');
-      setBlocks([]);
-      setActiveStep(1);
+      handleClose();
+      if (!initialData?.id) {
+        setTitle('');
+        setInstructions('');
+        setBlocks([]);
+        setActiveStep(1);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao salvar atividade.');
     } finally {
@@ -249,39 +454,41 @@ export function CreateActivityModal({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="px-4 py-2 text-sm font-semibold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D7CE36]/60"
-      >
-        <span>{triggerText}</span>
-      </button>
+      {controlledIsOpen === undefined && (
+        <button
+          type="button"
+          onClick={() => setInternalOpen(true)}
+          className="px-4 py-2 text-sm font-semibold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D7CE36]/60"
+        >
+          <span>{triggerText}</span>
+        </button>
+      )}
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
           onClick={(e) => {
-            if (e.target === e.currentTarget && !isSelectorOpen && !isPreviewOpen) setIsOpen(false);
+            if (e.target === e.currentTarget && !isSelectorOpen && !isPreviewOpen) handleClose();
           }}
         >
-          <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col relative overflow-hidden animate-zoomIn">
+          <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Topo do Modal */}
             <div className="px-6 py-4 border-b border-[#E6E1D8] flex items-center justify-between bg-[#FAF8F5]">
               <div className="flex items-center gap-3">
                 <span className="p-2 rounded-xl bg-white border border-[#E6E1D8] text-[#6C0F37] font-bold text-lg">
-                  📝
+                  {initialData ? '✏️' : '📝'}
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-white border border-[#E6E1D8] px-2 py-0.5 rounded">
-                      Construtor de Atividades
+                      {initialData ? 'Editar Atividade' : 'Construtor de Atividades'}
                     </span>
                     <span className="text-xs text-[#6F6865]">
                       {activeStep === 1 ? 'Etapa 1: Organização' : 'Etapa 2: Montagem de Blocos'}
                     </span>
                   </div>
-                  <h2 className="text-xl font-bold text-[#6C0F37] mt-0.5">
-                    {title ? title : 'Nova atividade pedagógica'}
+                  <h2 className="text-xl font-bold text-[#6C0F37] mt-0.5 truncate max-w-md sm:max-w-xl">
+                    {title ? title : initialData ? 'Editar atividade' : 'Nova atividade pedagógica'}
                   </h2>
                 </div>
               </div>
@@ -320,8 +527,9 @@ export function CreateActivityModal({
 
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="p-1.5 text-[#6F6865] hover:text-[#2B2426] hover:bg-white rounded-lg transition-colors ml-2"
+                  onClick={handleClose}
+                  className="p-1.5 text-[#6F6865] hover:text-[#2B2426] hover:bg-white rounded-lg transition-colors ml-2 cursor-pointer font-bold"
+                  aria-label="Fechar"
                 >
                   ✕
                 </button>
@@ -373,7 +581,7 @@ export function CreateActivityModal({
                         ))}
                       </select>
                       <p className="text-[11px] text-[#6F6865] mt-1">
-                        Define a finalidade principal pedagógica desta atividade.
+                        Define a finalidade pedagógica desta atividade.
                       </p>
                     </div>
 
@@ -473,7 +681,34 @@ export function CreateActivityModal({
                     </div>
                   </div>
 
-                  {/* Instruções Gerais para o Aluno com Barra de Ferramentas, Abas e Quebra de Página */}
+                  {/* REQUISITO 3: FLAG DE CORREÇÃO EXTERNA / NÃO PRECISA DE CORREÇÃO */}
+                  <div className="p-3.5 bg-white border border-[#E6E1D8] rounded-xl flex items-start gap-3 shadow-2xs">
+                    <input
+                      id="no-correction-checkbox"
+                      type="checkbox"
+                      checked={noCorrectionNeeded}
+                      onChange={(e) => setNoCorrectionNeeded(e.target.checked)}
+                      className="w-4 h-4 text-[#6C0F37] border-[#E6E1D8] rounded focus:ring-[#6C0F37] mt-0.5 cursor-pointer accent-[#6C0F37]"
+                    />
+                    <div>
+                      <label
+                        htmlFor="no-correction-checkbox"
+                        className="text-xs font-bold text-[#2B2426] cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Não precisa de correção / Correção externa</span>
+                        {noCorrectionNeeded && (
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                            Ativo
+                          </span>
+                        )}
+                      </label>
+                      <p className="text-[11px] text-[#6F6865] mt-0.5 leading-relaxed">
+                        Atividades com essa marcação nunca geram pendências na aba de correção da professora, sendo tratadas como estudo livre ou prática em sala ao vivo.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Instruções Gerais para o Aluno */}
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-3">
@@ -510,7 +745,7 @@ export function CreateActivityModal({
                         type="button"
                         onClick={insertPageBreak}
                         className="px-2.5 py-1 rounded-lg text-xs font-bold text-[#6C0F37] bg-[#D7CE36]/30 border border-[#D7CE36] hover:bg-[#D7CE36] transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Insere um delimitador de quebra de página <!--page-break--> para paginação por etapas"
+                        title="Insere um delimitador de quebra de página <!--page-break-->"
                       >
                         <span>📄</span>
                         <span>Inserir Quebra de Página</span>
@@ -519,13 +754,12 @@ export function CreateActivityModal({
 
                     {instructionTab === 'edit' ? (
                       <>
-                        {/* Barra de Ferramentas Rica */}
                         <div className="flex flex-wrap items-center gap-1 p-2 bg-[#FAF8F5] border border-b-0 border-[#E6E1D8] rounded-t-xl text-xs">
                           <button
                             type="button"
                             onClick={() => insertInstructionSnippet('**', '**')}
                             className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Negrito (**texto**)"
+                            title="Negrito"
                           >
                             B
                           </button>
@@ -533,7 +767,7 @@ export function CreateActivityModal({
                             type="button"
                             onClick={() => insertInstructionSnippet('*', '*')}
                             className="px-2 py-1 rounded bg-white border border-[#E6E1D8] italic hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Itálico (*texto*)"
+                            title="Itálico"
                           >
                             I
                           </button>
@@ -566,7 +800,7 @@ export function CreateActivityModal({
                             type="button"
                             onClick={() => insertInstructionSnippet('- ')}
                             className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Lista com marcadores"
+                            title="Lista"
                           >
                             • Lista
                           </button>
@@ -580,34 +814,18 @@ export function CreateActivityModal({
                           </button>
                           <button
                             type="button"
-                            onClick={() => insertInstructionSnippet('- [ ] ')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Checklist"
-                          >
-                            ☑ Checklist
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => insertInstructionSnippet('\n---\n')}
                             className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Divisória horizontal"
+                            title="Divisória"
                           >
                             ― Divisória
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('[Link](', ')')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Inserir Link"
-                          >
-                            🔗 Link
                           </button>
                         </div>
 
                         <textarea
                           id="instructions-textarea"
                           rows={5}
-                          placeholder="Instruções claras para os alunos. Você pode inserir <!--page-break--> para separar em etapas com botão 'Avançar'..."
+                          placeholder="Instruções claras para os alunos. Você pode inserir <!--page-break--> para separar em etapas..."
                           value={instructions}
                           onChange={(e) => setInstructions(e.target.value)}
                           className="w-full p-3.5 border border-[#E6E1D8] rounded-b-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] font-mono leading-relaxed resize-y"
@@ -619,16 +837,10 @@ export function CreateActivityModal({
                           <RichMarkdownRenderer content={instructions} />
                         ) : (
                           <p className="text-xs text-[#6F6865] italic">
-                            Nenhuma instrução digitada ainda. Clique em "✍️ Escrever" para adicionar orientações aos alunos.
+                            Nenhuma instrução digitada ainda. Clique em "✍️ Escrever" para adicionar orientações.
                           </p>
                         )}
                       </div>
-                    )}
-
-                    {instructions.includes('<!--page-break-->') && (
-                      <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg mt-2 font-medium">
-                        ✨ Quebra de página detectada: Esta atividade será dividida em etapas sequenciais para o aluno.
-                      </p>
                     )}
                   </div>
                 </div>
@@ -658,47 +870,30 @@ export function CreateActivityModal({
                     <div className="flex items-center gap-2 self-start md:self-center">
                       <div className="text-right">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[#6F6865] block">
-                          Motor de Correção:
+                          Formato de Correção:
                         </span>
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                            correctionType === 'auto'
+                            noCorrectionNeeded
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : correctionType === 'auto'
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                               : correctionType === 'mixed'
                               ? 'bg-purple-50 text-purple-800 border-purple-200'
                               : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}
                         >
-                          {correctionType === 'auto'
+                          {noCorrectionNeeded
+                            ? '🌐 Externa / Sem pendência'
+                            : correctionType === 'auto'
                             ? '⚡ Automática (Gabarito)'
                             : correctionType === 'mixed'
-                            ? '🔀 Mista (Auto + Manual)'
+                            ? '🔀 Mista'
                             : '✍️ Manual (Pela Professora)'}
                         </span>
                       </div>
                     </div>
                   </div>
-
-                  {/* Resumo das Instruções na Etapa 2 com Renderização Formatada */}
-                  {instructions.trim() && (
-                    <div className="p-4 rounded-xl bg-white border border-[#E6E1D8] space-y-2 shadow-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
-                          <span>📋</span> Instruções da Atividade
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveStep(1)}
-                          className="text-[11px] font-semibold text-[#6C0F37] hover:underline cursor-pointer"
-                        >
-                          Editar na Etapa 1 ↗
-                        </button>
-                      </div>
-                      <div className="text-xs text-[#2B2426] bg-[#FAF8F5] p-3 rounded-lg border border-[#E6E1D8]/60">
-                        <RichMarkdownRenderer content={instructions} />
-                      </div>
-                    </div>
-                  )}
 
                   {/* Lista de Blocos Inseridos */}
                   <div className="space-y-4">
@@ -725,340 +920,548 @@ export function CreateActivityModal({
                             Nenhum bloco inserido ainda
                           </h4>
                           <p className="text-xs text-[#6F6865]">
-                            Monte sua atividade combinando livremente mídias de apoio (vídeos, áudios, PDFs) e questões dos 14 formatos disponíveis.
+                            Monte sua atividade combinando materiais de apoio e questões interativas.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => setIsSelectorOpen(true)}
-                          className="px-4 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs"
+                          className="px-4 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs cursor-pointer"
                         >
-                          + Abrir Catálogo dos 14 Formatos
+                          + Abrir Catálogo de Formatos
                         </button>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {blocks.map((block, idx) => (
-                          <div
-                            key={block.id}
-                            className="p-4 rounded-xl border border-[#E6E1D8] bg-white shadow-xs space-y-3 transition-all"
-                          >
-                            {/* Barra Superior do Bloco */}
-                            <div className="flex items-center justify-between gap-2 border-b border-[#E6E1D8]/60 pb-2.5">
-                              <div className="flex items-center gap-2">
-                                <span className="w-6 h-6 rounded-md bg-[#FAF8F5] border border-[#E6E1D8] text-xs font-bold text-[#6C0F37] flex items-center justify-center">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-bold text-[#2B2426]">
-                                  {block.kind === 'resource' ? 'Recurso' : 'Questão'}: {block.type}
-                                </span>
+                        {blocks.map((block, idx) => {
+                          const isQuestion = block.kind === 'question';
+                          const questionNumber = blocks
+                            .slice(0, idx + 1)
+                            .filter((b) => b.kind === 'question').length;
+
+                          const blockTitleLabel = isQuestion
+                            ? `Questão ${questionNumber}: ${getQuestionTypeLabel(
+                                (block as QuestionBlock).type
+                              )}`
+                            : `Material: ${getResourceTypeLabel((block as ResourceBlock).type)}`;
+
+                          return (
+                            <div
+                              key={block.id}
+                              className="p-4 rounded-xl border border-[#E6E1D8] bg-white shadow-xs space-y-3 transition-all"
+                            >
+                              {/* Barra Superior do Bloco - Numeração Limpa sem Badges Técnicos */}
+                              <div className="flex items-center justify-between gap-2 border-b border-[#E6E1D8]/60 pb-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-6 h-6 rounded-md bg-[#FAF8F5] border border-[#E6E1D8] text-xs font-bold text-[#6C0F37] flex items-center justify-center">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="text-xs font-bold text-[#2B2426]">
+                                    {blockTitleLabel}
+                                  </span>
+                                </div>
+
+                                {/* Ações de Reordenação e Edição */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => moveBlock(idx, 'up')}
+                                    className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5] cursor-pointer"
+                                    title="Mover para cima"
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={idx === blocks.length - 1}
+                                    onClick={() => moveBlock(idx, 'down')}
+                                    className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5] cursor-pointer"
+                                    title="Mover para baixo"
+                                  >
+                                    ▼
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => duplicateBlock(idx)}
+                                    className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] rounded hover:bg-[#FAF8F5] cursor-pointer"
+                                    title="Duplicar bloco"
+                                  >
+                                    📋
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingBlockId(
+                                        editingBlockId === block.id ? null : block.id
+                                      );
+                                      setResourceBlockTab('edit');
+                                    }}
+                                    className="px-2.5 py-0.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded hover:bg-[#F0EBE1] cursor-pointer"
+                                  >
+                                    {editingBlockId === block.id ? 'Recolher' : 'Editar'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeBlock(block.id)}
+                                    className="p-1 text-xs text-red-600 hover:bg-red-50 rounded cursor-pointer"
+                                    title="Excluir bloco"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
                               </div>
 
-                              {/* Ações de Reordenação e Edição */}
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  disabled={idx === 0}
-                                  onClick={() => moveBlock(idx, 'up')}
-                                  className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5]"
-                                  title="Mover para cima"
-                                >
-                                  ▲
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={idx === blocks.length - 1}
-                                  onClick={() => moveBlock(idx, 'down')}
-                                  className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5]"
-                                  title="Mover para baixo"
-                                >
-                                  ▼
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => duplicateBlock(idx)}
-                                  className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] rounded hover:bg-[#FAF8F5]"
-                                  title="Duplicar bloco"
-                                >
-                                  📋
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingBlockId(editingBlockId === block.id ? null : block.id);
-                                    setResourceBlockTab('edit');
-                                  }}
-                                  className="px-2 py-0.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded hover:bg-[#F0EBE1]"
-                                >
-                                  {editingBlockId === block.id ? 'Recolher' : 'Editar'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeBlock(block.id)}
-                                  className="p-1 text-xs text-red-600 hover:bg-red-50 rounded"
-                                  title="Excluir bloco"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Conteúdo / Edição do Bloco */}
-                            {editingBlockId === block.id ? (
-                              <div className="space-y-3 pt-2 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E6E1D8]">
-                                {block.kind === 'resource' ? (
-                                  <>
-                                    <div>
-                                      <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                        Título do Recurso
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={block.title}
-                                        onChange={(e) => updateBlock(block.id, { title: e.target.value })}
-                                        className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                      />
-                                    </div>
-                                    {block.type === 'text' ? (
-                                      <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                          <label className="block text-[11px] font-bold text-[#2B2426]">
-                                            Conteúdo do Texto
+                              {/* Edição do Bloco Expandido */}
+                              {editingBlockId === block.id ? (
+                                <div className="space-y-3.5 pt-2 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E6E1D8]">
+                                  {block.kind === 'resource' ? (
+                                    <>
+                                      <div>
+                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                          Título do Material de Apoio
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={block.title}
+                                          onChange={(e) =>
+                                            updateBlock(block.id, { title: e.target.value })
+                                          }
+                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
+                                        />
+                                      </div>
+                                      {block.type === 'text' ? (
+                                        <div className="space-y-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <label className="block text-[11px] font-bold text-[#2B2426]">
+                                              Texto Explicativo
+                                            </label>
+                                            <div className="flex items-center bg-white border border-[#E6E1D8] rounded-md p-0.5 text-[11px]">
+                                              <button
+                                                type="button"
+                                                onClick={() => setResourceBlockTab('edit')}
+                                                className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                                                  resourceBlockTab === 'edit'
+                                                    ? 'bg-[#FAF8F5] text-[#6C0F37]'
+                                                    : 'text-[#6F6865]'
+                                                }`}
+                                              >
+                                                ✍️ Escrever
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setResourceBlockTab('preview')}
+                                                className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
+                                                  resourceBlockTab === 'preview'
+                                                    ? 'bg-[#6C0F37] text-white'
+                                                    : 'text-[#6F6865]'
+                                                }`}
+                                              >
+                                                👁️ Visualizar
+                                              </button>
+                                            </div>
+                                          </div>
+                                          {resourceBlockTab === 'edit' ? (
+                                            <textarea
+                                              rows={3}
+                                              value={block.content_markdown || ''}
+                                              onChange={(e) =>
+                                                updateBlock(block.id, {
+                                                  content_markdown: e.target.value,
+                                                })
+                                              }
+                                              className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                            />
+                                          ) : (
+                                            <div className="w-full min-h-[76px] p-3 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]">
+                                              {block.content_markdown?.trim() ? (
+                                                <RichMarkdownRenderer
+                                                  content={block.content_markdown}
+                                                />
+                                              ) : (
+                                                <span className="text-[#6F6865] italic">
+                                                  Sem conteúdo digitado.
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                            URL da Mídia / Arquivo
                                           </label>
-                                          <div className="flex items-center bg-white border border-[#E6E1D8] rounded-md p-0.5 text-[11px]">
-                                            <button
-                                              type="button"
-                                              onClick={() => setResourceBlockTab('edit')}
-                                              className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
-                                                resourceBlockTab === 'edit'
-                                                  ? 'bg-[#FAF8F5] text-[#6C0F37]'
-                                                  : 'text-[#6F6865]'
-                                              }`}
-                                            >
-                                              ✍️ Escrever
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => setResourceBlockTab('preview')}
-                                              className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
-                                                resourceBlockTab === 'preview'
-                                                  ? 'bg-[#6C0F37] text-white'
-                                                  : 'text-[#6F6865]'
-                                              }`}
-                                            >
-                                              👁️ Visualizar Formatação
-                                            </button>
+                                          <input
+                                            type="url"
+                                            placeholder="https://..."
+                                            value={block.url || ''}
+                                            onChange={(e) =>
+                                              updateBlock(block.id, { url: e.target.value })
+                                            }
+                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
+                                          />
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* REQUISITO 2: VERDADEIRO OU FALSO (Afirmação + ( ) True e ( ) False) */}
+                                      {block.type === 'true_false' ? (
+                                        <div className="space-y-3">
+                                          <div>
+                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                              Afirmação para Julgamento *
+                                            </label>
+                                            <input
+                                              type="text"
+                                              value={(block as QuestionBlock).prompt}
+                                              onChange={(e) =>
+                                                updateBlock(block.id, { prompt: e.target.value })
+                                              }
+                                              placeholder="Ex: Paris é a capital da França."
+                                              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] font-medium"
+                                            />
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1.5">
+                                              Gabarito da Afirmação (Selecione a resposta correta):
+                                            </label>
+                                            <div className="flex items-center gap-6 p-2.5 bg-white border border-[#E6E1D8] rounded-xl">
+                                              <label className="flex items-center gap-2 text-xs font-bold text-[#2B2426] cursor-pointer">
+                                                <input
+                                                  type="radio"
+                                                  name={`tf-${block.id}`}
+                                                  value="True"
+                                                  checked={
+                                                    (block as QuestionBlock).answer_key === 'True' ||
+                                                    (block as QuestionBlock).answer_key ===
+                                                      'Verdadeiro'
+                                                  }
+                                                  onChange={() =>
+                                                    updateBlock(block.id, { answer_key: 'True' })
+                                                  }
+                                                  className="w-4 h-4 text-[#6C0F37] focus:ring-[#6C0F37] cursor-pointer accent-[#6C0F37]"
+                                                />
+                                                <span
+                                                  className={
+                                                    (block as QuestionBlock).answer_key ===
+                                                      'True' ||
+                                                    (block as QuestionBlock).answer_key ===
+                                                      'Verdadeiro'
+                                                      ? 'text-emerald-700 font-bold'
+                                                      : ''
+                                                  }
+                                                >
+                                                  ( ) True
+                                                </span>
+                                              </label>
+
+                                              <label className="flex items-center gap-2 text-xs font-bold text-[#2B2426] cursor-pointer">
+                                                <input
+                                                  type="radio"
+                                                  name={`tf-${block.id}`}
+                                                  value="False"
+                                                  checked={
+                                                    (block as QuestionBlock).answer_key ===
+                                                      'False' ||
+                                                    (block as QuestionBlock).answer_key === 'Falso'
+                                                  }
+                                                  onChange={() =>
+                                                    updateBlock(block.id, { answer_key: 'False' })
+                                                  }
+                                                  className="w-4 h-4 text-[#6C0F37] focus:ring-[#6C0F37] cursor-pointer accent-[#6C0F37]"
+                                                />
+                                                <span
+                                                  className={
+                                                    (block as QuestionBlock).answer_key ===
+                                                      'False' ||
+                                                    (block as QuestionBlock).answer_key === 'Falso'
+                                                      ? 'text-red-700 font-bold'
+                                                      : ''
+                                                  }
+                                                >
+                                                  ( ) False
+                                                </span>
+                                              </label>
+                                            </div>
                                           </div>
                                         </div>
-                                        {resourceBlockTab === 'edit' ? (
-                                          <textarea
-                                            rows={3}
-                                            value={block.content_markdown || ''}
-                                            onChange={(e) =>
-                                              updateBlock(block.id, { content_markdown: e.target.value })
-                                            }
-                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                          />
-                                        ) : (
-                                          <div className="w-full min-h-[76px] p-3 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]">
-                                            {block.content_markdown?.trim() ? (
-                                              <RichMarkdownRenderer content={block.content_markdown} />
-                                            ) : (
-                                              <span className="text-[#6F6865] italic">Sem conteúdo digitado.</span>
-                                            )}
+                                      ) : block.type === 'multiple_choice' ||
+                                        block.type === 'multiple_select' ? (
+                                        /* REQUISITO 2: MÚLTIPLA ESCOLHA (Inputs individuais + botão adicionar + radio lateral) */
+                                        <div className="space-y-3">
+                                          <div>
+                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                              Enunciado da Questão *
+                                            </label>
+                                            <input
+                                              type="text"
+                                              value={(block as QuestionBlock).prompt}
+                                              onChange={(e) =>
+                                                updateBlock(block.id, { prompt: e.target.value })
+                                              }
+                                              placeholder="Digite o enunciado da questão..."
+                                              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] font-medium"
+                                            />
                                           </div>
-                                        )}
+
+                                          <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                              <label className="block text-[11px] font-bold text-[#2B2426]">
+                                                Alternativas (Marque o gabarito na lateral esquerda):
+                                              </label>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const current =
+                                                    (block as QuestionBlock).options || [];
+                                                  updateBlock(block.id, {
+                                                    options: [
+                                                      ...current,
+                                                      `Opção ${String.fromCharCode(
+                                                        65 + current.length
+                                                      )}`,
+                                                    ],
+                                                  });
+                                                }}
+                                                className="text-xs font-bold text-[#6C0F37] bg-white border border-[#E6E1D8] px-2.5 py-1 rounded-lg hover:bg-[#FAF8F5] transition cursor-pointer"
+                                              >
+                                                + Adicionar alternativa
+                                              </button>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                              {(
+                                                (block as QuestionBlock).options || [
+                                                  'Opção A',
+                                                  'Opção B',
+                                                ]
+                                              ).map((opt, optIdx) => {
+                                                const isAnswerKey =
+                                                  (block as QuestionBlock).answer_key === opt;
+                                                return (
+                                                  <div
+                                                    key={optIdx}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    {/* Radio Button lateral para definir gabarito */}
+                                                    <label
+                                                      className="flex items-center gap-1.5 cursor-pointer shrink-0"
+                                                      title="Marcar esta alternativa como gabarito correto"
+                                                    >
+                                                      <input
+                                                        type="radio"
+                                                        name={`gabarito-${block.id}`}
+                                                        checked={isAnswerKey}
+                                                        onChange={() =>
+                                                          updateBlock(block.id, {
+                                                            answer_key: opt,
+                                                          })
+                                                        }
+                                                        className="w-4 h-4 text-[#6C0F37] focus:ring-[#6C0F37] cursor-pointer accent-[#6C0F37]"
+                                                      />
+                                                      <span
+                                                        className={`text-xs font-bold w-5 ${
+                                                          isAnswerKey
+                                                            ? 'text-[#6C0F37]'
+                                                            : 'text-[#6F6865]'
+                                                        }`}
+                                                      >
+                                                        {String.fromCharCode(65 + optIdx)})
+                                                      </span>
+                                                    </label>
+
+                                                    {/* Input individual de texto da alternativa */}
+                                                    <input
+                                                      type="text"
+                                                      value={opt}
+                                                      onChange={(e) => {
+                                                        const newText = e.target.value;
+                                                        const nextOptions = [
+                                                          ...(
+                                                            (block as QuestionBlock).options || []
+                                                          ),
+                                                        ];
+                                                        nextOptions[optIdx] = newText;
+                                                        const updates: Partial<QuestionBlock> = {
+                                                          options: nextOptions,
+                                                        };
+                                                        if (isAnswerKey) {
+                                                          updates.answer_key = newText;
+                                                        }
+                                                        updateBlock(block.id, updates);
+                                                      }}
+                                                      placeholder={`Alternativa ${String.fromCharCode(
+                                                        65 + optIdx
+                                                      )}`}
+                                                      className={`flex-1 px-3 py-1.5 border rounded-lg text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37] ${
+                                                        isAnswerKey
+                                                          ? 'border-emerald-400 bg-emerald-50/20 ring-1 ring-emerald-300'
+                                                          : 'border-[#E6E1D8]'
+                                                      }`}
+                                                    />
+
+                                                    {/* Badge de Gabarito */}
+                                                    {isAnswerKey && (
+                                                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded shrink-0">
+                                                        ✓ Gabarito
+                                                      </span>
+                                                    )}
+
+                                                    {/* Botão de Excluir Alternativa */}
+                                                    {(
+                                                      (block as QuestionBlock).options || []
+                                                    ).length > 2 && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          const nextOptions = (
+                                                            (block as QuestionBlock).options || []
+                                                          ).filter((_, i) => i !== optIdx);
+                                                          const updates: Partial<QuestionBlock> = {
+                                                            options: nextOptions,
+                                                          };
+                                                          if (isAnswerKey) {
+                                                            updates.answer_key =
+                                                              nextOptions[0] || '';
+                                                          }
+                                                          updateBlock(block.id, updates);
+                                                        }}
+                                                        className="p-1 text-[#6F6865] hover:text-red-600 rounded cursor-pointer"
+                                                        title="Remover alternativa"
+                                                      >
+                                                        🗑️
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        /* Outros Formatos de Questão */
+                                        <div className="space-y-3">
+                                          <div>
+                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
+                                              Enunciado da Questão *
+                                            </label>
+                                            <input
+                                              type="text"
+                                              value={(block as QuestionBlock).prompt}
+                                              onChange={(e) =>
+                                                updateBlock(block.id, { prompt: e.target.value })
+                                              }
+                                              className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
+                                            />
+                                          </div>
+
+                                          {(block.type === 'short_answer_auto' ||
+                                            block.type === 'fill_blank' ||
+                                            block.type === 'translation' ||
+                                            block.type === 'error_correction') && (
+                                            <div className="space-y-2">
+                                              <div>
+                                                <label className="block text-[11px] font-bold text-[#6C0F37]">
+                                                  Resposta Esperada Principal (Gabarito)
+                                                </label>
+                                                <input
+                                                  type="text"
+                                                  value={
+                                                    (block as QuestionBlock).answer_key || ''
+                                                  }
+                                                  onChange={(e) =>
+                                                    updateBlock(block.id, {
+                                                      answer_key: e.target.value,
+                                                    })
+                                                  }
+                                                  className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                                />
+                                              </div>
+                                              <div>
+                                                <label className="block text-[11px] font-bold text-[#2B2426]">
+                                                  Variantes Aceitas (separadas por vírgula)
+                                                </label>
+                                                <input
+                                                  type="text"
+                                                  placeholder="Ex: can't, cannot, can not"
+                                                  value={(
+                                                    (block as QuestionBlock).accepted_variants ||
+                                                    []
+                                                  ).join(', ')}
+                                                  onChange={(e) =>
+                                                    updateBlock(block.id, {
+                                                      accepted_variants: e.target.value
+                                                        .split(',')
+                                                        .map((s) => s.trim())
+                                                        .filter(Boolean),
+                                                    })
+                                                  }
+                                                  className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
+                                                />
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {block.type === 'open_production_manual' && (
+                                            <label className="flex items-center gap-2 text-xs font-semibold text-[#2B2426] cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                checked={
+                                                  !!(block as QuestionBlock).allow_audio_submission
+                                                }
+                                                onChange={(e) =>
+                                                  updateBlock(block.id, {
+                                                    allow_audio_submission: e.target.checked,
+                                                  })
+                                                }
+                                                className="accent-[#6C0F37]"
+                                              />
+                                              <span>
+                                                Permitir envio de áudio gravado pelo aluno
+                                              </span>
+                                            </label>
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              ) : (
+                                /* Visão Sintética do Bloco */
+                                <div className="text-xs text-[#6F6865]">
+                                  {block.kind === 'resource' ? (
+                                    block.type === 'text' && block.content_markdown ? (
+                                      <div className="space-y-1">
+                                        <p className="font-semibold text-[#2B2426]">
+                                          {block.title}
+                                        </p>
+                                        <RichMarkdownRenderer content={block.content_markdown} />
                                       </div>
                                     ) : (
-                                      <div>
-                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                          URL da Mídia / Arquivo
-                                        </label>
-                                        <input
-                                          type="url"
-                                          placeholder="https://..."
-                                          value={block.url || ''}
-                                          onChange={(e) => updateBlock(block.id, { url: e.target.value })}
-                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                        />
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <>
-                                    <div>
-                                      <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                        Enunciado da Questão
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={(block as QuestionBlock).prompt}
-                                        onChange={(e) =>
-                                          updateBlock(block.id, { prompt: e.target.value })
-                                        }
-                                        className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white font-medium"
-                                      />
-                                    </div>
-
-                                    {/* Configurações específicas conforme formato */}
-                                    {(block.type === 'multiple_choice' ||
-                                      block.type === 'multiple_select') && (
-                                      <div className="space-y-2">
-                                        <label className="block text-[11px] font-bold text-[#2B2426]">
-                                          Alternativas (uma por linha)
-                                        </label>
-                                        <textarea
-                                          rows={3}
-                                          value={((block as QuestionBlock).options || []).join('\n')}
-                                          onChange={(e) =>
-                                            updateBlock(block.id, {
-                                              options: e.target.value.split('\n').filter(Boolean),
-                                            })
-                                          }
-                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                        />
-
-                                        <div>
-                                          <label className="block text-[11px] font-bold text-[#6C0F37]">
-                                            Gabarito Correto (alternativa exata)
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={(block as QuestionBlock).answer_key || ''}
-                                            onChange={(e) =>
-                                              updateBlock(block.id, { answer_key: e.target.value })
-                                            }
-                                            placeholder="Digite o texto da alternativa correta..."
-                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                          />
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {block.type === 'true_false' && (
-                                      <div>
-                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                          Chave de Resposta Correta
-                                        </label>
-                                        <select
-                                          value={(block as QuestionBlock).answer_key || 'Verdadeiro'}
-                                          onChange={(e) =>
-                                            updateBlock(block.id, { answer_key: e.target.value })
-                                          }
-                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                        >
-                                          <option value="Verdadeiro">Verdadeiro</option>
-                                          <option value="Falso">Falso</option>
-                                        </select>
-                                      </div>
-                                    )}
-
-                                    {(block.type === 'short_answer_auto' ||
-                                      block.type === 'fill_blank' ||
-                                      block.type === 'translation' ||
-                                      block.type === 'error_correction') && (
-                                      <div className="space-y-2">
-                                        <div>
-                                          <label className="block text-[11px] font-bold text-[#6C0F37]">
-                                            Resposta Esperada Principal (Gabarito)
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={(block as QuestionBlock).answer_key || ''}
-                                            onChange={(e) =>
-                                              updateBlock(block.id, { answer_key: e.target.value })
-                                            }
-                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-[11px] font-bold text-[#2B2426]">
-                                            Variantes Aceitas (separadas por vírgula)
-                                          </label>
-                                          <input
-                                            type="text"
-                                            placeholder="Ex: can't, cannot, can not"
-                                            value={(
-                                              (block as QuestionBlock).accepted_variants || []
-                                            ).join(', ')}
-                                            onChange={(e) =>
-                                              updateBlock(block.id, {
-                                                accepted_variants: e.target.value
-                                                  .split(',')
-                                                  .map((s) => s.trim())
-                                                  .filter(Boolean),
-                                              })
-                                            }
-                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                          />
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {(block.type === 'ordering' ||
-                                      block.type === 'sequence_ranking') && (
-                                      <div>
-                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                          Itens na Ordem Correta (um por linha)
-                                        </label>
-                                        <textarea
-                                          rows={3}
-                                          value={(
-                                            (block as QuestionBlock).items_to_order || []
-                                          ).join('\n')}
-                                          onChange={(e) =>
-                                            updateBlock(block.id, {
-                                              items_to_order: e.target.value
-                                                .split('\n')
-                                                .filter(Boolean),
-                                            })
-                                          }
-                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                        />
-                                      </div>
-                                    )}
-
-                                    {block.type === 'open_production_manual' && (
-                                      <label className="flex items-center gap-2 text-xs font-semibold text-[#2B2426] cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={
-                                            !!(block as QuestionBlock).allow_audio_submission
-                                          }
-                                          onChange={(e) =>
-                                            updateBlock(block.id, {
-                                              allow_audio_submission: e.target.checked,
-                                            })
-                                          }
-                                          className="accent-[#6C0F37]"
-                                        />
-                                        <span>Permitir envio de áudio gravado pelo aluno</span>
-                                      </label>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            ) : (
-                              /* Visão Sintética do Bloco */
-                              <div className="text-xs text-[#6F6865]">
-                                {block.kind === 'resource' ? (
-                                  block.type === 'text' && block.content_markdown ? (
-                                    <div className="space-y-1">
-                                      <p className="font-semibold text-[#2B2426]">{block.title}</p>
-                                      <RichMarkdownRenderer content={block.content_markdown} />
-                                    </div>
+                                      <p className="truncate">
+                                        {block.title} • {block.url || 'Material complementar'}
+                                      </p>
+                                    )
                                   ) : (
-                                    <p className="truncate">{block.title} • {block.url || 'Texto complementar'}</p>
-                                  )
-                                ) : (
-                                  <div className="font-medium text-[#2B2426]">
-                                    <RichMarkdownRenderer content={(block as QuestionBlock).prompt} />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-[#2B2426]">
+                                        {(block as QuestionBlock).prompt ||
+                                          'Questão sem enunciado preenchido'}
+                                      </p>
+                                      {(block as QuestionBlock).answer_key && (
+                                        <span className="inline-block text-[10.5px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                          Gabarito: {(block as QuestionBlock).answer_key}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1084,7 +1487,7 @@ export function CreateActivityModal({
                   <button
                     type="button"
                     onClick={() => setActiveStep(1)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-[#6F6865] hover:bg-white border border-[#E6E1D8]"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-[#6F6865] hover:bg-white border border-[#E6E1D8] cursor-pointer"
                   >
                     ← Voltar
                   </button>
@@ -1111,7 +1514,7 @@ export function CreateActivityModal({
                       type="button"
                       disabled={loading}
                       onClick={() => handleSubmit('draft')}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] disabled:opacity-50"
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] disabled:opacity-50 cursor-pointer"
                     >
                       Salvar como Rascunho
                     </button>
@@ -1121,7 +1524,11 @@ export function CreateActivityModal({
                       onClick={() => handleSubmit('published')}
                       className="px-5 py-2 rounded-xl text-xs font-bold text-[#FFFDF7] bg-[#6C0F37] hover:bg-[#57102E] transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
                     >
-                      {loading ? 'Salvando...' : 'Salvar no Banco de Atividades'}
+                      {loading
+                        ? 'Salvando...'
+                        : initialData
+                        ? 'Salvar Alterações'
+                        : 'Salvar no Banco de Atividades'}
                     </button>
                   </>
                 )}
@@ -1131,14 +1538,14 @@ export function CreateActivityModal({
         </div>
       )}
 
-      {/* Catálogo dos 14 Formatos e Mídias */}
+      {/* Catálogo dos Formatos e Mídias */}
       <ActivityBlockSelector
         isOpen={isSelectorOpen}
         onClose={() => setIsSelectorOpen(false)}
         onSelectBlock={handleAddBlock}
       />
 
-      {/* Simulador da Visão do Aluno com Etapas */}
+      {/* Simulador da Visão do Aluno */}
       <ActivityPreviewModal
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}

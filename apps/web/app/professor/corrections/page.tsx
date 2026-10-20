@@ -77,12 +77,31 @@ export default async function ProfessorCorrectionsPage({
     .eq('organization_id', activeOrgId)
     .order('name', { ascending: true });
 
+  // 5. Busca atividades marcadas com 'Não precisa de correção / Correção externa'
+  const { data: noCorrectionActivities } = await supabase
+    .from('activities')
+    .select('id, title, metadata')
+    .eq('organization_id', activeOrgId);
+
+  const noCorrectionTitles = new Set(
+    (noCorrectionActivities || [])
+      .filter(
+        (a: any) =>
+          a.metadata?.no_correction_needed ||
+          a.metadata?.external_correction ||
+          a.metadata?.correction_type === 'external'
+      )
+      .map((a: any) => (a.title || '').toLowerCase().trim())
+  );
+
   const tracks = (tracksData as any[]) || [];
   const classes = (classesData as any[]) || [];
 
   // Mapeia para SubmissionItem garantindo compatibilidade total
   const submissions: SubmissionItem[] = (rawSubmissions || []).map((sub: any) => {
     const isReviewed = sub.status === 'reviewed';
+    const isNoCorrection = noCorrectionTitles.has((sub.title || '').toLowerCase().trim());
+
     return {
       id: sub.id,
       student_id: sub.student_id,
@@ -94,7 +113,8 @@ export default async function ProfessorCorrectionsPage({
       submitted_at: sub.submitted_at || new Date().toISOString(),
       content: sub.content,
       teacher_feedback: sub.teacher_feedback,
-      correction_type: 'manual',
+      no_correction_needed: isNoCorrection,
+      correction_type: isNoCorrection ? 'external' : 'manual',
     };
   });
 
