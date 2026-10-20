@@ -444,7 +444,7 @@ export function AffiliateAdminClient({
                 Nenhuma parceira encontrada
               </p>
               <p className="text-xs text-[#6F6865] mt-1">
-                Assim que as professoras acessarem a página Conexão Fikra, seus códigos aparecerão
+                Assim que os docentes acessarem a página Conexão Fikra, seus códigos aparecerão
                 aqui.
               </p>
             </div>

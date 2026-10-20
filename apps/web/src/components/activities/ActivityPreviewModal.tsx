@@ -419,7 +419,7 @@ export function ActivityPreviewModal({
                             className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] resize-none"
                           />
                           <div className="flex items-center justify-between text-[11px] text-[#6F6865]">
-                            <span>✍️ Esta questão será avaliada e pontuada pela professora.</span>
+                            <span>✍️ Esta questão será avaliada e pontuada pela equipe docente.</span>
                             {block.type === 'open_production_manual' && block.allow_audio_submission && (
                               <button
                                 type="button"

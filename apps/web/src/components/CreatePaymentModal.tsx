@@ -76,7 +76,7 @@ export function CreatePaymentModal({
             <div className="mb-4">
               <h3 className="text-lg font-bold text-[#6C0F37]">Nova cobrança</h3>
               <p className="text-xs text-[#6F6865] mt-0.5">
-                Registre uma mensalidade ou cobrança avulsa para a aluna.
+                Registre uma mensalidade ou cobrança avulsa para a pessoa estudante.
               </p>
             </div>
 
@@ -91,7 +91,7 @@ export function CreatePaymentModal({
 
               <div>
                 <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                  Aluna <span className="text-red-500">*</span>
+                  Estudante <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="student_id"

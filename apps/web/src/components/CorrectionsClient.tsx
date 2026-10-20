@@ -155,14 +155,14 @@ export function CorrectionsClient({
       <div className="bg-white border border-[#E6E1D8] rounded-2xl p-4 shadow-[0_2px_8px_rgba(44,30,34,0.06)] grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-[11px] font-semibold text-[#6F6865] mb-1">
-            Aluna / Turma
+            Estudante / Turma
           </label>
           <select
             value={studentFilter}
             onChange={(e) => setStudentFilter(e.target.value)}
             className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
           >
-            <option value="">Todas as alunas</option>
+            <option value="">Todos os estudantes</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.full_name}

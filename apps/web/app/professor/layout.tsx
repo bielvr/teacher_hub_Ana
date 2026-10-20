@@ -58,12 +58,31 @@ export default async function TeacherDashboardLayout({
     teacherName = user.email.split('@')[0];
   }
 
+  // 4. Regra Estrita de Exibição de Conexão Fikra / Parcerias:
+  // Titular da escola (role === 'owner') OU registro ativo em affiliate_partners
+  const isOwner = memberships.some((m: any) => m.role === 'owner');
+  let hasAffiliateAccess = isOwner;
+  if (!hasAffiliateAccess && user?.id) {
+    const { data: partner } = await supabase
+      .from('affiliate_partners')
+      .select('id, status')
+      .eq('profile_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (partner) {
+      hasAffiliateAccess = true;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#F7F4ED] flex flex-col font-sans antialiased text-[#2B2426]">
       <TeacherNavbar
         memberships={memberships}
         activeOrgId={defaultOrgId}
-        teacherName={teacherName || 'Professora'}
+        teacherName={teacherName || 'Docente'}
+        hasAffiliateAccess={hasAffiliateAccess}
+        isOwner={isOwner}
       />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}

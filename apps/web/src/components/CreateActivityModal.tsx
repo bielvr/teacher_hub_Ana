@@ -703,7 +703,7 @@ export function CreateActivityModal({
                         )}
                       </label>
                       <p className="text-[11px] text-[#6F6865] mt-0.5 leading-relaxed">
-                        Atividades com essa marcação nunca geram pendências na aba de correção da professora, sendo tratadas como estudo livre ou prática em sala ao vivo.
+                        Atividades com essa marcação nunca geram pendências na aba de correção da equipe docente, sendo tratadas como estudo livre ou prática em sala ao vivo.
                       </p>
                     </div>
                   </div>
@@ -889,7 +889,7 @@ export function CreateActivityModal({
                             ? '⚡ Automática (Gabarito)'
                             : correctionType === 'mixed'
                             ? '🔀 Mista'
-                            : '✍️ Manual (Pela Professora)'}
+                            : '✍️ Manual (Pela Equipe Docente)'}
                         </span>
                       </div>
                     </div>

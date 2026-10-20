@@ -11,9 +11,10 @@ export type BillingTabKey =
 interface BillingNavTabsProps {
   activeOrgId: string;
   activeTab: BillingTabKey;
+  isOwner?: boolean;
 }
 
-export function BillingNavTabs({ activeOrgId, activeTab }: BillingNavTabsProps) {
+export function BillingNavTabs({ activeOrgId, activeTab, isOwner = true }: BillingNavTabsProps) {
   const tabs: Array<{
     key: BillingTabKey;
     label: string;
@@ -45,12 +46,16 @@ export function BillingNavTabs({ activeOrgId, activeTab }: BillingNavTabsProps) 
       label: 'Relatórios e exportações',
       href: `/professor/billing/reports?org=${activeOrgId}`,
     },
-    {
-      key: 'affiliates',
-      label: '✦ Conexão Fikra (Afiliadas)',
-      href: `/professor/admin/affiliates?org=${activeOrgId}`,
-      highlight: true,
-    },
+    ...(isOwner
+      ? [
+          {
+            key: 'affiliates' as BillingTabKey,
+            label: '✦ Conexão Fikra (Parcerias)',
+            href: `/professor/admin/affiliates?org=${activeOrgId}`,
+            highlight: true,
+          },
+        ]
+      : []),
   ];
 
   return (

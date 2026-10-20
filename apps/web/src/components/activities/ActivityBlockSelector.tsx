@@ -183,7 +183,7 @@ const QUESTION_OPTIONS: BlockOption[] = [
     kind: 'question',
     name: 'Pergunta curta com correção manual',
     icon: '✍️',
-    description: 'Resposta de 1 ou 2 frases enviada para avaliação e nota da professora.',
+    description: 'Resposta de 1 ou 2 frases enviada para avaliação e nota da equipe docente.',
     badge: 'Manual',
     badgeColor: 'bg-purple-50 text-purple-800 border-purple-200',
   },

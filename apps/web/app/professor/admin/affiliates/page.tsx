@@ -47,10 +47,10 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
           🔒
         </div>
         <h1 className="text-xl font-bold text-[#2B2426]">
-          Acesso Restrito à Titular
+          Acesso Restrito à Titularidade
         </h1>
         <p className="text-sm text-[#6F6865]">
-          Apenas administradoras titulares (`role = &apos;owner&apos;`) possuem permissão para
+          Apenas docentes titulares (`role = &apos;owner&apos;`) possuem permissão para
           gerenciar os repasses e metas globais do programa Conexão Fikra.
         </p>
         <div className="pt-2">
@@ -58,7 +58,7 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
             href={`/professor/affiliates?org=${activeOrgId}`}
             className="inline-flex items-center px-5 py-2.5 rounded-xl bg-[#6C0F37] text-white text-xs font-semibold hover:bg-[#57102E] transition-colors"
           >
-            Ir para Minha Área de Parceira
+            Ir para Minha Área de Parcerias
           </Link>
         </div>
       </div>

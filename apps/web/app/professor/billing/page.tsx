@@ -118,7 +118,7 @@ export default async function TeacherBillingPage({
       pendingItems.push({
         id: `p-${p.id}`,
         type: 'payment',
-        title: (p.profiles as any)?.full_name || p.description || 'Mensalidade de Aluno',
+        title: (p.profiles as any)?.full_name || p.description || 'Mensalidade de Estudante',
         subtitle: `Recebimento • Vencimento: ${new Date(p.due_date).toLocaleDateString('pt-BR')}`,
         amount: Number(p.amount) || 0,
         dueDate: p.due_date,
@@ -157,7 +157,7 @@ export default async function TeacherBillingPage({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
           title="Gestão Financeira da Escola"
-          description="Acompanhe o fluxo de caixa, mensalidades dos alunos, despesas operacionais e resultados do mês."
+          description="Acompanhe o fluxo de caixa, mensalidades dos estudantes, despesas operacionais e resultados do mês."
         />
 
         <div className="flex items-center gap-2 self-start sm:self-center">

@@ -619,7 +619,7 @@ export function StudentProfileDetailsClient({
                     : 'bg-amber-50 text-amber-800 border-amber-200'
                 }`}
               >
-                {isActive ? '● Aluna Ativa' : '○ Aluna Inativa'}
+                {isActive ? '● Estudante Ativo' : '○ Estudante Inativo'}
               </span>
             </div>
 
@@ -645,7 +645,7 @@ export function StudentProfileDetailsClient({
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#E6E1D8] bg-[#FFFDF7] hover:bg-[#F7F4ED] text-[#2B2426] transition cursor-pointer shadow-2xs"
             title="Alternar status do aluno na organização"
           >
-            {isActive ? 'Desativar Aluna' : 'Ativar Aluna'}
+            {isActive ? 'Desativar Estudante' : 'Ativar Estudante'}
           </button>
 
           <Link
@@ -1018,7 +1018,7 @@ export function StudentProfileDetailsClient({
             {sessions.length === 0 ? (
               <EmptyState
                 title="Nenhuma aula agendada no cronograma"
-                description="Clique em '+ Agendar Nova Aula' acima para criar a grade de aulas individuais ou vincule a aluna a uma turma."
+                description="Clique em '+ Agendar Nova Aula' acima para criar a grade de aulas individuais ou vincule a pessoa estudante a uma turma."
               />
             ) : (
               <div className="bg-white border border-[#E6E1D8] rounded-2xl overflow-hidden shadow-xs">
@@ -1176,8 +1176,8 @@ export function StudentProfileDetailsClient({
             <div>
               <h2 className="text-base font-bold text-[#6C0F37]">Controle de Níveis Liberados</h2>
               <p className="text-xs text-[#6F6865] mt-0.5 max-w-xl leading-relaxed">
-                Marque os níveis que a aluna está apta a cursar. Níveis desmarcados permanecerão com
-                acesso restrito no portal da aluna, orientando a evolução passo a passo.
+                Marque os níveis que a pessoa estudante está apta a cursar. Níveis desmarcados permanecerão com
+                acesso restrito no portal do estudante, orientando a evolução passo a passo.
               </p>
             </div>
             <button
@@ -1265,7 +1265,7 @@ export function StudentProfileDetailsClient({
                 Concluídas
               </span>
               <p className="text-2xl font-extrabold text-emerald-700 mt-1">{completedCount}</p>
-              <span className="text-[11px] text-emerald-600 font-medium">Entregues pela aluna</span>
+              <span className="text-[11px] text-emerald-600 font-medium">Entregues pelo estudante</span>
             </Card>
 
             <Card className="p-4 bg-white border border-[#E6E1D8] rounded-2xl">
@@ -1296,7 +1296,7 @@ export function StudentProfileDetailsClient({
                 </h3>
               </div>
               <p className="text-xs text-[#6F6865] max-w-xl leading-relaxed">
-                Visualize os apontamentos compartilhados com a aluna pós-aula e acesse a área privada
+                Visualize os apontamentos compartilhados com o estudante pós-aula e acesse a área privada
                 do professor para anotações internas sobre ritmo de aprendizado e dificuldades.
               </p>
             </div>
@@ -1304,7 +1304,7 @@ export function StudentProfileDetailsClient({
               href={`/professor/notes?student_id=${student.id}&org=${organizationId}`}
               className="px-4 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs shrink-0 flex items-center gap-2"
             >
-              <span>Abrir Caderno da Aluna</span>
+              <span>Abrir Caderno do Estudante</span>
               <span>→</span>
             </Link>
           </div>
@@ -1314,7 +1314,7 @@ export function StudentProfileDetailsClient({
             {submissions.length === 0 ? (
               <EmptyState
                 title="Nenhuma atividade submetida"
-                description="Conforme a aluna realizar e marcar atividades como concluídas, o histórico será listado aqui."
+                description="Conforme o estudante realizar e marcar atividades como concluídas, o histórico será listado aqui."
               />
             ) : (
               <div className="bg-white border border-[#E6E1D8] rounded-2xl overflow-hidden shadow-xs">
@@ -1376,7 +1376,7 @@ export function StudentProfileDetailsClient({
               Editar Dados Pessoais & Endereço
             </h2>
             <p className="text-xs text-[#6F6865] mb-5">
-              Atualize as informações contratuais e cadastrais da aluna {student.full_name}.
+              Atualize as informações contratuais e cadastrais de {student.full_name}.
             </p>
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
@@ -1881,7 +1881,7 @@ export function StudentProfileDetailsClient({
               Agendar Nova Aula Individual (VIP)
             </h2>
             <p className="text-xs text-[#6F6865] mb-5">
-              Insira uma nova aula no cronograma da aluna {student.full_name}.
+              Insira uma nova aula no cronograma de {student.full_name}.
             </p>
 
             <form onSubmit={handleCreateNewSession} className="space-y-4">

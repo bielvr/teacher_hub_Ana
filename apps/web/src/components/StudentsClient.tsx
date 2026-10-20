@@ -185,7 +185,7 @@ export function StudentsClient({
                           <Link
                             href={`/professor/students/${st.id}?org=${organizationId}`}
                             className="px-3 py-1.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-2xs flex items-center gap-1"
-                            title="Ver ficha completa da aluna"
+                            title="Ver ficha completa do estudante"
                           >
                             <span>Ver Perfil</span>
                             <span>→</span>

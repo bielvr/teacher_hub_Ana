@@ -138,11 +138,11 @@ export default async function TeacherAccountPage({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#2B2426]">
-                    {profile?.full_name || 'Professora'}
+                    {profile?.full_name || 'Docente'}
                   </h3>
                   <p className="text-xs text-[#6F6865]">{profile?.email || user?.email}</p>
                   <span className="inline-block mt-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8]">
-                    Professora Titular
+                    Docente Titular
                   </span>
                 </div>
 
@@ -503,7 +503,7 @@ export default async function TeacherAccountPage({
                 />
                 <div>
                   <p className="text-xs font-bold text-[#2B2426]">Avisos de novas atividades entregues</p>
-                  <p className="text-[11px] text-[#6F6865]">Notifica a professora imediatamente quando um aluno submete uma tarefa.</p>
+                  <p className="text-[11px] text-[#6F6865]">Notifica a equipe docente imediatamente quando um estudante submete uma tarefa.</p>
                 </div>
               </label>
             </div>

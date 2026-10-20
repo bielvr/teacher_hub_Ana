@@ -43,7 +43,7 @@ export function TeacherDashboardClient({
       {showSummary && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fadeIn">
           <StatCard label="Turmas Ativas" value={classes.length} />
-          <StatCard label="Total de Alunos" value={totalStudents} />
+          <StatCard label="Total de Estudantes" value={totalStudents} />
           <StatCard label="Aulas Hoje" value={todaySessions.length} />
         </div>
       )}

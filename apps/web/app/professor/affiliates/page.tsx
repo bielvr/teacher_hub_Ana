@@ -45,13 +45,33 @@ export default async function ProfessorAffiliatesPage({ searchParams }: PageProp
     profile?.full_name ||
     user.user_metadata?.full_name ||
     user.email?.split('@')[0] ||
-    'Parceira Fikra';
+    'Docente Parceiro Fikra';
 
-  // Tenta garantir ou recuperar o cadastro de parceira
-  try {
-    await ensureAffiliatePartnerAction(activeOrgId);
-  } catch {
-    // Se a tabela ainda exigir ativação manual via botão, o client exibirá o botão de ativação
+  // Validação estrita de acesso:
+  // - Titular da escola (`role === 'owner'`)
+  // - OU possui registro ativo vinculado em `affiliate_partners`
+  let hasAccess = isOwner;
+  const { data: existingPartner } = await supabase
+    .from('affiliate_partners')
+    .select('id, status')
+    .eq('profile_id', user.id)
+    .maybeSingle();
+
+  if (existingPartner && existingPartner.status === 'active') {
+    hasAccess = true;
+  }
+
+  if (!hasAccess) {
+    redirect(`/professor?org=${activeOrgId}`);
+  }
+
+  // Se for titular, garante o cadastro em affiliate_partners
+  if (isOwner) {
+    try {
+      await ensureAffiliatePartnerAction(activeOrgId);
+    } catch {
+      // Se a tabela ainda exigir ativação manual via botão, o client exibirá o botão de ativação
+    }
   }
 
   let dashboardData = null;

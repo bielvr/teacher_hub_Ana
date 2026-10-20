@@ -46,7 +46,7 @@ export function CorrectionsReviewModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedback.trim()) {
-      setErrorMsg('Escreva um feedback para a aluna.');
+      setErrorMsg('Escreva um feedback para o estudante.');
       return;
     }
 
@@ -91,7 +91,7 @@ export function CorrectionsReviewModal({
               {submission.activity_title}
             </h2>
             <p className="text-xs text-[#6F6865]">
-              Aluna: <strong>{submission.student_name}</strong>{' '}
+              Estudante: <strong>{submission.student_name}</strong>{' '}
               {submission.level_name ? `• ${submission.level_name}` : ''}
             </p>
           </div>
@@ -136,7 +136,7 @@ export function CorrectionsReviewModal({
                       </span>
                     </div>
                     <div className="flex items-center gap-4 text-[11px] text-[#6F6865]">
-                      <span>Resposta da aluna: <strong className="text-[#2B2426]">{res.student_answer}</strong></span>
+                      <span>Resposta do estudante: <strong className="text-[#2B2426]">{res.student_answer}</strong></span>
                       {!res.is_correct && (
                         <span>Gabarito esperado: <strong className="text-emerald-700">{res.correct_answer}</strong></span>
                       )}
@@ -150,7 +150,7 @@ export function CorrectionsReviewModal({
           {/* Produção Escrita / Resposta Dissertativa da Aluna */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
-              <span>✍️</span> Resposta / Produção da Aluna
+              <span>✍️</span> Resposta / Produção do Estudante
             </h3>
             <div className="p-4 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] leading-relaxed whitespace-pre-wrap font-sans">
               {submission.content || 'Nenhum texto anexado na entrega.'}
@@ -160,7 +160,7 @@ export function CorrectionsReviewModal({
           {/* Área de Avaliação e Feedback da Professora */}
           <form onSubmit={handleSubmit} id="review-form" className="space-y-4 pt-4 border-t border-[#E6E1D8]">
             <h3 className="text-sm font-bold text-[#2B2426] flex items-center gap-1.5">
-              <span>💬</span> Feedback e Avaliação da Professora
+              <span>💬</span> Feedback e Avaliação Docente
             </h3>
 
             <div>
@@ -178,7 +178,7 @@ export function CorrectionsReviewModal({
 
             <div>
               <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                Feedback Individual da Professora <span className="text-red-500">*</span>
+                Feedback Individual Docente <span className="text-red-500">*</span>
               </label>
               <textarea
                 rows={5}

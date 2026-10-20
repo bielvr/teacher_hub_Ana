@@ -195,7 +195,7 @@ export function AffiliatePartnerClient({
             Conexão Fikra
           </h1>
           <p className="text-sm text-[#6F6865] mt-1 max-w-2xl">
-            Indique colegas professoras para a Fikra, receba{' '}
+            Indique colegas docentes para a Fikra, receba{' '}
             <strong className="text-[#6C0F37]">20% nos planos mensais</strong> e{' '}
             <strong className="text-[#6C0F37]">25% nos planos anuais</strong>, e conquiste
             trimestres gratuitos na sua assinatura.
@@ -208,7 +208,7 @@ export function AffiliatePartnerClient({
               href={`/professor/admin/affiliates?org=${orgId}`}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2B2426] hover:bg-[#3d3437] text-[#FFFDF7] text-xs font-semibold shadow-xs transition-colors"
             >
-              <span>⚙️ Painel de Gestão da Titular</span>
+              <span>⚙️ Painel de Gestão (Titular)</span>
             </Link>
           )}
           {!partner && (
@@ -218,7 +218,7 @@ export function AffiliatePartnerClient({
               disabled={isPending}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6C0F37] hover:bg-[#57102E] text-white text-sm font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
             >
-              {isPending ? 'Ativando código...' : '✨ Ativar Meu Código de Parceira'}
+              {isPending ? 'Ativando código...' : '✨ Ativar Meu Código de Parceria'}
             </button>
           )}
         </div>
@@ -498,7 +498,7 @@ export function AffiliatePartnerClient({
               </p>
               <p className="text-xs text-[#6F6865] mt-1 max-w-md">
                 Compartilhe seu link <span className="font-mono text-[#6C0F37]">{referralLink}</span>{' '}
-                com outras professoras. Assim que assinarem um plano, aparecerão aqui.
+                com outros docentes. Assim que assinarem um plano, aparecerão aqui.
               </p>
             </div>
           ) : (
@@ -506,7 +506,7 @@ export function AffiliatePartnerClient({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-[#E6E1D8] text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">
-                    <th className="py-3 pr-3">Indicada (Anonimizada)</th>
+                    <th className="py-3 pr-3">Indicação (Anonimizada)</th>
                     <th className="py-3 px-3">Plano / Ciclo</th>
                     <th className="py-3 px-3">Data da Adesão</th>
                     <th className="py-3 pl-3 text-right">Status</th>
@@ -660,7 +660,7 @@ export function AffiliatePartnerClient({
                   type="text"
                   value={pixInput}
                   onChange={(e) => setPixInput(e.target.value)}
-                  placeholder="Ex: professora@email.com ou 000.000.000-00"
+                  placeholder="Ex: docente@email.com ou 000.000.000-00"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E6E1D8] bg-[#FAF8F5] text-sm text-[#2B2426] focus:outline-none focus:border-[#6C0F37]"
                   required
                 />

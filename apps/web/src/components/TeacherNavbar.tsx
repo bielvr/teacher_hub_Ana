@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { MessagesModal } from './MessagesModal';
 import { NotificationsModal } from './NotificationsModal';
 import { CreateStudentModal } from './CreateStudentModal';
+import { ProfileDropdown } from './ProfileDropdown';
 import { createClient } from '../lib/supabase/client';
 import { getNotificationsAction } from '../actions/studies';
 
@@ -25,12 +26,16 @@ interface TeacherNavbarProps {
   memberships: OrganizationItem[];
   activeOrgId: string;
   teacherName?: string;
+  hasAffiliateAccess?: boolean;
+  isOwner?: boolean;
 }
 
 export function TeacherNavbar({
   memberships: _memberships,
   activeOrgId,
-  teacherName = 'Professora',
+  teacherName = 'Docente',
+  hasAffiliateAccess: hasAffiliateAccessProp,
+  isOwner: isOwnerProp,
 }: TeacherNavbarProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
@@ -110,16 +115,6 @@ export function TeacherNavbar({
     }
   };
 
-  // Extração de iniciais para o avatar
-  const getInitials = (name: string): string => {
-    if (!name || !name.trim()) return 'P';
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 1) {
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
-
   // Rotas e agrupamentos conforme especificação Fikra
   const pedagogicalLinks = [
     { href: `/professor/planning?org=${activeOrgId}`, path: '/professor/planning', label: 'Planejamento' },
@@ -138,7 +133,39 @@ export function TeacherNavbar({
 
   const activeMembership =
     _memberships.find((m) => m.organizations?.id === activeOrgId) || _memberships[0];
-  const isOwner = activeMembership?.role === 'owner';
+  const isOwner = isOwnerProp !== undefined ? isOwnerProp : activeMembership?.role === 'owner';
+
+  // Blindagem de Acesso ao Menu Conexão Fikra / Parcerias:
+  // O item DEVE SER OCULTO por padrão para usuários comuns.
+  // Apenas renderize se:
+  // 1. For titular da escola (isOwner)
+  // 2. OU possuir registro ativo em affiliate_partners vinculado ao profile_id
+  const [hasAffiliatePartner, setHasAffiliatePartner] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isOwner || hasAffiliateAccessProp) {
+      return;
+    }
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data?.user?.id;
+      if (!uid) return;
+      supabase
+        .from('affiliate_partners')
+        .select('id, status')
+        .eq('profile_id', uid)
+        .eq('status', 'active')
+        .maybeSingle()
+        .then(({ data: partner, error }) => {
+          if (!error && partner && partner.status === 'active') {
+            setHasAffiliatePartner(true);
+          }
+        });
+    });
+  }, [isOwner, hasAffiliateAccessProp]);
+
+  const canAccessAffiliates = isOwner || hasAffiliateAccessProp === true || hasAffiliatePartner;
 
   const financialLinks = [
     { href: `/professor/billing?org=${activeOrgId}`, path: '/professor/billing', label: 'Visão geral' },
@@ -146,13 +173,21 @@ export function TeacherNavbar({
     { href: `/professor/billing/expenses?org=${activeOrgId}`, path: '/professor/billing/expenses', label: 'Despesas' },
     { href: `/professor/billing/team?org=${activeOrgId}`, path: '/professor/billing/team', label: 'Equipe e repasses' },
     { href: `/professor/billing/reports?org=${activeOrgId}`, path: '/professor/billing/reports', label: 'Relatórios e exportações' },
-    { href: `/professor/affiliates?org=${activeOrgId}`, path: '/professor/affiliates', label: '✦ Conexão Fikra (Parceira)' },
+    ...(canAccessAffiliates
+      ? [
+          {
+            href: `/professor/affiliates?org=${activeOrgId}`,
+            path: '/professor/affiliates',
+            label: '✦ Conexão Fikra (Parcerias)',
+          },
+        ]
+      : []),
     ...(isOwner
       ? [
           {
             href: `/professor/admin/affiliates?org=${activeOrgId}`,
             path: '/professor/admin/affiliates',
-            label: '👑 Gestão de Afiliadas (Titular)',
+            label: '👑 Gestão de Parcerias (Titular)',
           },
         ]
       : []),
@@ -160,13 +195,21 @@ export function TeacherNavbar({
 
   const accountLinks = [
     { href: `/professor/account?tab=profile&org=${activeOrgId}`, path: '/professor/account?tab=profile', label: 'Meu perfil' },
-    { href: `/professor/affiliates?org=${activeOrgId}`, path: '/professor/affiliates', label: 'Conexão Fikra (Indicações)' },
+    ...(canAccessAffiliates
+      ? [
+          {
+            href: `/professor/affiliates?org=${activeOrgId}`,
+            path: '/professor/affiliates',
+            label: 'Conexão Fikra (Parcerias)',
+          },
+        ]
+      : []),
     ...(isOwner
       ? [
           {
             href: `/professor/admin/affiliates?org=${activeOrgId}`,
             path: '/professor/admin/affiliates',
-            label: 'Gestão de Afiliadas (Titular)',
+            label: 'Gestão de Parcerias (Titular)',
           },
         ]
       : []),
@@ -183,8 +226,6 @@ export function TeacherNavbar({
   const isAffiliatesActive =
     pathname.startsWith('/professor/affiliates') ||
     pathname.startsWith('/professor/admin/affiliates');
-
-  const initials = getInitials(teacherName);
 
   return (
     <>
@@ -387,21 +428,23 @@ export function TeacherNavbar({
                 )}
               </div>
 
-              {/* 5. Conexão Fikra (Link direto para área da parceira) */}
-              <Link
-                href={`/professor/affiliates?org=${activeOrgId}`}
-                onClick={() => setOpenMenu(null)}
-                className={`relative h-16 flex items-center gap-1.5 px-3.5 text-sm font-medium transition-colors cursor-pointer ${
-                  isAffiliatesActive
-                    ? 'text-[#D7CE36]'
-                    : 'text-[#FFFDF7] hover:text-[#D7CE36]'
-                }`}
-              >
-                <span>Conexão Fikra</span>
-                {isAffiliatesActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D7CE36]" />
-                )}
-              </Link>
+              {/* 5. Conexão Fikra (Link direto para área da parceira) - Apenas se titular ou parceira ativa */}
+              {canAccessAffiliates && (
+                <Link
+                  href={`/professor/affiliates?org=${activeOrgId}`}
+                  onClick={() => setOpenMenu(null)}
+                  className={`relative h-16 flex items-center gap-1.5 px-3.5 text-sm font-medium transition-colors cursor-pointer ${
+                    isAffiliatesActive
+                      ? 'text-[#D7CE36]'
+                      : 'text-[#FFFDF7] hover:text-[#D7CE36]'
+                  }`}
+                >
+                  <span>Conexão Fikra</span>
+                  {isAffiliatesActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D7CE36]" />
+                  )}
+                </Link>
+              )}
             </nav>
           </div>
 
@@ -455,77 +498,19 @@ export function TeacherNavbar({
             {/* Divisória sutil */}
             <div className="h-5 w-px bg-[#FFFDF7]/20 hidden sm:block" />
 
-            {/* Avatar da Titular (Menu de Conta) */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => toggleMenu('account')}
-                className="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-full hover:bg-[#57102E] transition-colors focus:outline-none focus:ring-1 focus:ring-[#D7CE36] cursor-pointer"
-                aria-expanded={openMenu === 'account'}
-              >
-                {/* Círculo com fundo amarelo e iniciais em vinho */}
-                <div className="w-8 h-8 rounded-full bg-[#D7CE36] text-[#6C0F37] font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                  {initials}
-                </div>
-                {/* Nome da Titular ao lado em off-white */}
-                <span className="text-xs font-medium text-[#FFFDF7] max-w-[120px] truncate hidden sm:inline">
-                  {teacherName}
-                </span>
-                <svg
-                  className={`w-3.5 h-3.5 text-[#FFFDF7]/70 transition-transform duration-200 hidden sm:inline ${
-                    openMenu === 'account' ? 'rotate-180 text-[#D7CE36]' : ''
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {openMenu === 'account' && (
-                <div className="absolute right-0 top-full pt-1 z-50">
-                  <div className="w-56 bg-white border border-[#E6E1D8] rounded-2xl p-1.5 shadow-xl">
-                    <div className="px-3.5 py-2 border-b border-[#E6E1D8] mb-1">
-                      <p className="text-xs font-semibold text-[#2B2426] truncate">{teacherName}</p>
-                      <p className="text-[10px] text-[#6F6865] uppercase tracking-wider mt-0.5">Professora Titular</p>
-                    </div>
-
-                    {accountLinks.map((item) => {
-                      const isItemActive = pathname === item.path;
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setOpenMenu(null)}
-                          className={`block px-3.5 py-2 text-xs font-medium rounded-xl transition-colors ${
-                            isItemActive
-                              ? 'bg-[#F7F4ED] text-[#6C0F37] font-semibold'
-                              : 'text-[#2B2426] hover:bg-[#F7F4ED] hover:text-[#6C0F37]'
-                          }`}
-                        >
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-
-                    <div className="my-1 border-t border-[#E6E1D8]" />
-
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      disabled={isLoggingOut}
-                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      <span>{isLoggingOut ? 'Saindo...' : 'Sair'}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Avatar da Titular / Docente (Menu de Perfil com Blindagem de Acesso) */}
+            <ProfileDropdown
+              isOpen={openMenu === 'account'}
+              onToggle={() => toggleMenu('account')}
+              onClose={() => setOpenMenu(null)}
+              teacherName={teacherName}
+              activeOrgId={activeOrgId}
+              isOwner={isOwner}
+              canAccessAffiliates={canAccessAffiliates}
+              pathname={pathname}
+              onLogout={handleLogout}
+              isLoggingOut={isLoggingOut}
+            />
 
             {/* Alternador Mobile (Hamburger) */}
             <button

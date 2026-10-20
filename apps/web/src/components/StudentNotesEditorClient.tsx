@@ -578,7 +578,7 @@ export function StudentNotesEditorClient({
             <div className="bg-white border border-[#E6E1D8] p-5 rounded-2xl shadow-xs">
               <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Registros Pedagógicos</span>
               <p className="text-2xl sm:text-3xl font-bold text-amber-900 mt-1">{stats.totalPrivate}</p>
-              <span className="text-[11px] text-[#6F6865] mt-0.5 block">🔒 Privados da professora</span>
+              <span className="text-[11px] text-[#6F6865] mt-0.5 block">🔒 Privados da docência</span>
             </div>
 
             <div className="bg-white border border-[#E6E1D8] p-5 rounded-2xl shadow-xs">
@@ -857,7 +857,7 @@ export function StudentNotesEditorClient({
                         }`}
                       >
                         <span className="font-bold text-amber-900 block">🔒 Registro Pedagógico</span>
-                        <span className="text-[11px] text-[#6F6865] mt-1 block">Privado da professora. O aluno NÃO tem acesso.</span>
+                        <span className="text-[11px] text-[#6F6865] mt-1 block">Privado da docência. A pessoa estudante NÃO tem acesso.</span>
                       </button>
                     </div>
                   </div>

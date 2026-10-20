@@ -69,7 +69,7 @@ export default async function ReceivablesPage({
     <div className="space-y-6 max-w-5xl mx-auto">
       <PageHeader
         title="Recebimentos"
-        description="Mensalidades e cobranças das alunas, pagamentos recebidos, pendentes e previsões de parcelas."
+        description="Mensalidades e cobranças dos estudantes, pagamentos recebidos, pendentes e previsões de parcelas."
         action={
           <CreatePaymentModal
             organizationId={activeOrgId}
@@ -140,7 +140,7 @@ export default async function ReceivablesPage({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#E6E1D8] bg-[#F7F4ED]/50 text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">
-                  <th className="py-3 px-5">Aluna</th>
+                  <th className="py-3 px-5">Estudante</th>
                   <th className="py-3 px-5">Descrição</th>
                   <th className="py-3 px-5">Valor</th>
                   <th className="py-3 px-5">Vencimento</th>
@@ -156,7 +156,7 @@ export default async function ReceivablesPage({
                   return (
                     <tr key={p.id} className="hover:bg-[#F7F4ED]/30 transition-colors">
                       <td className="py-3.5 px-5 font-bold text-[#2B2426]">
-                        {p.profiles?.full_name || 'Aluna'}
+                        {p.profiles?.full_name || 'Estudante'}
                       </td>
                       <td className="py-3.5 px-5 text-[#6F6865]">
                         {p.description}

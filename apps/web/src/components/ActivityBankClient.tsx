@@ -492,7 +492,7 @@ export function ActivityBankClient({
             >
               <option value="all">Todos os Formatos</option>
               <option value="auto">Automática (Gabarito)</option>
-              <option value="manual">Manual (Pela Professora)</option>
+              <option value="manual">Manual (Pela Equipe Docente)</option>
               <option value="mixed">Mista</option>
               <option value="external">Correção Externa / Sem Pendência</option>
             </select>

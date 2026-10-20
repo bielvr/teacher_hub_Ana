@@ -154,15 +154,15 @@ export function MessagesModal({
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#6C0F37] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
               {isTeacher
-                ? getInitials(activeStudent?.full_name || 'Aluna')
+                ? getInitials(activeStudent?.full_name || 'Estudante')
                 : 'FI'}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-[#6C0F37]">
                   {isTeacher
-                    ? activeStudent?.full_name || 'Selecione um aluno'
-                    : 'Conversa com a Professora'}
+                    ? activeStudent?.full_name || 'Selecione um estudante'
+                    : 'Conversa com a Equipe Docente'}
                 </h2>
                 <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
               </div>
@@ -228,7 +228,7 @@ export function MessagesModal({
               <p className="text-[11px] text-[#6F6865] mt-1">
                 {isTeacher
                   ? 'Envie um recado rápido ou orientação pedagógica para o aluno.'
-                  : 'Escreva uma mensagem para sua professora abaixo.'}
+                  : 'Escreva uma mensagem para a equipe docente abaixo.'}
               </p>
             </div>
           ) : (
