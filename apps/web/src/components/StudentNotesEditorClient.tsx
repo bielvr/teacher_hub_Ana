@@ -8,6 +8,7 @@ import {
   duplicateLessonNoteAction,
 } from '../actions/studies';
 import { PaginatedContent, RichMarkdownRenderer, renderInlineMarkdown } from './PaginatedContent';
+import { RichTextEditor } from './RichTextEditor';
 
 export interface LessonNoteItem {
   id: string;
@@ -107,7 +108,6 @@ export function StudentNotesEditorClient({
   const [noteTitle, setNoteTitle] = useState('Anotações da Aula');
   const [noteDate, setNoteDate] = useState(new Date().toISOString().split('T')[0]);
   const [noteContent, setNoteContent] = useState('');
-  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
 
   // Modal "+ Nova Página" na Visão Geral
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -129,7 +129,6 @@ export function StudentNotesEditorClient({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -203,7 +202,6 @@ export function StudentNotesEditorClient({
     setNoteTitle(cleanTitle(n.title));
     setNoteDate(n.lesson_date);
     setNoteContent(n.content.replace(/<!--private-->/g, '').trim());
-    setViewMode('edit');
   };
 
   // Cria uma nova página em branco no caderno / registro
@@ -213,7 +211,6 @@ export function StudentNotesEditorClient({
     setNoteTitle(type === 'private' ? 'Novo Registro Pedagógico' : `Anotações da Aula - ${new Date().toLocaleDateString('pt-BR')}`);
     setNoteDate(new Date().toISOString().split('T')[0]);
     setNoteContent('');
-    setViewMode('edit');
   };
 
   // Duplicar anotação
@@ -325,53 +322,6 @@ export function StudentNotesEditorClient({
     } finally {
       setLoading(false);
     }
-  };
-
-  // Ferramentas de formatação no editor
-  const insertFormatting = (prefix: string, suffix: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const selectedText = text.substring(start, end);
-
-    const trimmedPrefix = prefix.replace(/^\n+/, '');
-    const isBlockPrefix = ['## ', '### ', '• ', '1. ', '- [ ] '].includes(trimmedPrefix);
-    if (isBlockPrefix) {
-      const needsLeadingNewline = start > 0 && text[start - 1] !== '\n';
-      const cleanPrefix = (needsLeadingNewline ? '\n' : '') + trimmedPrefix;
-      const body = selectedText || 'Item';
-      const replacement = `${cleanPrefix}${body}${suffix}`;
-      const newContent = text.substring(0, start) + replacement + text.substring(end);
-      setNoteContent(newContent);
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(
-          start + cleanPrefix.length,
-          start + cleanPrefix.length + body.length
-        );
-      }, 50);
-      return;
-    }
-
-    const body = selectedText || 'texto';
-    const replacement = `${prefix}${body}${suffix}`;
-    const newContent =
-      text.substring(0, start) +
-      replacement +
-      text.substring(end);
-
-    setNoteContent(newContent);
-
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + prefix.length,
-        start + prefix.length + body.length
-      );
-    }, 50);
   };
 
   // Tecla ESC para fechar Modo Aula
@@ -895,7 +845,6 @@ export function StudentNotesEditorClient({
                       setNoteTitle(modalTitle.trim() || (modalNoteType === 'private' ? 'Novo Registro Pedagógico' : `Anotações da Aula - ${new Date().toLocaleDateString('pt-BR')}`));
                       setNoteDate(new Date().toISOString().split('T')[0]);
                       setNoteContent('');
-                      setViewMode('edit');
                     }}
                     className="px-5 py-2 bg-[#6C0F37] hover:bg-[#57102E] text-white rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs"
                   >
@@ -1177,186 +1126,26 @@ export function StudentNotesEditorClient({
                         className="px-2.5 py-1 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                       />
                     </div>
-
-                    {/* Alternador Editor vs Pré-visualização Limpa */}
-                    <div className="flex items-center bg-[#F7F4ED] p-0.5 rounded-lg border border-[#E6E1D8]">
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('edit')}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
-                          viewMode === 'edit'
-                            ? 'bg-white text-[#6C0F37] shadow-2xs'
-                            : 'text-[#6F6865] hover:text-[#2B2426]'
-                        }`}
-                      >
-                        ✏️ Editor
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('preview')}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
-                          viewMode === 'preview'
-                            ? 'bg-white text-[#6C0F37] shadow-2xs'
-                            : 'text-[#6F6865] hover:text-[#2B2426]'
-                        }`}
-                      >
-                        👁️ Visualizar Formatação
-                      </button>
-                    </div>
                   </div>
                 </div>
-
-                {/* Barra de Ferramentas de Formatação (ativa no modo editor) */}
-                {viewMode === 'edit' && (
-                  <div className="flex flex-wrap items-center gap-1 pt-2 border-t border-[#E6E1D8] text-xs">
-                    {/* Formatação Básica */}
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('**', '**')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-bold text-[#2B2426] cursor-pointer"
-                      title="Negrito (**)"
-                    >
-                      B
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('*', '*')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded italic text-[#2B2426] cursor-pointer"
-                      title="Itálico (*)"
-                    >
-                      I
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('<u>', '</u>')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded underline text-[#2B2426] cursor-pointer"
-                      title="Sublinhado"
-                    >
-                      U
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('~~', '~~')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded line-through text-[#2B2426] cursor-pointer"
-                      title="Tachado"
-                    >
-                      S
-                    </button>
-
-                    <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
-
-                    {/* Títulos */}
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n## ', '\n')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-semibold text-[#6C0F37] cursor-pointer"
-                      title="Título H2"
-                    >
-                      H2
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n### ', '\n')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded font-semibold text-[#6C0F37] cursor-pointer"
-                      title="Título H3"
-                    >
-                      H3
-                    </button>
-
-                    <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
-
-                    {/* Listas & Checklist */}
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n• ', '')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
-                      title="Lista com marcadores"
-                    >
-                      • Lista
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n1. ', '')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
-                      title="Lista numerada"
-                    >
-                      1. Num
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n- [ ] ', '')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
-                      title="Checklist de tarefas"
-                    >
-                      ☑ Tarefa
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n---\n', '')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] cursor-pointer"
-                      title="Divisória"
-                    >
-                      ― Linha
-                    </button>
-
-                    <div className="h-4 w-px bg-[#E6E1D8] mx-1" />
-
-                    {/* Recursos de Aula */}
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('[Link](', ')')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1 cursor-pointer"
-                      title="Inserir Link"
-                    >
-                      <span>🔗</span> Link
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('![Imagem](', ')')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1 cursor-pointer"
-                      title="Inserir Imagem"
-                    >
-                      <span>🖼️</span> Imagem
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n| Coluna 1 | Coluna 2 |\n|---|---|\n| Item 1 | Item 2 |\n', '')}
-                      className="p-1.5 px-2 hover:bg-[#F7F4ED] rounded text-[#2B2426] flex items-center gap-1 cursor-pointer"
-                      title="Inserir Tabela"
-                    >
-                      <span>📊</span> Tabela
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('\n\n<!--page-break-->\n\n', '')}
-                      className="p-1.5 px-2.5 hover:bg-[#F3E8EC] text-[#6C0F37] rounded font-semibold flex items-center gap-1 ml-auto cursor-pointer"
-                      title="Inserir Quebra de Página / Etapa de Aula"
-                    >
-                      <span>📄</span> Quebra de Página
-                    </button>
-                  </div>
-                )}
               </div>
 
-              {/* Área de Conteúdo: Editor ou Pré-visualização Limpa */}
-              <div className="flex-1 p-6 overflow-y-auto">
-                {viewMode === 'edit' ? (
-                  <textarea
-                    ref={textareaRef}
-                    value={noteContent}
-                    onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder={
-                      activeTab === 'private'
-                        ? 'Escreva os registros pedagógicos confidenciais da aula (dificuldades recorrentes, evolução do vocabulário, engajamento e feedbacks internos)...'
-                        : 'Escreva as anotações, correções fonéticas, vocabulário novo e pontos de estudo da aula compartilhada...'
-                    }
-                    className="w-full h-full min-h-[480px] resize-none border-0 focus:outline-none focus:ring-0 text-sm leading-relaxed text-[#2B2426] font-sans"
-                  />
-                ) : (
-                  <div className="max-w-4xl mx-auto py-2">
-                    <RichMarkdownViewer content={noteContent} fontSizeClass="text-base" />
-                  </div>
-                )}
+              {/* Área de Conteúdo com Editor WYSIWYG */}
+              <div className="flex-1 p-6 overflow-y-auto bg-white">
+                <RichTextEditor
+                  value={noteContent}
+                  onChange={setNoteContent}
+                  minHeight="min-h-[480px]"
+                  placeholder={
+                    activeTab === 'private'
+                      ? 'Escreva os registros pedagógicos confidenciais da aula (dificuldades recorrentes, evolução do aprendizado, engajamento e feedbacks internos)...'
+                      : 'Escreva as anotações, conceitos trabalhados, correções e pontos de estudo da aula compartilhada...'
+                  }
+                  enablePageBreak={true}
+                  enableTables={true}
+                  enableTasks={true}
+                  enableImages={true}
+                />
               </div>
             </main>
           </div>

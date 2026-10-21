@@ -19,6 +19,7 @@ import {
 import { ActivityBlockSelector } from './activities/ActivityBlockSelector';
 import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
 import { RichMarkdownRenderer } from './PaginatedContent';
+import { RichTextEditor } from './RichTextEditor';
 
 const SUGGESTED_TAGS: string[] = [
   'Teoria',
@@ -308,7 +309,6 @@ export function CreateActivityModal({
   });
 
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-  const [resourceBlockTab, setResourceBlockTab] = useState<'edit' | 'preview'>('edit');
 
   // Sincroniza initialData caso mude em modo de edição
   useEffect(() => {
@@ -1214,7 +1214,6 @@ export function CreateActivityModal({
                                       setEditingBlockId(
                                         editingBlockId === block.id ? null : block.id
                                       );
-                                      setResourceBlockTab('edit');
                                     }}
                                     className="px-2.5 py-0.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded hover:bg-[#F0EBE1] cursor-pointer"
                                   >
@@ -1251,59 +1250,22 @@ export function CreateActivityModal({
                                       </div>
                                       {block.type === 'text' ? (
                                         <div className="space-y-1.5">
-                                          <div className="flex items-center justify-between">
-                                            <label className="block text-[11px] font-bold text-[#2B2426]">
-                                              Texto Explicativo
-                                            </label>
-                                            <div className="flex items-center bg-white border border-[#E6E1D8] rounded-md p-0.5 text-[11px]">
-                                              <button
-                                                type="button"
-                                                onClick={() => setResourceBlockTab('edit')}
-                                                className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
-                                                  resourceBlockTab === 'edit'
-                                                    ? 'bg-[#FAF8F5] text-[#6C0F37]'
-                                                    : 'text-[#6F6865]'
-                                                }`}
-                                              >
-                                                ✍️ Escrever
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => setResourceBlockTab('preview')}
-                                                className={`px-2 py-0.5 rounded font-semibold cursor-pointer ${
-                                                  resourceBlockTab === 'preview'
-                                                    ? 'bg-[#6C0F37] text-white'
-                                                    : 'text-[#6F6865]'
-                                                }`}
-                                              >
-                                                👁️ Visualizar
-                                              </button>
-                                            </div>
-                                          </div>
-                                          {resourceBlockTab === 'edit' ? (
-                                            <textarea
-                                              rows={3}
-                                              value={block.content_markdown || ''}
-                                              onChange={(e) =>
-                                                updateBlock(block.id, {
-                                                  content_markdown: e.target.value,
-                                                })
-                                              }
-                                              className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                            />
-                                          ) : (
-                                            <div className="w-full min-h-[76px] p-3 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]">
-                                              {block.content_markdown?.trim() ? (
-                                                <RichMarkdownRenderer
-                                                  content={block.content_markdown}
-                                                />
-                                              ) : (
-                                                <span className="text-[#6F6865] italic">
-                                                  Sem conteúdo digitado.
-                                                </span>
-                                              )}
-                                            </div>
-                                          )}
+                                          <label className="block text-[11px] font-bold text-[#2B2426]">
+                                            Texto Explicativo
+                                          </label>
+                                          <RichTextEditor
+                                            value={block.content_markdown || ''}
+                                            onChange={(val) =>
+                                              updateBlock(block.id, {
+                                                content_markdown: val,
+                                              })
+                                            }
+                                            minHeight="min-h-[140px]"
+                                            enablePageBreak={false}
+                                            enableTables={false}
+                                            enableTasks={false}
+                                            enableImages={false}
+                                          />
                                         </div>
                                       ) : (
                                         <div>
