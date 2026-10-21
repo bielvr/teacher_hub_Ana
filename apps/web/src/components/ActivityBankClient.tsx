@@ -351,7 +351,7 @@ export function ActivityBankClient({
                 act.content_markdown
                   .replace(/<!--page-break-->/gi, ' ')
                   .replace(/(?:^|\n)\s*#{1,3}\s+/g, ' ')
-                  .replace(/(?:^|\n)\s*[-*]\s*\[[ xX]?\]\s+/g, ' ')
+                  .replace(/(?:^|\n)\s*[-*]\s*[[ xX]?]\s+/g, ' ')
                   .replace(/\s+/g, ' ')
                   .trim()
               )}
@@ -532,22 +532,30 @@ export function ActivityBankClient({
           <button
             type="button"
             onClick={() => setSelectedTrackId('all')}
-            className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
-              selectedTrackId === 'all'
-                ? 'bg-[#6C0F37] text-[#FFFDF7] border-[#57102E] shadow-md ring-1 ring-[#D7CE36]/40'
-                : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/30'
-            }`}
+            style={{
+              backgroundColor: selectedTrackId === 'all' ? '#6C0F37' : '#FFFFFF',
+              color: selectedTrackId === 'all' ? '#FFFDF7' : '#2B2426',
+              borderColor: selectedTrackId === 'all' ? '#57102E' : '#E6E1D8',
+            }}
+            className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between"
           >
             <div>
               <span className="text-lg block mb-1">📚</span>
-              <h3 className={`text-base font-bold transition-colors ${
-                selectedTrackId === 'all' ? 'text-[#FFFDF7]' : 'text-[#6C0F37]'
-              }`}>
+              <h3
+                style={{ color: selectedTrackId === 'all' ? '#FFFDF7' : '#6C0F37' }}
+                className="text-base font-bold transition-colors"
+              >
                 Todos os Níveis
               </h3>
             </div>
-            <div className={`mt-3 pt-2 border-t ${selectedTrackId === 'all' ? 'border-[#FFFDF7]/20' : 'border-[#E6E1D8]'}`}>
-              <span className={`text-xs ${selectedTrackId === 'all' ? 'text-[#FFFDF7]/90' : 'text-[#6F6865]'}`}>
+            <div
+              style={{ borderColor: selectedTrackId === 'all' ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8' }}
+              className="mt-3 pt-2 border-t"
+            >
+              <span
+                style={{ color: selectedTrackId === 'all' ? '#FFFDF7' : '#6F6865' }}
+                className="text-xs"
+              >
                 {trackStats.totalCount} atividades totais
               </span>
             </div>
@@ -563,17 +571,17 @@ export function ActivityBankClient({
                 key={trk.id}
                 type="button"
                 onClick={() => setSelectedTrackId(trk.id)}
-                style={
-                  isSelected
-                    ? { backgroundColor: '#6C0F37', color: '#FFFFFF' }
-                    : { backgroundColor: '#FFFFFF', color: '#2B2426' }
-                }
-                className="p-5 rounded-2xl cursor-pointer transition-all border border-[#E6E1D8] text-left flex flex-col justify-between"
+                style={{
+                  backgroundColor: isSelected ? '#6C0F37' : '#FFFFFF',
+                  color: isSelected ? '#FFFDF7' : '#2B2426',
+                  borderColor: isSelected ? '#57102E' : '#E6E1D8',
+                }}
+                className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between"
               >
                 <div>
                   <span className="text-lg block mb-1">📚</span>
                   <h3
-                    style={{ color: isSelected ? '#FFFFFF' : '#6C0F37' }}
+                    style={{ color: isSelected ? '#FFFDF7' : '#6C0F37' }}
                     className="text-base font-bold transition-colors"
                   >
                     {trk.title}
@@ -581,11 +589,11 @@ export function ActivityBankClient({
                 </div>
 
                 <div
-                  style={{ borderColor: isSelected ? 'rgba(255,255,255,0.2)' : '#E6E1D8' }}
+                  style={{ borderColor: isSelected ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8' }}
                   className="mt-3 pt-2 border-t"
                 >
                   <span
-                    style={{ color: isSelected ? '#FFFFFF' : '#6F6865' }}
+                    style={{ color: isSelected ? '#FFFDF7' : '#6F6865' }}
                     className="text-xs"
                   >
                     {stats.activityCount} atividades totais
@@ -599,27 +607,36 @@ export function ActivityBankClient({
           <button
             type="button"
             onClick={() => setSelectedTrackId('general')}
-            className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
-              selectedTrackId === 'general'
-                ? 'bg-[#6C0F37] text-[#FFFDF7] border-[#57102E] shadow-md ring-1 ring-[#D7CE36]/40'
-                : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/30'
-            }`}
+            style={{
+              backgroundColor: selectedTrackId === 'general' ? '#6C0F37' : '#FFFFFF',
+              color: selectedTrackId === 'general' ? '#FFFDF7' : '#2B2426',
+              borderColor: selectedTrackId === 'general' ? '#57102E' : '#E6E1D8',
+            }}
+            className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between"
           >
             <div>
               <span className="text-lg block mb-1">🌐</span>
-              <h3 className={`text-base font-bold transition-colors ${
-                selectedTrackId === 'general' ? 'text-[#FFFDF7]' : 'text-[#6C0F37]'
-              }`}>
+              <h3
+                style={{ color: selectedTrackId === 'general' ? '#FFFDF7' : '#6C0F37' }}
+                className="text-base font-bold transition-colors"
+              >
                 Atividades Gerais
               </h3>
-              <span className={`text-xs block mt-0.5 ${
-                selectedTrackId === 'general' ? 'text-[#FFFDF7]/90' : 'text-[#6F6865]'
-              }`}>
+              <span
+                style={{ color: selectedTrackId === 'general' ? 'rgba(255, 253, 247, 0.9)' : '#6F6865' }}
+                className="text-xs block mt-0.5"
+              >
                 Banco livre
               </span>
             </div>
-            <div className={`mt-3 pt-2 border-t ${selectedTrackId === 'general' ? 'border-[#FFFDF7]/20' : 'border-[#E6E1D8]'}`}>
-              <span className={`text-xs ${selectedTrackId === 'general' ? 'text-[#FFFDF7]/90' : 'text-[#6F6865]'}`}>
+            <div
+              style={{ borderColor: selectedTrackId === 'general' ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8' }}
+              className="mt-3 pt-2 border-t"
+            >
+              <span
+                style={{ color: selectedTrackId === 'general' ? '#FFFDF7' : '#6F6865' }}
+                className="text-xs"
+              >
                 {trackStats.generalCount} atividades totais
               </span>
             </div>
