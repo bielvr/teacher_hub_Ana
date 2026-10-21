@@ -98,6 +98,8 @@ export async function createActivityAction(formData: FormData) {
   const metadata: any = {
     category,
     target_skills,
+    skills: target_skills,
+    tags: target_skills,
     correction_type,
     no_correction_needed,
     status,
@@ -169,7 +171,10 @@ export async function updateActivityAction(formData: FormData) {
 
   if (rawTargetSkills) {
     try {
-      currentMetadata.target_skills = JSON.parse(rawTargetSkills);
+      const parsedSkills = JSON.parse(rawTargetSkills);
+      currentMetadata.target_skills = parsedSkills;
+      currentMetadata.skills = parsedSkills;
+      currentMetadata.tags = parsedSkills;
     } catch {}
   }
 

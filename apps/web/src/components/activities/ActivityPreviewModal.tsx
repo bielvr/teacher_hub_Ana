@@ -9,7 +9,7 @@ interface ActivityPreviewModalProps {
   onClose: () => void;
   title: string;
   category: PedagogicalObjective;
-  targetSkills?: TargetSkill[];
+  targetSkills?: (TargetSkill | string)[];
   instructions: string;
   blocks: ActivityBlock[];
   correctionType: CorrectionType;
@@ -39,6 +39,16 @@ export function ActivityPreviewModal({
   } | null>(null);
 
   if (!isOpen) return null;
+
+  const isWrittenProduction = category === 'Produção escrita';
+  const hasManualWritingBlock = blocks.some(
+    (b) =>
+      b.kind === 'question' &&
+      (b.type === 'short_answer_manual' ||
+        b.type === 'long_answer_manual' ||
+        b.type === 'open_production_manual')
+  );
+  const needsAutoWritingBox = isWrittenProduction && !hasManualWritingBlock;
 
   const handleAnswerChange = (blockId: string, val: any) => {
     setStudentAnswers((prev) => ({ ...prev, [blockId]: val }));
@@ -167,12 +177,35 @@ export function ActivityPreviewModal({
           )}
 
           {/* Renderização dos Blocos */}
-          {blocks.length === 0 ? (
+          {blocks.length === 0 && !needsAutoWritingBox ? (
             <div className="p-8 text-center text-xs text-[#6F6865] border-2 border-dashed border-[#E6E1D8] rounded-xl bg-white">
               Nenhum bloco de recurso ou exercício adicionado ainda.
             </div>
           ) : (
             <div className="space-y-5">
+              {needsAutoWritingBox && (
+                <div className="p-4 sm:p-5 bg-white border border-[#E6E1D8] rounded-2xl space-y-3 shadow-2xs animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
+                      <span>✍️</span> Entrega Dissertativa (Inclusa Automaticamente)
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Produção Escrita
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#6F6865]">
+                    Por ser uma atividade de <strong>Produção escrita</strong>, este campo dissertativo fica disponível para o aluno entregar seu texto.
+                  </p>
+                  <textarea
+                    rows={5}
+                    placeholder="O estudante redigirá sua dissertação ou resposta neste campo..."
+                    value={studentAnswers['written_production'] || ''}
+                    onChange={(e) => handleAnswerChange('written_production', e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] leading-relaxed resize-y"
+                  />
+                </div>
+              )}
+
               {blocks.map((block, idx) => (
                 <div
                   key={block.id}
@@ -418,15 +451,12 @@ export function ActivityPreviewModal({
                             onChange={(e) => handleAnswerChange(block.id, e.target.value)}
                             className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] resize-none"
                           />
-                          <div className="flex items-center justify-between text-[11px] text-[#6F6865]">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-[#6F6865]">
                             <span>✍️ Esta questão será avaliada e pontuada pela equipe docente.</span>
                             {block.type === 'open_production_manual' && block.allow_audio_submission && (
-                              <button
-                                type="button"
-                                className="px-2 py-1 rounded bg-[#FAF8F5] border border-[#E6E1D8] text-[#6C0F37] font-semibold flex items-center gap-1"
-                              >
-                                🎙️ Gravar resposta em áudio
-                              </button>
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FAF8F5] border border-[#E6E1D8] text-[#6C0F37] font-semibold">
+                                <span>🎙️ Áudio complementar (opcional)</span>
+                              </div>
                             )}
                           </div>
                         </div>

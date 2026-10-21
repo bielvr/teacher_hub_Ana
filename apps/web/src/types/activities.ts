@@ -16,7 +16,16 @@ export type TargetSkill =
   | 'Produção oral'
   | 'Pronúncia'
   | 'Shadowing / Prática guiada de fala'
-  | 'Outras';
+  | 'Teoria'
+  | 'Prática'
+  | 'Exercício'
+  | 'Fixação'
+  | 'Raciocínio'
+  | 'Redação'
+  | 'Interpretação'
+  | 'Resolução de Problemas'
+  | 'Outras'
+  | (string & {});
 
 export const PEDAGOGICAL_OBJECTIVES: PedagogicalObjective[] = [
   'Exercício e prática',

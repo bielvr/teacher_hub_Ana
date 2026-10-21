@@ -489,7 +489,18 @@ export function StudentActivitiesClient({
               const studentAnswers = answersByActivity[selectedActivity.id] || {};
               const result = resultsByActivity[selectedActivity.id];
 
-              if (questions.length === 0 && resources.length === 0) return null;
+              const isWrittenProduction =
+                selectedActivity.type === 'Produção escrita' ||
+                selectedActivity.metadata?.category === 'Produção escrita';
+              const hasManualWritingBlock = questions.some(
+                (q) =>
+                  q.type === 'short_answer_manual' ||
+                  q.type === 'long_answer_manual' ||
+                  q.type === 'open_production_manual'
+              );
+              const needsAutoWritingBox = isWrittenProduction && !hasManualWritingBlock;
+
+              if (questions.length === 0 && resources.length === 0 && !needsAutoWritingBox) return null;
 
               return (
                 <div className="space-y-4 pt-4 border-t border-[#E6E1D8]">
@@ -611,25 +622,68 @@ export function StudentActivitiesClient({
                           </div>
                         )}
 
-                        {/* 4. Resposta Curta ou Tradução */}
+                        {/* 4. Resposta Curta, Tradução, Redação / Texto Longo ou Produção Livre */}
                         {(q.type === 'short_answer_auto' ||
                           q.type === 'short_answer_manual' ||
-                          q.type === 'translation') && (
-                          <div className="pl-8">
+                          q.type === 'translation' ||
+                          q.type === 'long_answer_manual' ||
+                          q.type === 'open_production_manual') && (
+                          <div className="pl-8 space-y-2">
                             <textarea
-                              rows={2}
+                              rows={
+                                q.type === 'long_answer_manual' || q.type === 'open_production_manual'
+                                  ? 5
+                                  : 2
+                              }
                               placeholder="Digite sua resposta aqui..."
                               value={studentAnswers[q.id] || ''}
                               onChange={(e) =>
                                 handleAnswerChange(selectedActivity.id, q.id, e.target.value)
                               }
-                              className="w-full px-3.5 py-2.5 bg-white border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                              className="w-full px-3.5 py-2.5 bg-white border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] leading-relaxed resize-y"
                             />
+                            {q.type === 'open_production_manual' && q.allow_audio_submission && (
+                              <div className="flex items-center gap-2 p-2.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl text-xs text-[#6F6865]">
+                                <span>🎙️</span>
+                                <span className="font-semibold text-[#2B2426]">Áudio complementar (opcional):</span>
+                                <span className="text-[11px]">
+                                  Você pode gravar um áudio ou enviar apenas a resposta escrita acima caso prefira.
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
+                  </>
+                  )}
+
+                  {/* Resposta de Produção Escrita Automática quando não houver bloco manual configurado */}
+                  {needsAutoWritingBox && (
+                    <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-4 sm:p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-2">
+                          <span>✍️ Produção Escrita / Dissertativa</span>
+                        </h3>
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          Entrega de Texto
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#6F6865]">
+                        Redija sua resposta abaixo conforme as instruções pedagógicas apresentadas.
+                      </p>
+                      <textarea
+                        rows={6}
+                        placeholder="Escreva sua redação ou resposta dissertativa aqui..."
+                        value={studentAnswers['written_production'] || ''}
+                        onChange={(e) =>
+                          handleAnswerChange(selectedActivity.id, 'written_production', e.target.value)
+                        }
+                        className="w-full px-3.5 py-2.5 bg-white border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] leading-relaxed resize-y"
+                      />
+                    </div>
+                  )}
 
                   {/* Feedback do Resultado da Atividade */}
                   {result && (
@@ -650,24 +704,24 @@ export function StudentActivitiesClient({
                   )}
 
                   {/* Botão de Envio de Respostas */}
-                  <div className="flex justify-end pt-3">
-                    <button
-                      type="button"
-                      onClick={() => handleSubmitInteractive(selectedActivity)}
-                      disabled={submittingId === selectedActivity.id}
-                      className="px-6 py-3 bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2"
-                    >
-                      {submittingId === selectedActivity.id ? (
-                        <span>Gravando progresso...</span>
-                      ) : (
-                        <>
-                          <span>Verificar e Enviar Respostas</span>
-                          <span>→</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  </>
+                  {(questions.length > 0 || needsAutoWritingBox) && (
+                    <div className="flex justify-end pt-3">
+                      <button
+                        type="button"
+                        onClick={() => handleSubmitInteractive(selectedActivity)}
+                        disabled={submittingId === selectedActivity.id}
+                        className="px-6 py-3 bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2"
+                      >
+                        {submittingId === selectedActivity.id ? (
+                          <span>Gravando progresso...</span>
+                        ) : (
+                          <>
+                            <span>Verificar e Enviar Respostas</span>
+                            <span>→</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   )}
                 </div>
               );

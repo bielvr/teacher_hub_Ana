@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createActivityAction, updateActivityAction } from '../actions/activities';
 import {
@@ -19,6 +19,89 @@ import {
 import { ActivityBlockSelector } from './activities/ActivityBlockSelector';
 import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
 import { RichMarkdownRenderer } from './PaginatedContent';
+
+const SUGGESTED_TAGS: string[] = [
+  'Teoria',
+  'Prática',
+  'Exercício',
+  'Fixação',
+  'Leitura',
+  'Raciocínio',
+  'Redação',
+  'Interpretação',
+  'Conceitos-chave',
+  'Revisão',
+  'Gramática',
+  'Vocabulário',
+];
+
+function markdownToHtml(md: string): string {
+  if (!md) return '';
+  let html = md;
+  // Page break delimiter
+  html = html.replace(
+    /<!--page-break-->/gi,
+    '<div class="page-break-badge" contenteditable="false" style="padding: 6px 12px; margin: 12px 0; background: #FAF8F5; border: 1.5px dashed #D7CE36; border-radius: 8px; color: #6C0F37; font-weight: bold; font-size: 11px; text-align: center; user-select: none;">📄 Delimitador de Quebra de Página</div>'
+  );
+  // Headings
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  // Bold & Italic & Underline
+  html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  html = html.replace(/\*(.*?)\*/g, '<i>$1</i>');
+  html = html.replace(/<u>(.*?)<\/u>/gi, '<u>$1</u>');
+  // Links
+  html = html.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    '<a href="$2" target="_blank" style="color: #0d6efd; text-decoration: underline;">$1</a>'
+  );
+  // Lists
+  html = html.replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
+  html = html.replace(/<\/ul>\s*<ul>/gim, '');
+  // Numbered Lists
+  html = html.replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="num-item">$1</li>');
+  html = html.replace(/(<li class="num-item">.*<\/li>)/gim, '<ol>$1</ol>');
+  html = html.replace(/<\/ol>\s*<ol>/gim, '');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+function htmlToMarkdown(html: string): string {
+  if (!html) return '';
+  let md = html;
+  // Page break badges
+  md = md.replace(/<div class="page-break-badge"[^>]*>.*?<\/div>/gi, '\n\n<!--page-break-->\n\n');
+  // Headings
+  md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
+  md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
+  md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
+  // Bold & Italic & Underline
+  md = md.replace(/<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gi, '**$1**');
+  md = md.replace(/<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gi, '*$1*');
+  md = md.replace(/<u[^>]*>(.*?)<\/u>/gi, '<u>$1</u>');
+  // Links
+  md = md.replace(/<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+  // Lists
+  md = md.replace(/<li class="num-item"[^>]*>(.*?)<\/li>/gi, '1. $1\n');
+  md = md.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
+  md = md.replace(/<\/?(?:ul|ol)[^>]*>/gi, '\n');
+  // Paragraphs & Divs & Line breaks
+  md = md.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
+  md = md.replace(/<div[^>]*>(.*?)<\/div>/gi, '$1\n');
+  md = md.replace(/<br\s*[\/]?>/gi, '\n');
+  // Strip remaining HTML tags except <u>
+  md = md.replace(/<(?!\/?u\b)[^>]+>/gi, '');
+  // Decode HTML entities
+  md = md
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"');
+  return md.trim();
+}
 
 interface TrackOption {
   id: string;
@@ -148,9 +231,18 @@ export function CreateActivityModal({
   const [category, setCategory] = useState<PedagogicalObjective>(
     (initialData?.metadata?.category as PedagogicalObjective) || 'Exercício e prática'
   );
-  const [targetSkills, setTargetSkills] = useState<TargetSkill[]>(
-    initialData?.metadata?.target_skills || ['Gramática']
-  );
+  const [targetSkills, setTargetSkills] = useState<(TargetSkill | string)[]>(() => {
+    if (initialData?.metadata?.target_skills && Array.isArray(initialData.metadata.target_skills)) {
+      return initialData.metadata.target_skills;
+    }
+    if (initialData?.metadata?.skills && Array.isArray(initialData.metadata.skills)) {
+      return initialData.metadata.skills;
+    }
+    if (initialData?.metadata?.tags && Array.isArray(initialData.metadata.tags)) {
+      return initialData.metadata.tags;
+    }
+    return ['Prática', 'Fixação'];
+  });
   const [selectedTrackId, setSelectedTrackId] = useState(
     initialData?.lessons?.modules?.tracks?.id || initialData?.metadata?.track_id || ''
   );
@@ -161,7 +253,16 @@ export function CreateActivityModal({
     initialData?.lessons?.id || initialData?.lesson_id || ''
   );
   const [instructions, setInstructions] = useState(initialData?.content_markdown || '');
-  const [instructionTab, setInstructionTab] = useState<'edit' | 'preview'>('edit');
+
+  // Tag Input & Autocomplete State
+  const [tagInput, setTagInput] = useState('');
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const tagContainerRef = useRef<HTMLDivElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
+  // Editor Visual WYSIWYG
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isEditorInitialized = useRef(false);
 
   // Flag: Não precisa de correção / Correção externa
   const [noCorrectionNeeded, setNoCorrectionNeeded] = useState<boolean>(
@@ -214,7 +315,11 @@ export function CreateActivityModal({
     if (initialData) {
       setTitle(initialData.title || '');
       setCategory((initialData.metadata?.category as PedagogicalObjective) || 'Exercício e prática');
-      setTargetSkills(initialData.metadata?.target_skills || ['Gramática']);
+      setTargetSkills(
+        initialData.metadata?.target_skills ||
+          initialData.metadata?.skills ||
+          initialData.metadata?.tags || ['Prática', 'Fixação']
+      );
       setSelectedTrackId(
         initialData.lessons?.modules?.tracks?.id || initialData.metadata?.track_id || ''
       );
@@ -279,53 +384,89 @@ export function CreateActivityModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isSelectorOpen, isPreviewOpen]);
 
-  // Toggle de Habilidade
-  const toggleSkill = (skill: TargetSkill) => {
-    if (targetSkills.includes(skill)) {
-      setTargetSkills(targetSkills.filter((s) => s !== skill));
-    } else {
-      setTargetSkills([...targetSkills, skill]);
+  // Fecha dropdown de tags ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (tagContainerRef.current && !tagContainerRef.current.contains(event.target as Node)) {
+        setIsTagDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sincroniza conteúdo no editor visual ao abrir ou mudar para etapa 1
+  useEffect(() => {
+    if (activeStep === 1 && editorRef.current) {
+      if (!isEditorInitialized.current || editorRef.current.innerHTML === '') {
+        editorRef.current.innerHTML = markdownToHtml(instructions);
+        isEditorInitialized.current = true;
+      }
+    }
+  }, [isOpen, activeStep, instructions]);
+
+  // Manipulação de tags dinâmicas
+  const addTag = (tag: string) => {
+    const clean = tag.trim().replace(/^,+|,+$/g, '');
+    if (clean && !targetSkills.includes(clean)) {
+      setTargetSkills([...targetSkills, clean]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTargetSkills(targetSkills.filter((t) => t !== tagToRemove));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (tagInput.trim()) {
+        addTag(tagInput);
+      }
+    } else if (e.key === 'Backspace' && !tagInput && targetSkills.length > 0) {
+      removeTag(targetSkills[targetSkills.length - 1]);
     }
   };
 
-  // Barra de ferramentas rica do editor de instruções
-  const insertInstructionSnippet = (before: string, after: string = '') => {
-    const textarea = document.getElementById('instructions-textarea') as HTMLTextAreaElement | null;
-    if (!textarea) {
-      setInstructions((prev) => prev + before + after);
-      return;
-    }
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const selection = text.substring(start, end);
+  const filteredSuggestions = SUGGESTED_TAGS.filter(
+    (s) =>
+      !targetSkills.includes(s) &&
+      (tagInput.trim() ? s.toLowerCase().includes(tagInput.toLowerCase()) : true)
+  );
 
-    const isBlockPrefix = ['## ', '### ', '- ', '1. ', '- [ ] '].includes(before);
-    if (isBlockPrefix && !after) {
-      const needsLeadingNewline = start > 0 && text[start - 1] !== '\n';
-      const prefix = (needsLeadingNewline ? '\n' : '') + before;
-      const body = selection || 'Item';
-      const replacement = prefix + body;
-      setInstructions(text.substring(0, start) + replacement + text.substring(end));
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + prefix.length, start + prefix.length + body.length);
-      }, 50);
-      return;
+  // Editor Visual WYSIWYG com sincronização imediata
+  const handleEditorInput = () => {
+    if (editorRef.current) {
+      const html = editorRef.current.innerHTML;
+      const md = htmlToMarkdown(html);
+      setInstructions(md);
     }
-
-    const body = selection || 'texto';
-    const replacement = before + body + after;
-    setInstructions(text.substring(0, start) + replacement + text.substring(end));
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, start + before.length + body.length);
-    }, 50);
   };
 
-  const insertPageBreak = () => {
-    const delimiter = '\n\n<!--page-break-->\n\n';
-    setInstructions((prev) => prev + delimiter);
+  const formatDoc = (cmd: string, val: string | undefined = undefined) => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+    document.execCommand(cmd, false, val);
+    handleEditorInput();
+  };
+
+  const handleInsertLink = () => {
+    const url = prompt('Digite a URL do link (ex: https://...):');
+    if (url) {
+      formatDoc('createLink', url);
+    }
+  };
+
+  const handleInsertPageBreak = () => {
+    const pageBreakBadge =
+      '<div class="page-break-badge" contenteditable="false" style="padding: 6px 12px; margin: 12px 0; background: #FAF8F5; border: 1.5px dashed #D7CE36; border-radius: 8px; color: #6C0F37; font-weight: bold; font-size: 11px; text-align: center; user-select: none;">📄 Delimitador de Quebra de Página</div><p><br></p>';
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+    document.execCommand('insertHTML', false, pageBreakBadge);
+    handleEditorInput();
   };
 
   // Adição de bloco via catálogo
@@ -421,6 +562,8 @@ export function CreateActivityModal({
       formData.append('content_markdown', instructions.trim());
       formData.append('category', category);
       formData.append('target_skills', JSON.stringify(targetSkills));
+      formData.append('skills', JSON.stringify(targetSkills));
+      formData.append('tags', JSON.stringify(targetSkills));
       formData.append('correction_type', correctionType);
       formData.append('no_correction_needed', noCorrectionNeeded ? 'true' : 'false');
       formData.append('status', status);
@@ -609,6 +752,24 @@ export function CreateActivityModal({
                     </div>
                   </div>
 
+                  {/* Alerta de Entrega Textual Dissertativa Automática */}
+                  {category === 'Produção escrita' && (
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 shadow-2xs">
+                      <span className="text-xl shrink-0 mt-0.5">✍️</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-900 flex items-center gap-2">
+                          <span>Entrega Textual Dissertativa Automática</span>
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.2 rounded border border-amber-300">
+                            Ativo
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed">
+                          Como esta atividade é uma <strong>Produção Escrita</strong>, o sistema disponibilizará automaticamente uma caixa de resposta textual/redação na tela do estudante. Não é obrigatório configurar blocos de perguntas extras caso queira orientar o tema apenas nas instruções gerais.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Unidade e Aula (Se Nível selecionado) */}
                   {selectedTrackId && availableModules.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8]">
@@ -654,31 +815,92 @@ export function CreateActivityModal({
                     </div>
                   )}
 
-                  {/* Habilidades / Áreas Trabalhadas (Múltipla Seleção) */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-2">
-                      Habilidades / Áreas Trabalhadas (Múltipla Seleção)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {TARGET_SKILLS.map((skill) => {
-                        const isSelected = targetSkills.includes(skill);
-                        return (
-                          <button
-                            key={skill}
-                            type="button"
-                            onClick={() => toggleSkill(skill)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                              isSelected
-                                ? 'bg-[#6C0F37] text-[#FFFDF7] shadow-xs'
-                                : 'bg-white text-[#2B2426] border border-[#E6E1D8] hover:bg-[#FAF8F5]'
-                            }`}
-                          >
-                            <span>{isSelected ? '✓' : '+'}</span>
-                            <span>{skill}</span>
-                          </button>
-                        );
-                      })}
+                  {/* Habilidades / Tags Dinâmicas com Autocomplete */}
+                  <div className="relative" ref={tagContainerRef}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426]">
+                        Habilidades & Tags da Atividade
+                      </label>
+                      <span className="text-[11px] text-[#6F6865]">
+                        Pressione <kbd className="px-1 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded text-[10px] font-mono">Enter</kbd> ou <kbd className="px-1 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded text-[10px] font-mono">,</kbd> para adicionar
+                      </span>
                     </div>
+
+                    <div
+                      onClick={() => tagInputRef.current?.focus()}
+                      className="min-h-[46px] p-2 bg-white border border-[#E6E1D8] rounded-xl flex flex-wrap items-center gap-1.5 focus-within:ring-2 focus-within:ring-[#6C0F37]/30 focus-within:border-[#6C0F37] transition-all cursor-text shadow-2xs"
+                    >
+                      {targetSkills.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#6C0F37] text-[#FFFDF7] rounded-lg text-xs font-semibold shadow-2xs"
+                        >
+                          <span>{tag}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTag(tag);
+                            }}
+                            className="w-4 h-4 rounded-full hover:bg-black/20 flex items-center justify-center text-xs leading-none transition-colors cursor-pointer"
+                            title={`Remover tag ${tag}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+
+                      <input
+                        ref={tagInputRef}
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => {
+                          setTagInput(e.target.value);
+                          if (!isTagDropdownOpen) setIsTagDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsTagDropdownOpen(true)}
+                        onKeyDown={handleTagKeyDown}
+                        placeholder={
+                          targetSkills.length === 0
+                            ? 'Digite tags ou selecione sugestões (ex: Teoria, Prática, Equação do 2º Grau)...'
+                            : 'Adicionar outra tag...'
+                        }
+                        className="flex-1 min-w-[180px] bg-transparent text-xs text-[#2B2426] placeholder-[#6F6865] focus:outline-none py-1 px-1"
+                      />
+                    </div>
+
+                    {/* Dropdown Popover de Sugestões */}
+                    {isTagDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl shadow-xl z-30 p-2.5 max-h-52 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#6F6865] px-2 py-1">
+                          Sugestões Pedagógicas
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {filteredSuggestions.length > 0 ? (
+                            filteredSuggestions.map((suggestion) => (
+                              <button
+                                key={suggestion}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  addTag(suggestion);
+                                }}
+                                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white hover:bg-[#6C0F37] hover:text-[#FFFDF7] text-[#2B2426] border border-[#E6E1D8] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                              >
+                                <span>+</span>
+                                <span>{suggestion}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="text-xs text-[#6F6865] px-2 py-1 italic">
+                              {tagInput.trim()
+                                ? `Pressione Enter para adicionar "${tagInput.trim()}" como nova tag.`
+                                : 'Todas as sugestões padrão já foram adicionadas.'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* REQUISITO 3: FLAG DE CORREÇÃO EXTERNA / NÃO PRECISA DE CORREÇÃO */}
@@ -708,140 +930,137 @@ export function CreateActivityModal({
                     </div>
                   </div>
 
-                  {/* Instruções Gerais para o Aluno */}
+                  {/* Instruções Gerais para o Aluno (Editor Visual Imediato WYSIWYG) */}
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
-                          Instruções Gerais para o Aluno
-                        </label>
-                        <div className="flex items-center bg-[#FAF8F5] border border-[#E6E1D8] rounded-lg p-0.5 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setInstructionTab('edit')}
-                            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                              instructionTab === 'edit'
-                                ? 'bg-white text-[#6C0F37] shadow-xs'
-                                : 'text-[#6F6865] hover:text-[#2B2426]'
-                            }`}
-                          >
-                            ✍️ Escrever
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setInstructionTab('preview')}
-                            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                              instructionTab === 'preview'
-                                ? 'bg-[#6C0F37] text-white shadow-xs'
-                                : 'text-[#6F6865] hover:text-[#2B2426]'
-                            }`}
-                          >
-                            👁️ Visualizar Formatação
-                          </button>
-                        </div>
-                      </div>
-
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
+                        Instruções Gerais para o Aluno
+                      </label>
                       <button
                         type="button"
-                        onClick={insertPageBreak}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleInsertPageBreak();
+                        }}
                         className="px-2.5 py-1 rounded-lg text-xs font-bold text-[#6C0F37] bg-[#D7CE36]/30 border border-[#D7CE36] hover:bg-[#D7CE36] transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Insere um delimitador de quebra de página <!--page-break-->"
+                        title="Insere um delimitador visual de quebra de página <!--page-break-->"
                       >
                         <span>📄</span>
                         <span>Inserir Quebra de Página</span>
                       </button>
                     </div>
 
-                    {instructionTab === 'edit' ? (
-                      <>
-                        <div className="flex flex-wrap items-center gap-1 p-2 bg-[#FAF8F5] border border-b-0 border-[#E6E1D8] rounded-t-xl text-xs">
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('**', '**')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Negrito"
-                          >
-                            B
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('*', '*')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] italic hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Itálico"
-                          >
-                            I
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('<u>', '</u>')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] underline hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Sublinhado"
-                          >
-                            U
-                          </button>
-                          <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('## ')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Título H2"
-                          >
-                            H2
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('### ')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Título H3"
-                          >
-                            H3
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('- ')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Lista"
-                          >
-                            • Lista
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('1. ')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Lista numerada"
-                          >
-                            1. Lista
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertInstructionSnippet('\n---\n')}
-                            className="px-2 py-1 rounded bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] cursor-pointer"
-                            title="Divisória"
-                          >
-                            ― Divisória
-                          </button>
-                        </div>
+                    {/* Barra de Ferramentas Rica WYSIWYG */}
+                    <div className="flex flex-wrap items-center gap-1 p-2 bg-[#FAF8F5] border border-b-0 border-[#E6E1D8] rounded-t-xl text-xs select-none">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          formatDoc('bold');
+                        }}
+                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] font-bold text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
+                        title="Negrito (Ctrl+B)"
+                      >
+                        B
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          formatDoc('italic');
+                        }}
+                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] italic text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
+                        title="Itálico (Ctrl+I)"
+                      >
+                        I
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          formatDoc('underline');
+                        }}
+                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] underline text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
+                        title="Sublinhado (Ctrl+U)"
+                      >
+                        U
+                      </button>
 
-                        <textarea
-                          id="instructions-textarea"
-                          rows={5}
-                          placeholder="Instruções claras para os alunos. Você pode inserir <!--page-break--> para separar em etapas..."
-                          value={instructions}
-                          onChange={(e) => setInstructions(e.target.value)}
-                          className="w-full p-3.5 border border-[#E6E1D8] rounded-b-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] font-mono leading-relaxed resize-y"
-                        />
-                      </>
-                    ) : (
-                      <div className="w-full min-h-[160px] p-4 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] leading-relaxed shadow-xs space-y-2">
-                        {instructions.trim() ? (
-                          <RichMarkdownRenderer content={instructions} />
-                        ) : (
-                          <p className="text-xs text-[#6F6865] italic">
-                            Nenhuma instrução digitada ainda. Clique em "✍️ Escrever" para adicionar orientações.
-                          </p>
-                        )}
-                      </div>
-                    )}
+                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
+
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          formatDoc('formatBlock', '<h2>');
+                        }}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
+                        title="Título H2"
+                      >
+                        H2
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          formatDoc('formatBlock', '<h3>');
+                        }}
+                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
+                        title="Título H3"
+                      >
+                        H3
+                      </button>
+
+                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
+
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          formatDoc('insertUnorderedList');
+                        }}
+                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
+                        title="Lista com marcadores"
+                      >
+                        • Lista
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          formatDoc('insertOrderedList');
+                        }}
+                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
+                        title="Lista numerada"
+                      >
+                        1. Lista
+                      </button>
+
+                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
+
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleInsertLink();
+                        }}
+                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
+                        title="Inserir Link"
+                      >
+                        <span>🔗</span>
+                        <span>Link</span>
+                      </button>
+                    </div>
+
+                    {/* Área Editável Visual Imediata */}
+                    <div
+                      ref={editorRef}
+                      contentEditable
+                      suppressContentEditableWarning
+                      onInput={handleEditorInput}
+                      data-placeholder="Digite as instruções e orientações didáticas da aula aqui. Formate textos diretamente com a barra de ferramentas acima..."
+                      className="w-full min-h-[160px] max-h-[380px] overflow-y-auto p-4 border border-[#E6E1D8] rounded-b-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] leading-relaxed prose prose-sm max-w-none empty:before:content-[attr(data-placeholder)] empty:before:text-[#6F6865] empty:before:italic"
+                    />
                   </div>
                 </div>
               ) : (
@@ -1405,9 +1624,10 @@ export function CreateActivityModal({
                                           )}
 
                                           {block.type === 'open_production_manual' && (
-                                            <label className="flex items-center gap-2 text-xs font-semibold text-[#2B2426] cursor-pointer">
+                                            <div className="p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl flex items-start gap-2.5">
                                               <input
                                                 type="checkbox"
+                                                id={`audio-toggle-${block.id}`}
                                                 checked={
                                                   !!(block as QuestionBlock).allow_audio_submission
                                                 }
@@ -1416,12 +1636,20 @@ export function CreateActivityModal({
                                                     allow_audio_submission: e.target.checked,
                                                   })
                                                 }
-                                                className="accent-[#6C0F37]"
+                                                className="accent-[#6C0F37] mt-0.5 cursor-pointer"
                                               />
-                                              <span>
-                                                Permitir envio de áudio gravado pelo aluno
-                                              </span>
-                                            </label>
+                                              <div>
+                                                <label
+                                                  htmlFor={`audio-toggle-${block.id}`}
+                                                  className="text-xs font-semibold text-[#2B2426] cursor-pointer block"
+                                                >
+                                                  Permitir envio de áudio como resposta complementar (opcional)
+                                                </label>
+                                                <p className="text-[11px] text-[#6F6865] mt-0.5">
+                                                  O estudante poderá gravar áudio se desejar, mas sempre terá disponível a caixa de resposta em texto caso tenha dificuldades técnicas.
+                                                </p>
+                                              </div>
+                                            </div>
                                           )}
                                         </div>
                                       )}
