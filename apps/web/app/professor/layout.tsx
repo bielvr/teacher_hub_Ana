@@ -38,41 +38,44 @@ export default async function TeacherDashboardLayout({
     redirect('/student');
   }
 
-  // 3. Determina a org padrão
-  const defaultOrgId = membership.organizations.id;
+  // 3. Determina a org padrão e dados da organização
+  const defaultOrgId = membership.organizations?.id || '';
+  const currentMember =
+    memberships.find((m) => m.organizations?.id === defaultOrgId) || memberships[0];
+  const currentMemberRole = currentMember?.role;
+  const orgData = currentMember?.organizations;
 
-  // 3. Busca usuário atual para exibir nome/iniciais no avatar do TeacherNavbar
+  // Regra condicional do Menu Titular (Gestão da Titular):
+  // Verifique se a organização ativa está vinculada ao plano de ID:
+  // 0f57d8b0-8e69-4912-8266-54c873eeeb54 (Plano Titular / Sem Limites).
+  const isOwnerPlan =
+    orgData?.plan_id === '0f57d8b0-8e69-4912-8266-54c873eeeb54' || currentMemberRole === 'owner';
+  const isOwner = currentMemberRole === 'owner';
+
+  // 4. Busca usuário atual para exibir nome/iniciais no avatar do TeacherNavbar
+  // e regra estrita de exibição de Conexão Fikra:
   const { data: { user } } = await supabase.auth.getUser();
   let teacherName = (user?.user_metadata?.full_name as string) || '';
-  if (!teacherName && user?.id) {
+  let isAffiliate = false;
+
+  if (user?.id) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, is_affiliate_partner')
       .eq('id', user.id)
       .maybeSingle();
+
     if (profile?.full_name) {
       teacherName = profile.full_name;
     }
+
+    // Regra Estrita de Exibição de Conexão Fikra:
+    // O item SÓ DEVE SER RENDERIZADO se o perfil autenticado (profiles) possuir:
+    // const isAffiliate = userProfile?.is_affiliate_partner === true;
+    isAffiliate = profile?.is_affiliate_partner === true;
   }
   if (!teacherName && user?.email) {
     teacherName = user.email.split('@')[0];
-  }
-
-  // 4. Regra Estrita de Exibição de Conexão Fikra / Parcerias:
-  // Titular da escola (role === 'owner') OU registro ativo em affiliate_partners
-  const isOwner = memberships.some((m: any) => m.role === 'owner');
-  let hasAffiliateAccess = isOwner;
-  if (!hasAffiliateAccess && user?.id) {
-    const { data: partner } = await supabase
-      .from('affiliate_partners')
-      .select('id, status')
-      .eq('profile_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    if (partner) {
-      hasAffiliateAccess = true;
-    }
   }
 
   return (
@@ -81,8 +84,10 @@ export default async function TeacherDashboardLayout({
         memberships={memberships}
         activeOrgId={defaultOrgId}
         teacherName={teacherName || 'Docente'}
-        hasAffiliateAccess={hasAffiliateAccess}
+        isAffiliate={isAffiliate}
+        hasAffiliateAccess={isAffiliate}
         isOwner={isOwner}
+        isOwnerPlan={isOwnerPlan}
       />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}

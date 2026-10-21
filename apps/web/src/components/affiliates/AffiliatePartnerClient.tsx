@@ -26,6 +26,7 @@ export interface AnonymizedReferralItem {
 interface AffiliatePartnerClientProps {
   orgId: string;
   isOwner: boolean;
+  isOwnerPlan?: boolean;
   teacherName: string;
   partner: PartnerRow | null;
   metrics: {
@@ -73,6 +74,7 @@ function getCurrentQuarterDeadline(): string {
 export function AffiliatePartnerClient({
   orgId,
   isOwner,
+  isOwnerPlan,
   teacherName,
   partner: initialPartner,
   metrics,
@@ -203,7 +205,7 @@ export function AffiliatePartnerClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {isOwner && (
+          {(isOwnerPlan !== undefined ? isOwnerPlan : isOwner) && (
             <Link
               href={`/professor/admin/affiliates?org=${orgId}`}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2B2426] hover:bg-[#3d3437] text-[#FFFDF7] text-xs font-semibold shadow-xs transition-colors"

@@ -9,7 +9,9 @@ export interface ProfileDropdownProps {
   teacherName: string;
   activeOrgId: string;
   isOwner: boolean;
-  canAccessAffiliates: boolean;
+  isOwnerPlan?: boolean;
+  isAffiliate?: boolean;
+  canAccessAffiliates?: boolean;
   pathname: string;
   onLogout: () => void;
   isLoggingOut: boolean;
@@ -22,11 +24,14 @@ export function ProfileDropdown({
   teacherName,
   activeOrgId,
   isOwner,
-  canAccessAffiliates,
+  isOwnerPlan,
+  isAffiliate = false,
   pathname,
   onLogout,
   isLoggingOut,
 }: ProfileDropdownProps) {
+  const showOwnerPlan = isOwnerPlan !== undefined ? isOwnerPlan : isOwner;
+
   // Extração de iniciais para o avatar
   const getInitials = (name: string): string => {
     if (!name || !name.trim()) return 'D';
@@ -45,8 +50,8 @@ export function ProfileDropdown({
       path: '/professor/account?tab=profile',
       label: 'Meu perfil',
     },
-    // Conexão Fikra: Renderizado APENAS se titular
-    ...(isOwner
+    // Conexão Fikra: Renderizado APENAS se perfil for parceira afiliada (isAffiliate === true)
+    ...(isAffiliate
       ? [
           {
             href: `/professor/affiliates?org=${activeOrgId}`,
@@ -55,8 +60,8 @@ export function ProfileDropdown({
           },
         ]
       : []),
-    // Gestão de Parcerias: Renderizado APENAS para titular
-    ...(isOwner
+    // Gestão de Parcerias: Renderizado APENAS para titular com plano elegível (isOwnerPlan === true)
+    ...(showOwnerPlan
       ? [
           {
             href: `/professor/admin/affiliates?org=${activeOrgId}`,

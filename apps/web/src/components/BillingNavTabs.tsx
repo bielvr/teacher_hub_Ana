@@ -12,9 +12,17 @@ interface BillingNavTabsProps {
   activeOrgId: string;
   activeTab: BillingTabKey;
   isOwner?: boolean;
+  isOwnerPlan?: boolean;
 }
 
-export function BillingNavTabs({ activeOrgId, activeTab, isOwner = true }: BillingNavTabsProps) {
+export function BillingNavTabs({
+  activeOrgId,
+  activeTab,
+  isOwner = true,
+  isOwnerPlan,
+}: BillingNavTabsProps) {
+  const showTitular = isOwnerPlan !== undefined ? isOwnerPlan : isOwner;
+
   const tabs: Array<{
     key: BillingTabKey;
     label: string;
@@ -46,11 +54,11 @@ export function BillingNavTabs({ activeOrgId, activeTab, isOwner = true }: Billi
       label: 'Relatórios e exportações',
       href: `/professor/billing/reports?org=${activeOrgId}`,
     },
-    ...(isOwner
+    ...(showTitular
       ? [
           {
             key: 'affiliates' as BillingTabKey,
-            label: '✦ Conexão Fikra (Parcerias)',
+            label: '👑 Gestão de Parcerias (Titular)',
             href: `/professor/admin/affiliates?org=${activeOrgId}`,
             highlight: true,
           },

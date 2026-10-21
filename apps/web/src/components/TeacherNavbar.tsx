@@ -19,6 +19,7 @@ interface OrganizationItem {
     name: string;
     slug: string;
     logo_url: string | null;
+    plan_id?: string | null;
   };
 }
 
@@ -26,16 +27,20 @@ interface TeacherNavbarProps {
   memberships: OrganizationItem[];
   activeOrgId: string;
   teacherName?: string;
+  isAffiliate?: boolean;
   hasAffiliateAccess?: boolean;
   isOwner?: boolean;
+  isOwnerPlan?: boolean;
 }
 
 export function TeacherNavbar({
   memberships,
   activeOrgId,
   teacherName = 'Docente',
+  isAffiliate: isAffiliateProp,
   hasAffiliateAccess: hasAffiliateAccessProp,
   isOwner: isOwnerProp,
+  isOwnerPlan: isOwnerPlanProp,
 }: TeacherNavbarProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
@@ -133,17 +138,31 @@ export function TeacherNavbar({
 
   const activeMembership =
     memberships?.find((m) => m.organizations?.id === activeOrgId) || memberships?.[0];
-  const isOwner = isOwnerProp !== undefined ? isOwnerProp : memberships?.some((m) => m.role === 'owner');
+  const currentMemberRole = activeMembership?.role;
+  const orgData = activeMembership?.organizations;
 
-  // Blindagem de Acesso ao Menu Conexão Fikra / Parcerias:
-  // O item DEVE SER OCULTO por padrão para usuários comuns.
-  // Apenas renderize se:
-  // 1. For titular da escola (isOwner)
-  // 2. OU possuir registro ativo em affiliate_partners vinculado ao profile_id
-  const [hasAffiliatePartner, setHasAffiliatePartner] = useState<boolean>(false);
+  const isOwner = isOwnerProp !== undefined ? isOwnerProp : currentMemberRole === 'owner';
+
+  // Regra condicional do Menu Titular (Gestão da Titular):
+  // Verifique se a organização ativa está vinculada ao plano de ID:
+  // 0f57d8b0-8e69-4912-8266-54c873eeeb54 (Plano Titular / Sem Limites).
+  const isOwnerPlan =
+    isOwnerPlanProp !== undefined
+      ? isOwnerPlanProp
+      : (orgData?.plan_id === '0f57d8b0-8e69-4912-8266-54c873eeeb54' || currentMemberRole === 'owner');
+
+  // Regra Estrita de Exibição do Menu "Conexão Fikra":
+  // O item SÓ DEVE SER RENDERIZADO se o perfil autenticado (profiles) possuir:
+  // const isAffiliate = userProfile?.is_affiliate_partner === true;
+  const [isAffiliate, setIsAffiliate] = useState<boolean>(() => {
+    if (isAffiliateProp !== undefined) return isAffiliateProp;
+    if (hasAffiliateAccessProp !== undefined) return hasAffiliateAccessProp;
+    return false;
+  });
 
   useEffect(() => {
-    if (isOwner || hasAffiliateAccessProp) {
+    if (isAffiliateProp !== undefined) {
+      setIsAffiliate(isAffiliateProp);
       return;
     }
 
@@ -152,20 +171,17 @@ export function TeacherNavbar({
       const uid = data?.user?.id;
       if (!uid) return;
       supabase
-        .from('affiliate_partners')
-        .select('id, status')
-        .eq('profile_id', uid)
-        .eq('status', 'active')
+        .from('profiles')
+        .select('is_affiliate_partner')
+        .eq('id', uid)
         .maybeSingle()
-        .then(({ data: partner, error }) => {
-          if (!error && partner && partner.status === 'active') {
-            setHasAffiliatePartner(true);
+        .then(({ data: userProfile, error }) => {
+          if (!error && userProfile) {
+            setIsAffiliate(userProfile.is_affiliate_partner === true);
           }
         });
     });
-  }, [isOwner, hasAffiliateAccessProp]);
-
-  const canAccessAffiliates = isOwner;
+  }, [isAffiliateProp]);
 
   const financialLinks = [
     { href: `/professor/billing?org=${activeOrgId}`, path: '/professor/billing', label: 'Visão geral' },
@@ -173,16 +189,16 @@ export function TeacherNavbar({
     { href: `/professor/billing/expenses?org=${activeOrgId}`, path: '/professor/billing/expenses', label: 'Despesas' },
     { href: `/professor/billing/team?org=${activeOrgId}`, path: '/professor/billing/team', label: 'Equipe e repasses' },
     { href: `/professor/billing/reports?org=${activeOrgId}`, path: '/professor/billing/reports', label: 'Relatórios e exportações' },
-    ...(canAccessAffiliates
+    ...(isAffiliate
       ? [
           {
             href: `/professor/affiliates?org=${activeOrgId}`,
             path: '/professor/affiliates',
-            label: '✦ Conexão Fikra (Parcerias)',
+            label: 'Conexão Fikra',
           },
         ]
       : []),
-    ...(isOwner
+    ...(isOwnerPlan
       ? [
           {
             href: `/professor/admin/affiliates?org=${activeOrgId}`,
@@ -195,16 +211,16 @@ export function TeacherNavbar({
 
   const accountLinks = [
     { href: `/professor/account?tab=profile&org=${activeOrgId}`, path: '/professor/account?tab=profile', label: 'Meu perfil' },
-    ...(canAccessAffiliates
+    ...(isAffiliate
       ? [
           {
             href: `/professor/affiliates?org=${activeOrgId}`,
             path: '/professor/affiliates',
-            label: 'Conexão Fikra (Parcerias)',
+            label: 'Conexão Fikra',
           },
         ]
       : []),
-    ...(isOwner
+    ...(isOwnerPlan
       ? [
           {
             href: `/professor/admin/affiliates?org=${activeOrgId}`,
@@ -428,8 +444,8 @@ export function TeacherNavbar({
                 )}
               </div>
 
-              {/* 5. Conexão Fikra (Link direto para área da parceira) - Apenas se titular */}
-              {isOwner && (
+              {/* 5. Conexão Fikra (Link direto para área da parceira) - Apenas se afiliada */}
+              {isAffiliate && (
                 <Link
                   href={`/professor/affiliates?org=${activeOrgId}`}
                   onClick={() => setOpenMenu(null)}
@@ -506,7 +522,8 @@ export function TeacherNavbar({
               teacherName={teacherName}
               activeOrgId={activeOrgId}
               isOwner={isOwner}
-              canAccessAffiliates={canAccessAffiliates}
+              isOwnerPlan={isOwnerPlan}
+              isAffiliate={isAffiliate}
               pathname={pathname}
               onLogout={handleLogout}
               isLoggingOut={isLoggingOut}
@@ -550,7 +567,7 @@ export function TeacherNavbar({
               </Link>
             </div>
 
-            {isOwner && (
+            {isAffiliate && (
               <div>
                 <Link
                   href={`/professor/affiliates?org=${activeOrgId}`}

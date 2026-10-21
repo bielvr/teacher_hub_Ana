@@ -15,6 +15,13 @@ export default async function TeacherBillingPage({
   const memberships = await getUserOrganizations(supabase);
   const activeOrgId = resolvedParams.org || memberships[0]?.organizations?.id;
 
+  const currentMember =
+    memberships.find((m) => m.organizations?.id === activeOrgId) || memberships[0];
+  const currentMemberRole = currentMember?.role;
+  const orgData = currentMember?.organizations;
+  const isOwnerPlan =
+    orgData?.plan_id === '0f57d8b0-8e69-4912-8266-54c873eeeb54' || currentMemberRole === 'owner';
+
   if (!activeOrgId) {
     return (
       <div className="p-8 text-center text-[#6F6865]">
@@ -208,12 +215,14 @@ export default async function TeacherBillingPage({
         >
           Relatórios e exportações
         </Link>
-        <Link
-          href={`/professor/admin/affiliates?org=${activeOrgId}`}
-          className="pb-3 border-b-2 border-transparent text-[#6C0F37] hover:text-[#57102E] flex items-center gap-1"
-        >
-          <span>✦ Conexão Fikra (Afiliadas)</span>
-        </Link>
+        {isOwnerPlan && (
+          <Link
+            href={`/professor/admin/affiliates?org=${activeOrgId}`}
+            className="pb-3 border-b-2 border-transparent text-[#6C0F37] hover:text-[#57102E] flex items-center gap-1"
+          >
+            <span>👑 Gestão de Parcerias (Titular)</span>
+          </Link>
+        )}
       </div>
 
       {/* 4 Cards Principais Clicáveis com os Indicadores da Escola */}

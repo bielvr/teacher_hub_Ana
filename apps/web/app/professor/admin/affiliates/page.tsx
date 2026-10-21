@@ -29,37 +29,51 @@ export default async function AdminAffiliatesPage({ searchParams }: PageProps) {
     redirect('/login');
   }
 
-  // Verifica permissão de Titular (`role = 'owner'`)
+  // Verifica permissão do Menu Titular (Gestão da Titular):
+  // Verifique se a organização ativa está vinculada ao plano de ID:
+  // 0f57d8b0-8e69-4912-8266-54c873eeeb54 (Plano Titular / Sem Limites).
   const { data: membershipsData } = await supabase
     .from('organization_members')
-    .select('id, role, organization_id')
+    .select(`
+      id,
+      role,
+      organization_id,
+      organizations (
+        id,
+        plan_id
+      )
+    `)
     .eq('profile_id', user.id)
     .eq('status', 'active');
 
-  const memberships = membershipsData || [];
+  const memberships = (membershipsData as any[]) || [];
   const activeMembership =
     memberships.find((m) => m.organization_id === org) || memberships[0];
   const activeOrgId = activeMembership?.organization_id || org || '';
+  const currentMemberRole = activeMembership?.role;
+  const orgData = activeMembership?.organizations;
+  const isOwnerPlan =
+    orgData?.plan_id === '0f57d8b0-8e69-4912-8266-54c873eeeb54' || currentMemberRole === 'owner';
 
-  if (!activeMembership || activeMembership.role !== 'owner') {
+  if (!activeMembership || !isOwnerPlan) {
     return (
       <div className="bg-white border border-[#E6E1D8] rounded-2xl p-8 text-center max-w-xl mx-auto my-12 space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-700 flex items-center justify-center mx-auto font-bold text-xl">
           🔒
         </div>
         <h1 className="text-xl font-bold text-[#2B2426]">
-          Acesso Restrito à Titularidade
+          Acesso Restrito ao Plano Titular
         </h1>
         <p className="text-sm text-[#6F6865]">
-          Apenas docentes titulares (`role = &apos;owner&apos;`) possuem permissão para
-          gerenciar os repasses e metas globais do programa Conexão Fikra.
+          Apenas docentes titulares vinculados ao plano elegível possuem permissão para
+          gerenciar as parcerias e repasses globais.
         </p>
         <div className="pt-2">
           <Link
-            href={`/professor/affiliates?org=${activeOrgId}`}
+            href={`/professor?org=${activeOrgId}`}
             className="inline-flex items-center px-5 py-2.5 rounded-xl bg-[#6C0F37] text-white text-xs font-semibold hover:bg-[#57102E] transition-colors"
           >
-            Ir para Minha Área de Parcerias
+            Voltar ao Início
           </Link>
         </div>
       </div>

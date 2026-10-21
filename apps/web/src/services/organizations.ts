@@ -10,6 +10,7 @@ export interface UserOrganizationMembership {
     name: string;
     slug: string;
     logo_url: string | null;
+    plan_id?: string | null;
   } | null;
 }
 
@@ -29,7 +30,8 @@ export async function getUserOrganizations(
         id,
         name,
         slug,
-        logo_url
+        logo_url,
+        plan_id
       )
     `)
     .eq('profile_id', user.id)

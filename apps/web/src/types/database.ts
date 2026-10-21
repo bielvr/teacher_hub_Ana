@@ -30,6 +30,7 @@ export interface Database {
           id: string;
           full_name: string;
           avatar_url: string | null;
+          is_affiliate_partner?: boolean | null;
           phone: string | null;
           whatsapp: string | null;
           birth_date: string | null;
@@ -50,6 +51,7 @@ export interface Database {
           id: string;
           full_name: string;
           avatar_url?: string | null;
+          is_affiliate_partner?: boolean | null;
           phone?: string | null;
           whatsapp?: string | null;
           birth_date?: string | null;
@@ -70,6 +72,7 @@ export interface Database {
           id?: string;
           full_name?: string;
           avatar_url?: string | null;
+          is_affiliate_partner?: boolean | null;
           phone?: string | null;
           whatsapp?: string | null;
           birth_date?: string | null;

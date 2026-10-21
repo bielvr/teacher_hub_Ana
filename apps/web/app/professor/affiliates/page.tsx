@@ -25,19 +25,31 @@ export default async function ProfessorAffiliatesPage({ searchParams }: PageProp
   // Busca membros da organização para identificar organização ativa e role (owner/teacher)
   const { data: membershipsData } = await supabase
     .from('organization_members')
-    .select('id, role, organization_id')
+    .select(`
+      id,
+      role,
+      organization_id,
+      organizations (
+        id,
+        plan_id
+      )
+    `)
     .eq('profile_id', user.id)
     .eq('status', 'active');
 
-  const memberships = membershipsData || [];
+  const memberships = (membershipsData as any[]) || [];
   const activeMembership =
     memberships.find((m) => m.organization_id === org) || memberships[0];
   const activeOrgId = activeMembership?.organization_id || org || '';
-  const isOwner = activeMembership?.role === 'owner';
+  const currentMemberRole = activeMembership?.role;
+  const orgData = activeMembership?.organizations;
+  const isOwner = currentMemberRole === 'owner';
+  const isOwnerPlan =
+    orgData?.plan_id === '0f57d8b0-8e69-4912-8266-54c873eeeb54' || currentMemberRole === 'owner';
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('full_name, is_affiliate_partner')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -47,21 +59,11 @@ export default async function ProfessorAffiliatesPage({ searchParams }: PageProp
     user.email?.split('@')[0] ||
     'Docente Parceiro Fikra';
 
-  // Validação estrita de acesso:
-  // - Titular da escola (`role === 'owner'`)
-  // - OU possui registro ativo vinculado em `affiliate_partners`
-  let hasAccess = isOwner;
-  const { data: existingPartner } = await supabase
-    .from('affiliate_partners')
-    .select('id, status')
-    .eq('profile_id', user.id)
-    .maybeSingle();
-
-  if (existingPartner && existingPartner.status === 'active') {
-    hasAccess = true;
-  }
-
-  if (!hasAccess) {
+  // Validação estrita de acesso ao Conexão Fikra:
+  // O menu/área SÓ DEVE SER ACESSÍVEL se o perfil autenticado (profiles) possuir:
+  // const isAffiliate = userProfile?.is_affiliate_partner === true;
+  const isAffiliate = profile?.is_affiliate_partner === true;
+  if (!isAffiliate) {
     redirect(`/professor?org=${activeOrgId}`);
   }
 
@@ -86,6 +88,7 @@ export default async function ProfessorAffiliatesPage({ searchParams }: PageProp
       <AffiliatePartnerClient
         orgId={activeOrgId}
         isOwner={isOwner}
+        isOwnerPlan={isOwnerPlan}
         teacherName={teacherName}
         partner={dashboardData?.partner || null}
         metrics={
