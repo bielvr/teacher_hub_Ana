@@ -563,27 +563,31 @@ export function ActivityBankClient({
                 key={trk.id}
                 type="button"
                 onClick={() => setSelectedTrackId(trk.id)}
-                className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
+                style={
                   isSelected
-                    ? 'bg-[#6C0F37] text-[#FFFDF7] border-[#57102E] shadow-md ring-1 ring-[#D7CE36]/40'
-                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/30'
-                }`}
+                    ? { backgroundColor: '#6C0F37', color: '#FFFFFF' }
+                    : { backgroundColor: '#FFFFFF', color: '#2B2426' }
+                }
+                className="p-5 rounded-2xl cursor-pointer transition-all border border-[#E6E1D8] text-left flex flex-col justify-between"
               >
                 <div>
-                  <span className="text-lg block mb-1">🎓</span>
-                  <h3 className={`text-base font-bold transition-colors line-clamp-1 ${
-                    isSelected ? 'text-[#FFFDF7]' : 'text-[#6C0F37]'
-                  }`}>
-                    {trk.name || trk.title}
+                  <span className="text-lg block mb-1">📚</span>
+                  <h3
+                    style={{ color: isSelected ? '#FFFFFF' : '#6C0F37' }}
+                    className="text-base font-bold transition-colors"
+                  >
+                    {trk.title}
                   </h3>
-                  <span className={`text-xs block mt-0.5 ${
-                    isSelected ? 'text-[#FFFDF7]/90' : 'text-[#6F6865]'
-                  }`}>
-                    {stats.lessonCount} {stats.lessonCount === 1 ? 'aula' : 'aulas'}
-                  </span>
                 </div>
-                <div className={`mt-3 pt-2 border-t ${isSelected ? 'border-[#FFFDF7]/20' : 'border-[#E6E1D8]'}`}>
-                  <span className={`text-xs ${isSelected ? 'text-[#FFFDF7]/90' : 'text-[#6F6865]'}`}>
+
+                <div
+                  style={{ borderColor: isSelected ? 'rgba(255,255,255,0.2)' : '#E6E1D8' }}
+                  className="mt-3 pt-2 border-t"
+                >
+                  <span
+                    style={{ color: isSelected ? '#FFFFFF' : '#6F6865' }}
+                    className="text-xs"
+                  >
                     {stats.activityCount} atividades totais
                   </span>
                 </div>
