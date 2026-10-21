@@ -49,7 +49,7 @@ interface CreatePlanningLessonModalProps {
 }
 
 const DEFAULT_CHECKLIST: ChecklistItem[] = [
-  { text: 'Definir objetivos comunicativos e vocabulário-chave', done: false },
+  { text: 'Definir objetivos e conceitos da aula', done: false },
   { text: 'Preparar slides / PDF de apresentação da aula', done: false },
   { text: 'Selecionar atividade prática ou áudio de apoio', done: false },
 ];
@@ -57,7 +57,7 @@ const DEFAULT_CHECKLIST: ChecklistItem[] = [
 export function CreatePlanningLessonModal({
   organizationId,
   tracks,
-  triggerText = '+ Nova lesson',
+  triggerText = '+ Planejar nova aula',
 }: CreatePlanningLessonModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTrackId, setSelectedTrackId] = useState(tracks[0]?.id || '__new__');
@@ -149,7 +149,7 @@ export function CreatePlanningLessonModal({
         setPrepStatus('need_prep');
         setPublishImmediately(false);
       } else {
-        setErrorMsg(res.error || 'Erro ao criar lesson.');
+        setErrorMsg(res.error || 'Erro ao criar aula.');
       }
     });
   };
@@ -179,7 +179,7 @@ export function CreatePlanningLessonModal({
                   Rascunho & Planejamento
                 </span>
                 <h2 className="text-lg font-bold text-[#6C0F37] mt-1">
-                  Criar Nova Lesson no Planejamento
+                  Planejar Nova Aula
                 </h2>
                 <p className="text-xs text-[#6F6865]">
                   Estruture a ideia da aula, defina objetivos, anotações e checklist antes de disponibilizá-la em Materiais Didáticos.
@@ -227,7 +227,7 @@ export function CreatePlanningLessonModal({
                       required
                       value={newTrackTitle}
                       onChange={(e) => setNewTrackTitle(e.target.value)}
-                      placeholder="Nome do novo nível (ex: Beginner A1)"
+                      placeholder="Nome do novo nível (ex: Nível 1, Módulo Básico, Ensino Médio...)"
                       className="mt-2 w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                     />
                   )}
@@ -254,24 +254,24 @@ export function CreatePlanningLessonModal({
                       type="text"
                       value={newModuleTitle}
                       onChange={(e) => setNewModuleTitle(e.target.value)}
-                      placeholder="Nome da unidade (ex: Unit 1 - Introductions)"
+                      placeholder="Nome da unidade (ex: Unidade 1 - Introdução)"
                       className="mt-2 w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                     />
                   )}
                 </div>
               </div>
 
-              {/* Título da Lesson */}
+              {/* Título da Aula */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  Título da Lesson <span className="text-red-500">*</span>
+                  Título da Aula <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={lessonTitle}
                   onChange={(e) => setLessonTitle(e.target.value)}
-                  placeholder="Ex: Lesson 1 - Greetings, Introductions & Icebreakers"
+                  placeholder="Ex: Aula 1 - Apresentação e Conceitos"
                   className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                 />
               </div>
@@ -332,7 +332,7 @@ export function CreatePlanningLessonModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                    🎯 Objetivos da Lesson
+                    🎯 Objetivos pedagógicos da aula
                   </label>
                   <textarea
                     rows={3}
@@ -357,36 +357,36 @@ export function CreatePlanningLessonModal({
                 </div>
               </div>
 
-              {/* Vocabulário e Gramática */}
+              {/* Conceitos-chave e Conteúdos trabalhados */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    📖 Vocabulário-Chave (Opcional)
+                    💡 Conceitos-chave (Opcional)
                   </label>
                   <input
                     type="text"
                     value={vocabulary}
                     onChange={(e) => setVocabulary(e.target.value)}
-                    placeholder="Ex: Greetings, occupations, daily routines"
+                    placeholder="Ex: Teorema de Pitágoras, Revolução Francesa, Funções..."
                     className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    🧩 Foco Gramatical (Opcional)
+                    📚 Conteúdos trabalhados (Opcional)
                   </label>
                   <input
                     type="text"
                     value={grammar}
                     onChange={(e) => setGrammar(e.target.value)}
-                    placeholder="Ex: Present Simple, Verb To Be"
+                    placeholder="Ex: Leitura crítica, fórmulas essenciais, exercícios..."
                     className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                   />
                 </div>
               </div>
 
-              {/* Checklist de Preparo da Lesson */}
+              {/* Checklist de Preparo da Aula */}
               <div className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2.5">
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#6C0F37]">
                   ☑ Checklist de Preparo
@@ -474,7 +474,7 @@ export function CreatePlanningLessonModal({
                   disabled={isPending}
                   className="px-5 py-2 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
                 >
-                  {isPending ? 'Salvando...' : 'Salvar Lesson'}
+                  {isPending ? 'Salvando...' : 'Salvar Aula'}
                 </button>
               </div>
             </form>
@@ -656,7 +656,7 @@ export function PlanningLessonCard({
                     type="button"
                     onClick={() => setMenuOpen((prev) => !prev)}
                     className="w-6 h-6 rounded-md bg-white/80 hover:bg-white border border-[#E6E1D8] text-[#6C0F37] text-xs font-bold flex items-center justify-center cursor-pointer"
-                    title="Ações da lesson"
+                    title="Ações da aula"
                   >
                     ⋮
                   </button>
@@ -792,7 +792,7 @@ export function PlanningLessonCard({
         </div>
       </div>
 
-      {/* Modal de Edição de Planejamento da Lesson */}
+      {/* Modal de Edição de Planejamento da Aula */}
       {editOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
@@ -807,7 +807,7 @@ export function PlanningLessonCard({
                   {lesson.trackTitle} • {lesson.moduleTitle}
                 </span>
                 <h3 className="text-base font-bold text-[#6C0F37] mt-1">
-                  Planejamento da Lesson
+                  Planejamento da Aula
                 </h3>
               </div>
               <button
@@ -822,7 +822,7 @@ export function PlanningLessonCard({
             <form onSubmit={handleUpdatePlanning} className="p-6 overflow-y-auto space-y-4 flex-1">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  Título da Lesson
+                  Título da Aula
                 </label>
                 <input
                   type="text"
@@ -873,13 +873,13 @@ export function PlanningLessonCard({
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  🎯 Objetivos Comunicativos
+                  🎯 Objetivos pedagógicos da aula
                 </label>
                 <textarea
                   rows={2}
                   value={objectives}
                   onChange={(e) => setObjectives(e.target.value)}
-                  placeholder="Metas de aprendizagem desta lesson..."
+                  placeholder="Metas de aprendizagem desta aula..."
                   className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                 />
               </div>
@@ -895,6 +895,35 @@ export function PlanningLessonCard({
                   placeholder="Anotações livres, sequência da aula, referências..."
                   className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                 />
+              </div>
+
+              {/* Conceitos-chave e Conteúdos trabalhados */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
+                    💡 Conceitos-chave (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={vocabulary}
+                    onChange={(e) => setVocabulary(e.target.value)}
+                    placeholder="Ex: Teorema de Pitágoras, Revolução Francesa, Funções..."
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
+                    📚 Conteúdos trabalhados (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={grammar}
+                    onChange={(e) => setGrammar(e.target.value)}
+                    placeholder="Ex: Leitura crítica, fórmulas essenciais, exercícios..."
+                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                  />
+                </div>
               </div>
 
               {/* Checklist */}
@@ -1001,7 +1030,7 @@ export function PlanningLessonCard({
         </div>
       )}
 
-      {/* Modal de Confirmação de Exclusão da Lesson / Rascunho */}
+      {/* Modal de Confirmação de Exclusão da Aula / Rascunho */}
       {deleteConfirmOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"

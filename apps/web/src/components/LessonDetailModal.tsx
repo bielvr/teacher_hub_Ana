@@ -175,7 +175,7 @@ export function LessonDetailModal({
             {objectivesList.length > 0 && (
               <div className="p-4 bg-[#F7F4ED]/60 border border-[#E6E1D8] rounded-xl space-y-2">
                 <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
-                  <span>🎯</span> Objetivos Comunicativos
+                  <span>🎯</span> Objetivos pedagógicos da aula
                 </h3>
                 <ul className="space-y-1 pl-4 list-disc text-xs text-[#2B2426] leading-relaxed">
                   {objectivesList.map((obj: string, i: number) => (
@@ -189,7 +189,7 @@ export function LessonDetailModal({
               {vocabularyList.length > 0 && (
                 <div className="p-4 bg-white border border-[#E6E1D8] rounded-xl space-y-2 shadow-xs">
                   <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
-                    <span>📖</span> Vocabulário
+                    <span>💡</span> Conceitos-chave
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
                     {vocabularyList.map((voc: string, i: number) => (
@@ -207,7 +207,7 @@ export function LessonDetailModal({
               {grammarList.length > 0 && (
                 <div className="p-4 bg-white border border-[#E6E1D8] rounded-xl space-y-2 shadow-xs">
                   <h3 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-1.5">
-                    <span>📝</span> Gramática
+                    <span>📚</span> Conteúdos trabalhados
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
                     {grammarList.map((gr: string, i: number) => (

@@ -193,7 +193,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Planejamento Pedagógico"
-        description="Espaço de rascunho e preparação do professor: crie lessons como ideia, defina objetivos, anotações e checklist, e envie para Materiais Didáticos quando estiverem prontas para uso."
+        description="Espaço de rascunho e preparação do professor: crie aulas como rascunho, defina objetivos pedagógicos, anotações e checklist, e envie para Materiais Didáticos quando estiverem prontas para uso."
         action={
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
@@ -205,7 +205,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
             <CreatePlanningLessonModal
               organizationId={activeOrgId}
               tracks={trackOptions}
-              triggerText="+ Nova lesson"
+              triggerText="+ Planejar nova aula"
             />
           </div>
         }
@@ -217,7 +217,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
           <div className="text-2xl font-bold text-[#6C0F37]">{totalLessons}</div>
           <div className="text-xs font-semibold text-[#6F6865] mt-1 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#6C0F37]"></span>
-            Total de lessons
+            Total de aulas
           </div>
         </div>
 
@@ -253,7 +253,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
 
           <div className="sm:col-span-5">
             <label className="block text-[11px] font-bold text-[#6F6865] uppercase tracking-wider mb-1">
-              Buscar lesson
+              Buscar aula
             </label>
             <input
               type="text"
@@ -314,15 +314,15 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
           <div className="w-12 h-12 rounded-full bg-[#FAF8F5] text-[#6C0F37] flex items-center justify-center mx-auto text-xl font-bold">
             📝
           </div>
-          <h3 className="text-base font-bold text-[#6C0F37]">Nenhuma lesson em planejamento</h3>
+          <h3 className="text-base font-bold text-[#6C0F37]">Nenhuma aula em planejamento</h3>
           <p className="text-xs text-[#6F6865] max-w-sm mx-auto">
-            Crie sua primeira lesson no fluxo de planejamento definindo objetivos, anotações, checklist e status de preparo.
+            Crie sua primeira aula no fluxo de planejamento definindo objetivos, anotações, checklist e status de preparo.
           </p>
           <div className="pt-2 flex justify-center">
             <CreatePlanningLessonModal
               organizationId={activeOrgId}
               tracks={trackOptions}
-              triggerText="+ Nova lesson"
+              triggerText="+ Planejar nova aula"
             />
           </div>
         </div>
@@ -341,7 +341,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
                     </h2>
                     <span className="text-xs text-[#6F6865]">
                       ({track.filteredLessons.length}{' '}
-                      {track.filteredLessons.length === 1 ? 'lesson' : 'lessons'})
+                      {track.filteredLessons.length === 1 ? 'aula' : 'aulas'})
                     </span>
                   </div>
                   <Link

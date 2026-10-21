@@ -133,7 +133,7 @@ export function CreateLessonModal({
               </span>
               <h3 className="text-lg font-bold text-[#6C0F37] mt-1.5">Nova aula</h3>
               <p className="text-xs text-[#6F6865] mt-0.5">
-                Cadastre a aula com objetivos, vocabulário, gramática e materiais didáticos de apoio.
+                Cadastre a aula com objetivos pedagógicos, conceitos-chave, conteúdos e materiais didáticos de apoio.
               </p>
             </div>
 
@@ -184,7 +184,7 @@ export function CreateLessonModal({
                     name="lesson_title"
                     type="text"
                     required
-                    placeholder="Ex: Aula 1 - Greetings & Essentials"
+                    placeholder="Ex: Aula 1 - Apresentação e Conceitos"
                     className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition"
                     autoFocus
                   />
@@ -201,12 +201,12 @@ export function CreateLessonModal({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                    🎯 Objetivos comunicativos
+                    🎯 Objetivos pedagógicos da aula
                   </label>
                   <textarea
                     name="communicative_objectives"
                     rows={2}
-                    placeholder="Uma meta por linha (ex: Apresentar-se com clareza; Perguntar nacionalidade...)"
+                    placeholder="Uma meta por linha (ex: Compreender conceitos fundamentais; Resolver problemas práticos...)"
                     className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-1 focus:ring-[#6C0F37] transition font-sans"
                   />
                 </div>
@@ -214,24 +214,24 @@ export function CreateLessonModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                      📖 Vocabulário
+                      💡 Conceitos-chave (Opcional)
                     </label>
                     <textarea
                       name="vocabulary"
                       rows={2}
-                      placeholder="Um tópico/item por linha (ex: Saudações formais; Países e idiomas...)"
+                      placeholder="Um conceito por linha (ex: Definições centrais, fórmulas, tópicos fundamentais...)"
                       className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-1 focus:ring-[#6C0F37] transition font-sans"
                     />
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
-                      📝 Gramática
+                      📚 Conteúdos trabalhados (Opcional)
                     </label>
                     <textarea
                       name="grammar"
                       rows={2}
-                      placeholder="Um tópico/item por linha (ex: Verbo To Be no presente; Pronomes sujeitos...)"
+                      placeholder="Um conteúdo por linha (ex: Teoria aplicada, estudo de casos, exercícios...)"
                       className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-1 focus:ring-[#6C0F37] transition font-sans"
                     />
                   </div>

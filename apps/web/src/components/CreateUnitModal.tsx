@@ -133,7 +133,7 @@ export function CreateUnitModal({
                   name="title"
                   type="text"
                   required
-                  placeholder="Ex: Unidade 1 - Foundations"
+                  placeholder="Ex: Unidade 1 - Introdução"
                   className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition"
                   autoFocus
                 />
@@ -146,7 +146,7 @@ export function CreateUnitModal({
                 <textarea
                   name="description"
                   rows={2}
-                  placeholder="Resumo do tema principal ou objetivo comunicativo da unidade..."
+                  placeholder="Resumo do tema principal ou objetivo pedagógico da unidade..."
                   className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-1 focus:ring-[#6C0F37] transition"
                 />
               </div>

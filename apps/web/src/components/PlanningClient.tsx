@@ -218,7 +218,7 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
       {/* 1. TOPO: 4 CARDS DE CONTADORES DE PREPARO PEDAGÓGICO           */}
       {/* ============================================================== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total de Lições */}
+        {/* Card 1: Total de Aulas */}
         <button
           type="button"
           onClick={() => setSelectedStatusFilter('all')}
@@ -229,7 +229,7 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
           }`}
         >
           <div className="flex items-center justify-between text-[#6F6865]">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total de Lições</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">Total de Aulas</span>
             <span className="text-base">📚</span>
           </div>
           <p className="text-3xl font-bold text-[#2B2426] mt-1">{stats.total}</p>
@@ -311,7 +311,7 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
           <div className="flex-1 max-w-md">
             <input
               type="text"
-              placeholder="Buscar lição por título, meta ou unidade..."
+              placeholder="Buscar aula por título, objetivos ou unidade..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-[#FFFDF7] text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
@@ -359,16 +359,16 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
       </div>
 
       {/* ============================================================== */}
-      {/* 3. GRADE PADRONIZADA (5 LIÇÕES POR LINHA NO DESKTOP)           */}
+      {/* 3. GRADE PADRONIZADA (5 AULAS POR LINHA NO DESKTOP)            */}
       {/* ============================================================== */}
       {filteredTracks.length === 0 ? (
         <div className="bg-white border border-[#E6E1D8] rounded-2xl p-12 text-center shadow-xs space-y-3">
           <div className="w-12 h-12 rounded-full bg-[#F7F4ED] text-[#6C0F37] flex items-center justify-center mx-auto text-xl font-bold">
             🔍
           </div>
-          <h3 className="text-base font-bold text-[#2B2426]">Nenhuma lição encontrada</h3>
+          <h3 className="text-base font-bold text-[#2B2426]">Nenhuma aula encontrada</h3>
           <p className="text-xs text-[#6F6865] max-w-sm mx-auto">
-            Nenhuma lição corresponde aos critérios de pesquisa ou status selecionados.
+            Nenhuma aula corresponde aos critérios de pesquisa ou status selecionados.
           </p>
           {hasActiveFilters && (
             <button
@@ -376,7 +376,7 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
               onClick={clearFilters}
               className="px-4 py-2 bg-[#6C0F37] text-white rounded-xl text-xs font-semibold hover:bg-[#57102E] transition cursor-pointer"
             >
-              Ver todas as lições
+              Ver todas as aulas
             </button>
           )}
         </div>

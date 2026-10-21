@@ -217,7 +217,7 @@ export function EditLessonModal({
               {/* Objetivos Comunicativos */}
               <div>
                 <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                  🎯 Objetivos Comunicativos
+                  🎯 Objetivos pedagógicos da aula
                 </label>
                 <textarea
                   name="communicative_objectives"
@@ -232,7 +232,7 @@ export function EditLessonModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    📖 Vocabulário
+                    💡 Conceitos-chave (Opcional)
                   </label>
                   <textarea
                     name="vocabulary"
@@ -246,7 +246,7 @@ export function EditLessonModal({
 
                 <div>
                   <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    📝 Gramática
+                    📚 Conteúdos trabalhados (Opcional)
                   </label>
                   <textarea
                     name="grammar"

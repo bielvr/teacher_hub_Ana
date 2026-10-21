@@ -99,7 +99,7 @@ export function CreateTrackModal({
                   name="title"
                   type="text"
                   required
-                  placeholder="Ex: Beginner (A1), Elementary (A2)..."
+                  placeholder="Ex: Nível 1, Módulo Básico, Ensino Médio..."
                   className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition"
                   autoFocus
                 />
