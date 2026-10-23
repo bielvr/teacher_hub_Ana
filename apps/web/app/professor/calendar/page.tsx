@@ -6,8 +6,12 @@ import { PageHeader } from '../../../src/components/PageHeader';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { ScheduleSessionModal } from '../../../src/components/ScheduleSessionModal';
-import { SyncCalendarHeaderButton, AddToGoogleCalendarButton } from '../../../src/components/CalendarSyncButtons';
+import {
+  SyncCalendarHeaderButton,
+  AddToGoogleCalendarButton,
+} from '../../../src/components/CalendarSyncButtons';
 import { CalendarSessionActions } from '../../../src/components/CalendarSessionActions';
+import { formatSafeDate, formatSafeTime } from '../../../src/lib/calendar';
 
 export default async function CalendarPage({
   searchParams,
@@ -22,7 +26,7 @@ export default async function CalendarPage({
 
   if (!activeOrgId) return null;
 
-  // 3. Controle de acesso ao Google Agenda: Apenas para quem tiver role 'owner'
+  // Controle de acesso ao Google Agenda: Apenas para quem tiver role 'owner'
   const activeMembership = memberships.find((m) => m.organizations?.id === activeOrgId);
   const isOwner = activeMembership?.role === 'owner';
 
@@ -31,7 +35,7 @@ export default async function CalendarPage({
   const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
 
-  // Busca eventos do calendário, turmas e alunos da organização
+  // Busca eventos do calendário, turmas e estudantes da organização
   const [sessions, classes, studentsResult] = await Promise.all([
     getLiveSessionsCalendar(supabase, activeOrgId, startDate, endDate),
     getClassesByOrg(supabase, activeOrgId),
@@ -58,7 +62,7 @@ export default async function CalendarPage({
   const studentOptions = (studentsResult.data || [])
     .map((m: any) => ({
       id: m.profile_id || m.id,
-      name: m.profiles?.full_name || 'Aluno(a)',
+      name: m.profiles?.full_name || 'Estudante',
       email: m.profiles?.email || null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -79,6 +83,8 @@ export default async function CalendarPage({
             orgId={activeOrgId}
             classes={classOptions}
             students={studentOptions}
+            existingSessions={sessionList}
+            triggerText="+ Gerar aulas"
           />
         </div>
       </div>
@@ -86,23 +92,28 @@ export default async function CalendarPage({
       {sessionList.length === 0 ? (
         <EmptyState
           title="Nenhuma aula agendada"
-          description="Agende uma aula ao vivo individual (VIP) ou vinculada a uma turma e compartilhe o link de acesso."
+          description="Agende uma aula ao vivo individual ou vinculada a uma turma e compartilhe o link de acesso."
           action={
             <ScheduleSessionModal
               orgId={activeOrgId}
               classes={classOptions}
               students={studentOptions}
+              existingSessions={sessionList}
+              triggerText="+ Gerar aulas"
             />
           }
         />
       ) : (
         <div className="space-y-3">
           {sessionList.map((session: any) => {
-            const dateObj = new Date(session.scheduled_at);
-            const timeFormatted = dateObj.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
+            const isHoliday =
+              session.title?.includes('[Feriado]') || session.event_type === 'holiday';
+            const isReplacement =
+              session.title?.includes('[Reposição]') || session.event_type === 'replacement';
+            const isVacation =
+              session.title?.includes('[Recesso]') ||
+              session.title?.includes('[Férias]') ||
+              session.event_type === 'vacation';
 
             const statusColors: Record<string, string> = {
               scheduled: 'bg-[#FFFDF7] text-[#6C0F37] border-[#E6E1D8]',
@@ -122,24 +133,30 @@ export default async function CalendarPage({
               session.session_type === 'individual' || Boolean(session.student?.full_name);
             const audienceLabel = isVip
               ? session.student?.full_name
-                ? `VIP: ${session.student.full_name}`
-                : 'Aluno Individual / VIP'
+                ? `Estudante: ${session.student.full_name}`
+                : 'Estudante Individual'
               : session.classes?.name
               ? `Turma: ${session.classes.name}`
               : 'Geral';
 
+            const dateMonth = formatSafeDate(session.scheduled_at, { month: 'short' });
+            const dateDay = formatSafeDate(session.scheduled_at, { day: '2-digit' });
+            const timeFormatted = formatSafeTime(session.scheduled_at);
+
             return (
               <Card
                 key={session.id}
-                className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4 border-[#E6E1D8] shadow-sm"
+                className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4 border-[#E6E1D8] shadow-xs ${
+                  isHoliday ? 'bg-amber-50/20' : isVacation ? 'bg-teal-50/20' : ''
+                }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-14 text-center bg-[#FFFDF7] p-2 rounded-xl border border-[#E6E1D8] shrink-0">
+                  <div className="w-14 text-center bg-[#FFFDF7] p-2 rounded-xl border border-[#E6E1D8] shrink-0 shadow-2xs">
                     <span className="block text-[11px] uppercase font-bold text-[#6C0F37]">
-                      {dateObj.toLocaleDateString('pt-BR', { month: 'short' })}
+                      {dateMonth}
                     </span>
                     <span className="block text-xl font-bold text-[#2B2426]">
-                      {dateObj.getDate()}
+                      {dateDay}
                     </span>
                   </div>
 
@@ -155,15 +172,38 @@ export default async function CalendarPage({
                         {session.title}
                       </h3>
 
-                      {/* Badge da Modalidade: VIP vs Turma */}
-                      {isVip ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6C0F37] bg-[#FFFDF7] border border-[#E6E1D8] px-2 py-0.5 rounded-md shadow-2xs">
-                          <span>👤</span> VIP
+                      {/* Badges de Tipo Especial */}
+                      {isHoliday && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                          <span>📅</span> Feriado (não desconta saldo)
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6F6865] bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md shadow-2xs">
-                          <span>👥</span> Turma
+                      )}
+
+                      {isReplacement && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                          <span>🔁</span> Reposição
                         </span>
+                      )}
+
+                      {isVacation && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">
+                          <span>🌴</span> Recesso / Férias
+                        </span>
+                      )}
+
+                      {/* Modalidade: VIP vs Turma */}
+                      {!isHoliday && !isVacation && (
+                        <>
+                          {isVip ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6C0F37] bg-[#FFFDF7] border border-[#E6E1D8] px-2 py-0.5 rounded-md shadow-2xs">
+                              <span>👤</span> Individual
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#6F6865] bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md shadow-2xs">
+                              <span>👥</span> Turma
+                            </span>
+                          )}
+                        </>
                       )}
 
                       {(session.meet_url?.includes('meet.google.com') ||
@@ -178,23 +218,30 @@ export default async function CalendarPage({
                     </div>
 
                     <p className="text-xs text-[#6F6865] mt-0.5">
-                      {audienceLabel} • {timeFormatted} ({session.duration_minutes} min)
+                      {audienceLabel} • {timeFormatted}
+                      {session.duration_minutes > 0 ? ` (${session.duration_minutes} min)` : ''}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
-                  <AddToGoogleCalendarButton session={session} />
+                  {!isHoliday && !isVacation && (
+                    <AddToGoogleCalendarButton session={session} />
+                  )}
 
                   <span
                     className={`text-xs px-2.5 py-1 rounded-lg font-semibold uppercase border ${
                       statusColors[session.status] || 'bg-stone-50'
                     }`}
                   >
-                    {statusLabels[session.status] || session.status}
+                    {isHoliday
+                      ? 'Feriado'
+                      : isVacation
+                      ? 'Recesso'
+                      : statusLabels[session.status] || session.status}
                   </span>
 
-                  {session.meet_url && session.status !== 'cancelled' && (
+                  {session.meet_url && session.status !== 'cancelled' && !isHoliday && (
                     <a
                       href={session.meet_url}
                       target="_blank"

@@ -2,173 +2,408 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../lib/supabase/server';
-import { calculateRecurringDates } from '../lib/calendar';
+import {
+  calculateRecurringSchedule,
+  createIsoDateTime,
+  CustomHoliday,
+  VacationRange,
+} from '../lib/calendar';
 
 export async function scheduleSessionAction(
   formData: FormData
 ): Promise<{ success: boolean; count: number; error?: string }> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const organization_id = formData.get('organization_id') as string;
-  const session_type = (formData.get('session_type') as string) || 'group'; // 'individual' | 'group'
-  const student_id = (formData.get('student_id') as string)?.trim();
-  const class_id = (formData.get('class_id') as string)?.trim();
-  const title = (formData.get('title') as string)?.trim();
-  const duration_minutes = parseInt(formData.get('duration_minutes') as string, 10) || 60;
-  const meet_url = (formData.get('meet_url') as string)?.trim() || null;
+    const organization_id = formData.get('organization_id') as string;
+    const event_type = (formData.get('event_type') as string) || 'regular'; // 'regular' | 'replacement' | 'holiday' | 'vacation'
+    const session_type = (formData.get('session_type') as string) || 'individual'; // 'individual' | 'group'
+    const student_id = (formData.get('student_id') as string)?.trim() || null;
+    const class_id = (formData.get('class_id') as string)?.trim() || null;
+    const rawTitle = (formData.get('title') as string)?.trim();
+    const duration_minutes = parseInt(formData.get('duration_minutes') as string, 10) || 60;
+    const meet_url = (formData.get('meet_url') as string)?.trim() || null;
+    const private_notes = (formData.get('notes') as string)?.trim() || null;
+    const save_as_default_meet = formData.get('save_as_default_meet') === 'true';
 
-  const is_recurring =
-    formData.get('is_recurring') === 'true' ||
-    formData.get('is_recurring') === 'on' ||
-    formData.get('is_recurring') === '1';
+    const is_recurring =
+      formData.get('is_recurring') === 'true' ||
+      formData.get('is_recurring') === 'on' ||
+      formData.get('is_recurring') === '1';
 
-  if (!organization_id) {
-    throw new Error('Organização não identificada.');
-  }
-
-  if (!title) {
-    throw new Error('O título da aula é obrigatório.');
-  }
-
-  if (session_type === 'individual' && !student_id) {
-    throw new Error('Selecione um aluno para aula individual (VIP).');
-  }
-
-  if (session_type === 'group' && !class_id) {
-    throw new Error('Selecione uma turma para aula em grupo.');
-  }
-
-  let scheduledDates: string[] = [];
-
-  if (is_recurring) {
-    const start_date =
-      (formData.get('start_date') as string) || (formData.get('scheduled_date') as string);
-    const scheduled_time = formData.get('scheduled_time') as string;
-    const recurring_days = formData
-      .getAll('recurring_days')
-      .map((d) => parseInt(d as string, 10))
-      .filter((n) => !isNaN(n));
-    const end_criteria = (formData.get('end_criteria') as 'count' | 'date') || 'count';
-    const total_sessions = parseInt(formData.get('total_sessions') as string, 10) || 20;
-    const end_date = formData.get('end_date') as string;
-
-    if (!start_date || !scheduled_time) {
-      throw new Error('Informe a data de início e o horário padrão para o cronograma.');
+    if (!organization_id) {
+      return { success: false, count: 0, error: 'Organização não identificada.' };
     }
 
-    if (recurring_days.length === 0) {
-      throw new Error('Selecione ao menos um dia da semana para o cronograma recorrente.');
+    // Se for individual e marcou para salvar como link padrão, persiste no perfil do estudante
+    if (save_as_default_meet && student_id && meet_url) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ default_meet_url: meet_url } as any)
+          .eq('id', student_id);
+      } catch {
+        // Ignora silenciosamente caso a migration ainda não tenha sido aplicada no banco remoto
+      }
     }
 
-    scheduledDates = calculateRecurringDates({
-      startDate: start_date,
-      time: scheduled_time,
-      daysOfWeek: recurring_days,
-      endCriteria: end_criteria,
-      totalSessions: total_sessions,
-      endDate: end_date,
-    });
-
-    if (scheduledDates.length === 0) {
-      throw new Error('Nenhuma data pôde ser gerada com os critérios informados.');
-    }
-  } else {
-    const scheduled_date = formData.get('scheduled_date') as string;
-    const scheduled_time = formData.get('scheduled_time') as string;
-
-    if (!scheduled_date || !scheduled_time) {
-      throw new Error('Data e horário são obrigatórios.');
+    // Validações por tipo de evento
+    if (event_type === 'regular' || event_type === 'replacement') {
+      if (session_type === 'individual' && !student_id) {
+        return {
+          success: false,
+          count: 0,
+          error: 'Selecione um(a) estudante para a aula individual.',
+        };
+      }
+      if (session_type === 'group' && !class_id) {
+        return { success: false, count: 0, error: 'Selecione uma turma para a aula em grupo.' };
+      }
     }
 
-    const isoDate = new Date(`${scheduled_date}T${scheduled_time}:00`).toISOString();
-    scheduledDates = [isoDate];
-  }
+    interface SessionInsertRow {
+      organization_id: string;
+      student_id?: string | null;
+      class_id?: string | null;
+      title: string;
+      scheduled_at: string;
+      duration_minutes: number;
+      meet_url: string | null;
+      notes: string | null;
+      status: 'scheduled';
+      event_type?: string;
+    }
 
-  // 1. Modalidade Individual (VIP) -> salva em class_sessions
-  if (session_type === 'individual') {
-    const rows = scheduledDates.map((isoDate, idx) => ({
-      organization_id,
-      student_id,
-      title: scheduledDates.length > 1 ? `${title} (Aula ${idx + 1})` : title,
-      scheduled_at: isoDate,
-      duration_minutes,
-      meet_url,
-      status: 'scheduled' as const,
-    }));
+    const rowsToInsert: SessionInsertRow[] = [];
 
-    const { error: insertErr } = await supabase.from('class_sessions').insert(rows);
+    if (event_type === 'holiday') {
+      const holiday_name =
+        (formData.get('holiday_name') as string)?.trim() || rawTitle || 'Feriado';
+      const holiday_date =
+        (formData.get('holiday_date') as string) ||
+        (formData.get('scheduled_date') as string) ||
+        new Date().toISOString().split('T')[0];
+      const scheduled_time = (formData.get('scheduled_time') as string) || '08:00';
+      const isoDate = createIsoDateTime(holiday_date, scheduled_time);
 
-    if (insertErr) {
-      // Fallback de compatibilidade se as novas tabelas ainda não tiverem sido migradas no Supabase remoto
-      if (
-        insertErr.message.includes('Could not find the table') ||
-        insertErr.code === '42P01' ||
-        insertErr.message.includes('relation')
-      ) {
-        // Tenta obter uma turma vinculada ao aluno para registrar em live_sessions
-        const { data: enrollment } = await supabase
-          .from('class_students')
-          .select('class_id')
-          .eq('student_id', student_id)
+      const title = `[Feriado] ${holiday_name} — Não conta como aula`;
+      const notes = `[Feriado registrado - Não desconta saldo] ${private_notes || ''}`.trim();
+
+      rowsToInsert.push({
+        organization_id,
+        student_id: session_type === 'individual' ? student_id : null,
+        class_id: session_type === 'group' ? class_id : null,
+        title,
+        scheduled_at: isoDate,
+        duration_minutes: 0,
+        meet_url: null,
+        notes,
+        status: 'scheduled',
+        event_type: 'holiday',
+      });
+    } else if (event_type === 'vacation') {
+      const vacation_name =
+        (formData.get('vacation_name') as string)?.trim() || rawTitle || 'Recesso / Férias';
+      const vacation_start =
+        (formData.get('vacation_start') as string) ||
+        (formData.get('scheduled_date') as string) ||
+        new Date().toISOString().split('T')[0];
+      const vacation_end = (formData.get('vacation_end') as string) || vacation_start;
+      const scheduled_time = (formData.get('scheduled_time') as string) || '08:00';
+      const isoDate = createIsoDateTime(vacation_start, scheduled_time);
+
+      const title = `[Recesso] ${vacation_name}`;
+      const notes = `[Pausa programada: ${vacation_start} até ${vacation_end}] ${private_notes || ''}`.trim();
+
+      rowsToInsert.push({
+        organization_id,
+        student_id: session_type === 'individual' ? student_id : null,
+        class_id: session_type === 'group' ? class_id : null,
+        title,
+        scheduled_at: isoDate,
+        duration_minutes: 0,
+        meet_url: null,
+        notes,
+        status: 'scheduled',
+        event_type: 'vacation',
+      });
+    } else if (event_type === 'replacement') {
+      const title = rawTitle
+        ? `[Reposição] ${rawTitle}`
+        : '[Reposição] Reposição de Aula';
+      const scheduled_date = formData.get('scheduled_date') as string;
+      const scheduled_time = formData.get('scheduled_time') as string;
+
+      if (!scheduled_date || !scheduled_time) {
+        return {
+          success: false,
+          count: 0,
+          error: 'Data e horário são obrigatórios para a reposição.',
+        };
+      }
+
+      const isoDate = createIsoDateTime(scheduled_date, scheduled_time);
+      const notes = `[Reposição manual - Não incrementa nem reduz saldo contratado] ${private_notes || ''}`.trim();
+
+      rowsToInsert.push({
+        organization_id,
+        student_id: session_type === 'individual' ? student_id : null,
+        class_id: session_type === 'group' ? class_id : null,
+        title,
+        scheduled_at: isoDate,
+        duration_minutes,
+        meet_url,
+        notes,
+        status: 'scheduled',
+        event_type: 'replacement',
+      });
+    } else {
+      // event_type === 'regular'
+      const baseTitle =
+        rawTitle || (session_type === 'individual' ? 'Mentoria Individual' : 'Aula Regular');
+
+      if (is_recurring) {
+        const start_date =
+          (formData.get('start_date') as string) || (formData.get('scheduled_date') as string);
+        const scheduled_time = formData.get('scheduled_time') as string;
+        const recurring_days = formData
+          .getAll('recurring_days')
+          .map((d) => parseInt(d as string, 10))
+          .filter((n) => !isNaN(n));
+        const end_criteria = (formData.get('end_criteria') as 'count' | 'date') || 'count';
+        const total_sessions = parseInt(formData.get('total_sessions') as string, 10) || 20;
+        const end_date = formData.get('end_date') as string;
+        const skip_holidays = formData.get('skip_holidays') !== 'false';
+
+        // Parse de férias e exceções enviadas pelo modal
+        let vacations: VacationRange[] = [];
+        try {
+          const rawVac = formData.get('vacations_json') as string;
+          if (rawVac) vacations = JSON.parse(rawVac);
+        } catch {
+          vacations = [];
+        }
+
+        let customHolidays: CustomHoliday[] = [];
+        try {
+          const rawHol = formData.get('custom_holidays_json') as string;
+          if (rawHol) customHolidays = JSON.parse(rawHol);
+        } catch {
+          customHolidays = [];
+        }
+
+        if (!start_date || !scheduled_time) {
+          return {
+            success: false,
+            count: 0,
+            error: 'Informe a data de início e o horário padrão para o cronograma.',
+          };
+        }
+
+        if (recurring_days.length === 0) {
+          return {
+            success: false,
+            count: 0,
+            error: 'Selecione ao menos um dia da semana para o cronograma recorrente.',
+          };
+        }
+
+        const calculatedSchedule = calculateRecurringSchedule({
+          startDate: start_date,
+          time: scheduled_time,
+          daysOfWeek: recurring_days,
+          endCriteria: end_criteria,
+          totalSessions: total_sessions,
+          endDate: end_date,
+          skipHolidays: skip_holidays,
+          customHolidays,
+          vacations,
+        });
+
+        if (calculatedSchedule.length === 0) {
+          return {
+            success: false,
+            count: 0,
+            error: 'Nenhuma data pôde ser gerada com os critérios informados.',
+          };
+        }
+
+        calculatedSchedule.forEach((item) => {
+          if (item.isHoliday) {
+            rowsToInsert.push({
+              organization_id,
+              student_id: session_type === 'individual' ? student_id : null,
+              class_id: session_type === 'group' ? class_id : null,
+              title: `[Feriado] ${item.holidayName || 'Feriado'} — Não conta como aula`,
+              scheduled_at: item.dateIso,
+              duration_minutes: 0,
+              meet_url: null,
+              notes: '[Feriado nacional - Não desconta saldo]',
+              status: 'scheduled',
+              event_type: 'holiday',
+            });
+          } else if (item.isVacation) {
+            rowsToInsert.push({
+              organization_id,
+              student_id: session_type === 'individual' ? student_id : null,
+              class_id: session_type === 'group' ? class_id : null,
+              title: `[Recesso] ${item.vacationName || 'Férias / Recesso'}`,
+              scheduled_at: item.dateIso,
+              duration_minutes: 0,
+              meet_url: null,
+              notes: '[Pausa de férias programada]',
+              status: 'scheduled',
+              event_type: 'vacation',
+            });
+          } else {
+            rowsToInsert.push({
+              organization_id,
+              student_id: session_type === 'individual' ? student_id : null,
+              class_id: session_type === 'group' ? class_id : null,
+              title: `${baseTitle} (Aula ${item.classNumber})`,
+              scheduled_at: item.dateIso,
+              duration_minutes,
+              meet_url,
+              notes: private_notes,
+              status: 'scheduled',
+              event_type: 'regular',
+            });
+          }
+        });
+      } else {
+        const scheduled_date = formData.get('scheduled_date') as string;
+        const scheduled_time = formData.get('scheduled_time') as string;
+
+        if (!scheduled_date || !scheduled_time) {
+          return { success: false, count: 0, error: 'Data e horário são obrigatórios.' };
+        }
+
+        const isoDate = createIsoDateTime(scheduled_date, scheduled_time);
+        rowsToInsert.push({
+          organization_id,
+          student_id: session_type === 'individual' ? student_id : null,
+          class_id: session_type === 'group' ? class_id : null,
+          title: baseTitle,
+          scheduled_at: isoDate,
+          duration_minutes,
+          meet_url,
+          notes: private_notes,
+          status: 'scheduled',
+          event_type: 'regular',
+        });
+      }
+    }
+
+    if (rowsToInsert.length === 0) {
+      return { success: false, count: 0, error: 'Nenhuma aula a cadastrar.' };
+    }
+
+    // Persistência no Supabase
+    if (session_type === 'individual' && student_id) {
+      const vipRows = rowsToInsert.map((r) => ({
+        organization_id: r.organization_id,
+        student_id,
+        title: r.title,
+        scheduled_at: r.scheduled_at,
+        duration_minutes: r.duration_minutes,
+        meet_url: r.meet_url,
+        notes: r.notes,
+        status: r.status,
+      }));
+
+      const { error: insertErr } = await supabase.from('class_sessions').insert(vipRows);
+
+      if (insertErr) {
+        // Fallback para live_sessions se class_sessions não existir
+        if (
+          insertErr.message.includes('Could not find the table') ||
+          insertErr.code === '42P01' ||
+          insertErr.message.includes('relation')
+        ) {
+          const { data: enrollment } = await supabase
+            .from('class_students')
+            .select('class_id')
+            .eq('student_id', student_id)
+            .limit(1)
+            .maybeSingle();
+
+          const fallbackClassId = enrollment?.class_id;
+          if (fallbackClassId) {
+            const fallbackRows = vipRows.map((r) => ({
+              organization_id: r.organization_id,
+              class_id: fallbackClassId,
+              title: r.title.includes('[VIP]') ? r.title : `${r.title} [VIP]`,
+              scheduled_at: r.scheduled_at,
+              duration_minutes: r.duration_minutes,
+              meet_url: r.meet_url,
+              status: r.status,
+            }));
+
+            const { error: fbErr } = await supabase.from('live_sessions').insert(fallbackRows);
+            if (fbErr) return { success: false, count: 0, error: fbErr.message };
+          }
+        } else {
+          return { success: false, count: 0, error: insertErr.message };
+        }
+      }
+    } else {
+      // Modalidade Turma / Grupo
+      let targetClassId = class_id;
+      if (!targetClassId) {
+        const { data: firstClass } = await supabase
+          .from('classes')
+          .select('id')
+          .eq('organization_id', organization_id)
           .limit(1)
           .maybeSingle();
+        targetClassId = firstClass?.id || null;
+      }
 
-        if (enrollment?.class_id) {
-          const fallbackRows = rows.map((r) => ({
-            organization_id: r.organization_id,
-            class_id: enrollment.class_id,
-            title: `${r.title} [VIP]`,
-            scheduled_at: r.scheduled_at,
-            duration_minutes: r.duration_minutes,
-            meet_url: r.meet_url,
-            status: 'scheduled' as const,
-          }));
-          const { error: fbErr } = await supabase.from('live_sessions').insert(fallbackRows);
-          if (fbErr) throw new Error(fbErr.message);
-        } else {
-          throw new Error(
-            `A tabela 'class_sessions' precisa ser criada no banco. Por favor execute a migration SQL em supabase/migrations/20261019000001_create_class_and_group_sessions.sql.`
-          );
+      if (targetClassId) {
+        const groupRows = rowsToInsert.map((r) => ({
+          organization_id: r.organization_id,
+          class_id: targetClassId as string,
+          title: r.title,
+          scheduled_at: r.scheduled_at,
+          duration_minutes: r.duration_minutes,
+          meet_url: r.meet_url,
+          notes: r.notes,
+          status: r.status,
+        }));
+
+        const { error: insertErr } = await supabase.from('group_sessions').insert(groupRows);
+
+        if (insertErr) {
+          if (
+            insertErr.message.includes('Could not find the table') ||
+            insertErr.code === '42P01' ||
+            insertErr.message.includes('relation')
+          ) {
+            const { error: fbErr } = await supabase.from('live_sessions').insert(groupRows);
+            if (fbErr) return { success: false, count: 0, error: fbErr.message };
+          } else {
+            return { success: false, count: 0, error: insertErr.message };
+          }
         }
-      } else {
-        throw new Error(insertErr.message);
       }
     }
-  } else {
-    // 2. Modalidade Turma / Grupo -> salva em group_sessions
-    const rows = scheduledDates.map((isoDate, idx) => ({
-      organization_id,
-      class_id,
-      title: scheduledDates.length > 1 ? `${title} (Aula ${idx + 1})` : title,
-      scheduled_at: isoDate,
-      duration_minutes,
-      meet_url,
-      status: 'scheduled' as const,
-    }));
 
-    const { error: insertErr } = await supabase.from('group_sessions').insert(rows);
-
-    if (insertErr) {
-      // Fallback de compatibilidade para live_sessions se group_sessions ainda não foi migrada
-      if (
-        insertErr.message.includes('Could not find the table') ||
-        insertErr.code === '42P01' ||
-        insertErr.message.includes('relation')
-      ) {
-        const { error: fbErr } = await supabase.from('live_sessions').insert(rows);
-        if (fbErr) throw new Error(fbErr.message);
-      } else {
-        throw new Error(insertErr.message);
-      }
+    revalidatePath('/professor');
+    revalidatePath('/professor/calendar');
+    revalidatePath('/student');
+    revalidatePath('/student/calendar');
+    if (student_id) {
+      revalidatePath(`/professor/students/${student_id}`);
     }
+
+    return { success: true, count: rowsToInsert.length };
+  } catch (err: any) {
+    return {
+      success: false,
+      count: 0,
+      error: err.message || 'Erro inesperado ao gerar aulas.',
+    };
   }
-
-  revalidatePath('/professor');
-  revalidatePath('/professor/calendar');
-  revalidatePath('/student');
-  revalidatePath('/student/calendar');
-
-  return { success: true, count: scheduledDates.length };
 }
 
 export async function cancelSessionAction(
@@ -230,14 +465,16 @@ export async function updateSessionAction(payload: {
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    const { sessionId, title, scheduled_at, duration_minutes, status, meet_url, notes, studentId } = payload;
+    const { sessionId, title, scheduled_at, duration_minutes, status, meet_url, notes, studentId } =
+      payload;
 
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (scheduled_at !== undefined) updateData.scheduled_at = scheduled_at;
     if (duration_minutes !== undefined) updateData.duration_minutes = duration_minutes;
     if (status !== undefined) {
-      updateData.status = status === 'completed' ? 'finished' : status === 'in_progress' ? 'live' : status;
+      updateData.status =
+        status === 'completed' ? 'finished' : status === 'in_progress' ? 'live' : status;
     }
     if (meet_url !== undefined) updateData.meet_url = meet_url;
     if (notes !== undefined) updateData.notes = notes;
@@ -273,7 +510,9 @@ export async function bulkUpdateSessionsStatusAction(
 
     const supabase = await createClient();
 
-    const mappedStatus = (newStatus === 'completed' ? 'finished' : newStatus === 'in_progress' ? 'live' : newStatus) as any;
+    const mappedStatus = (
+      newStatus === 'completed' ? 'finished' : newStatus === 'in_progress' ? 'live' : newStatus
+    ) as any;
     await Promise.allSettled([
       supabase.from('class_sessions').update({ status: mappedStatus }).in('id', sessionIds),
       supabase.from('group_sessions').update({ status: mappedStatus }).in('id', sessionIds),
@@ -289,7 +528,11 @@ export async function bulkUpdateSessionsStatusAction(
     revalidatePath('/student/calendar');
     return { success: true, count: sessionIds.length };
   } catch (err: any) {
-    return { success: false, count: 0, error: err.message || 'Erro ao atualizar status em lote.' };
+    return {
+      success: false,
+      count: 0,
+      error: err.message || 'Erro ao atualizar status em lote.',
+    };
   }
 }
 
@@ -363,7 +606,11 @@ export async function bulkRescheduleSessionsAction(payload: {
     revalidatePath('/student/calendar');
     return { success: true, count: sessionIds.length };
   } catch (err: any) {
-    return { success: false, count: 0, error: err.message || 'Erro ao remarcar aulas em lote.' };
+    return {
+      success: false,
+      count: 0,
+      error: err.message || 'Erro ao remarcar aulas em lote.',
+    };
   }
 }
 

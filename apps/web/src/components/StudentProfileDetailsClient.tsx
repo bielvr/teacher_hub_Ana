@@ -544,8 +544,17 @@ export function StudentProfileDetailsClient({
     });
   };
 
-  // Cálculos de saldo de aulas com base nas sessões cadastradas
-  const completedSessionsCount = sessions.filter((s) => s.status === 'completed' || s.status === 'finished').length;
+  // Cálculos de saldo de aulas com base nas sessões cadastradas (Feriados, Recessos e Reposições não descontam saldo)
+  const isBalanceConsuming = (s: StudentSessionItem) => {
+    if (s.title?.includes('[Feriado]') || s.notes?.includes('[Feriado]')) return false;
+    if (s.title?.includes('[Recesso]') || s.title?.includes('[Férias]')) return false;
+    if (s.title?.includes('[Reposição]')) return false;
+    return true;
+  };
+
+  const completedSessionsCount = sessions.filter(
+    (s) => (s.status === 'completed' || s.status === 'finished') && isBalanceConsuming(s)
+  ).length;
   const scheduledSessionsCount = sessions.filter((s) => s.status === 'scheduled').length;
   const cancelledSessionsCount = sessions.filter((s) => s.status === 'cancelled').length;
 
@@ -1077,9 +1086,19 @@ export function StudentProfileDetailsClient({
                             </td>
 
                             <td className="py-3 px-3">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8]">
-                                #{String(sess.session_number || 1).padStart(2, '0')}
-                              </span>
+                              {sess.title?.includes('[Feriado]') || sess.title?.includes('[Recesso]') ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200" title="Feriado ou recesso (não conta como aula)">
+                                  —
+                                </span>
+                              ) : sess.title?.includes('[Reposição]') ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                  Reposição
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8]">
+                                  #{String(sess.session_number || 1).padStart(2, '0')}
+                                </span>
+                              )}
                             </td>
 
                             <td className="py-3 px-4 whitespace-nowrap">
