@@ -140,7 +140,7 @@ export default async function ProfessorTrackDetailPage({
               <CreateLessonModal
                 trackId={track.id}
                 modules={allModulesOptions}
-                triggerText="+ Nova aula"
+                triggerText="+ Adicionar à biblioteca"
                 variant="secondary"
               />
             )}

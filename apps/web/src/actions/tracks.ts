@@ -1291,3 +1291,352 @@ export async function updateLessonReleaseAction(formData: FormData) {
 
   revalidatePath('/professor/planning');
 }
+
+
+export async function addToLibraryAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string; lessonId?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const entry_type = (formData.get('entry_type') as string) || 'ready_lesson';
+    const action_type = (formData.get('action_type') as string) || 'publish';
+    const isPublish = action_type === 'publish';
+
+    let organization_id = (formData.get('organization_id') as string)?.trim();
+    if (!organization_id) {
+      const { getUserOrganizations } = await import('../services/organizations');
+      const memberships = await getUserOrganizations(supabase);
+      organization_id = memberships[0]?.organizations?.id || '';
+    }
+
+    let track_id = (formData.get('track_id') as string)?.trim();
+    let module_id = (formData.get('module_id') as string)?.trim();
+    const new_module_title = (formData.get('new_module_title') as string)?.trim();
+
+    // 1. Resolve Track se necessário
+    if (!track_id || track_id === '__new__') {
+      if (organization_id) {
+        const { data: existingTracks } = await supabase
+          .from('tracks')
+          .select('id')
+          .eq('organization_id', organization_id)
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        if (existingTracks && existingTracks.length > 0) {
+          track_id = existingTracks[0].id;
+        } else {
+          const { data: defTrack } = await supabase
+            .from('tracks')
+            .insert({
+              organization_id,
+              title: 'Materiais Didáticos Gerais',
+            })
+            .select('id')
+            .single();
+          if (defTrack) track_id = defTrack.id;
+        }
+      }
+    }
+
+    // 2. Resolve Módulo/Unidade se necessário
+    if (!module_id || module_id === '__new__') {
+      if (new_module_title && track_id) {
+        const { count: modCount } = await supabase
+          .from('modules')
+          .select('*', { count: 'exact', head: true })
+          .eq('track_id', track_id);
+
+        const { data: createdModule } = await supabase
+          .from('modules')
+          .insert({
+            track_id,
+            title: new_module_title,
+            order_index: (modCount || 0) + 1,
+          })
+          .select('id')
+          .single();
+
+        if (createdModule) module_id = createdModule.id;
+      } else if (track_id) {
+        const { data: existingMods } = await supabase
+          .from('modules')
+          .select('id')
+          .eq('track_id', track_id)
+          .order('order_index', { ascending: true })
+          .limit(1);
+
+        if (existingMods && existingMods.length > 0) {
+          module_id = existingMods[0].id;
+        } else {
+          const defaultUnitName =
+            entry_type === 'standalone_material' ? 'Recursos e Materiais Avulsos' : 'Unidade 1';
+          const { data: defModule } = await supabase
+            .from('modules')
+            .insert({
+              track_id,
+              title: defaultUnitName,
+              order_index: 1,
+            })
+            .select('id')
+            .single();
+          if (defModule) module_id = defModule.id;
+        }
+      }
+    }
+
+    if (!module_id) {
+      return { success: false, error: 'Não foi possível definir uma unidade de destino.' };
+    }
+
+    // Se for MATERIAL AVULSO
+    if (entry_type === 'standalone_material') {
+      const rawTitle = (formData.get('title') as string)?.trim();
+      const title = rawTitle || 'Material avulso';
+      const material_type = (formData.get('material_type') as string) || 'Documento/PDF';
+      let content_url = (formData.get('content_url') as string)?.trim() || '';
+      const description = (formData.get('description') as string)?.trim() || '';
+      const tagsRaw = (formData.get('tags') as string)?.trim() || '';
+
+      let tags: string[] = [];
+      try {
+        if (tagsRaw.startsWith('[')) {
+          tags = JSON.parse(tagsRaw);
+        } else if (tagsRaw) {
+          tags = tagsRaw.split(',').map((t) => t.trim()).filter(Boolean);
+        }
+      } catch {
+        tags = tagsRaw ? [tagsRaw] : [];
+      }
+
+      const fileUpload = formData.get('file_upload') as File | null;
+      let displaySize = '';
+      if (fileUpload && fileUpload.size > 0 && typeof fileUpload.name === 'string') {
+        const cleanFileName = fileUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const storagePath = `materials/standalone/${Date.now()}-${cleanFileName}`;
+        const uploadedUrl = await uploadToStorage(supabase, 'course-materials', storagePath, fileUpload);
+        if (uploadedUrl) {
+          content_url = uploadedUrl;
+        }
+        const sizeInMB = fileUpload.size / (1024 * 1024);
+        displaySize = sizeInMB >= 1 ? `${sizeInMB.toFixed(1)} MB` : `${Math.round(fileUpload.size / 1024)} KB`;
+      }
+
+      let activity_type: ActivityType = 'pdf';
+      let video_url: string | null = null;
+      let pdf_url: string | null = null;
+      let link_url: string | null = null;
+      let audio_url: string | null = null;
+
+      if (material_type === 'Vídeo') {
+        activity_type = 'video';
+        video_url = content_url || null;
+      } else if (material_type === 'Áudio') {
+        activity_type = 'audio';
+        audio_url = content_url || null;
+      } else if (material_type === 'Link' || material_type === 'Imagem') {
+        activity_type = 'external_link';
+        link_url = content_url || null;
+      } else {
+        activity_type = 'pdf';
+        pdf_url = content_url || null;
+      }
+
+      const lessonMetadata = {
+        is_standalone: true,
+        description,
+        tags,
+        material_type,
+        published_to_materials: isPublish,
+        status: isPublish ? 'done' : 'todo',
+        preparation_status: isPublish ? 'ready' : 'in_progress',
+      };
+
+      const { count: lessonCount } = await supabase
+        .from('lessons')
+        .select('*', { count: 'exact', head: true })
+        .eq('module_id', module_id);
+
+      const { data: newLesson, error: lessonError } = await supabase
+        .from('lessons')
+        .insert({
+          module_id,
+          title,
+          description: JSON.stringify(lessonMetadata),
+          order_index: (lessonCount || 0) + 1,
+          release_type: 'immediate',
+        })
+        .select('id')
+        .single();
+
+      if (lessonError || !newLesson) {
+        return { success: false, error: lessonError?.message || 'Erro ao registrar material avulso.' };
+      }
+
+      const { error: actError } = await supabase.from('activities').insert({
+        lesson_id: newLesson.id,
+        organization_id,
+        title,
+        type: activity_type,
+        video_url,
+        pdf_url,
+        audio_url,
+        link_url,
+        description: description || null,
+        metadata: {
+          is_standalone: true,
+          original_material_type: material_type,
+          tags,
+          size: displaySize || null,
+        },
+      });
+
+      if (actError) {
+        console.warn('Aviso ao registrar atividade:', actError);
+      }
+
+      revalidatePath('/professor');
+      revalidatePath('/professor/tracks');
+      if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
+      revalidatePath('/professor/resources');
+
+      return { success: true, lessonId: newLesson.id };
+    }
+
+    // Se for AULA PRONTA
+    const rawLessonTitle = (formData.get('lesson_title') as string)?.trim();
+    const lesson_title = rawLessonTitle || 'Aula pronta';
+    const communicative_objectives = (formData.get('communicative_objectives') as string)?.trim() || '';
+    const topicsRaw = (formData.get('topics') as string) || '[]';
+    const resourcesRaw = (formData.get('resources') as string) || '[]';
+    let cover_image_url = (formData.get('cover_image_url') as string)?.trim() || '';
+
+    // Upload de capa
+    const coverUpload = formData.get('cover_image_file') as File | null;
+    if (coverUpload && coverUpload.size > 0 && typeof coverUpload.name === 'string') {
+      const cleanFileName = coverUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = `covers/${module_id}/${Date.now()}-${cleanFileName}`;
+      const uploadedCover = await uploadToStorage(supabase, 'course-materials', storagePath, coverUpload);
+      if (uploadedCover) cover_image_url = uploadedCover;
+    }
+
+    let topics: any[] = [];
+    try {
+      topics = JSON.parse(topicsRaw);
+    } catch {
+      topics = [];
+    }
+
+    let resources: any[] = [];
+    try {
+      resources = JSON.parse(resourcesRaw);
+    } catch {
+      resources = [];
+    }
+
+    // Processa upload de múltiplos recursos
+    if (Array.isArray(resources)) {
+      for (let i = 0; i < resources.length; i++) {
+        const res = resources[i];
+        const resFile =
+          (formData.get(`resource_file_${res.id}`) as File | null) ||
+          (formData.get(`resource_file_${i}`) as File | null);
+        if (resFile && resFile.size > 0 && typeof resFile.name === 'string') {
+          const cleanName = resFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const resPath = `materials/${module_id}/${Date.now()}-${cleanName}`;
+          const uploadedUrl = await uploadToStorage(supabase, 'course-materials', resPath, resFile);
+          if (uploadedUrl) res.url = uploadedUrl;
+        }
+      }
+    }
+
+    const lessonMetadata = {
+      communicative_objectives,
+      communicative_goals: communicative_objectives,
+      topics,
+      materials: resources,
+      cover_image_url,
+      published_to_materials: isPublish,
+      status: isPublish ? 'done' : 'todo',
+      preparation_status: isPublish ? 'ready' : 'in_progress',
+      is_ready_lesson: true,
+      published_at: isPublish ? new Date().toISOString() : null,
+    };
+
+    const { count: lessonCount } = await supabase
+      .from('lessons')
+      .select('*', { count: 'exact', head: true })
+      .eq('module_id', module_id);
+
+    const { data: newLesson, error: lessonError } = await supabase
+      .from('lessons')
+      .insert({
+        module_id,
+        title: lesson_title,
+        description: JSON.stringify(lessonMetadata),
+        order_index: (lessonCount || 0) + 1,
+        release_type: 'immediate',
+      })
+      .select('id')
+      .single();
+
+    if (lessonError || !newLesson) {
+      return { success: false, error: lessonError?.message || 'Erro ao criar aula pronta.' };
+    }
+
+    // Insere múltiplos recursos na tabela activities
+    if (Array.isArray(resources) && resources.length > 0) {
+      for (const res of resources) {
+        let actType: ActivityType = 'pdf';
+        let vUrl: string | null = null;
+        let pUrl: string | null = null;
+        let aUrl: string | null = null;
+        let lUrl: string | null = null;
+
+        const rawType = res.type || 'Documento/PDF';
+        if (rawType === 'Vídeo' || rawType === 'video') {
+          actType = 'video';
+          vUrl = res.url || null;
+        } else if (rawType === 'Áudio' || rawType === 'audio') {
+          actType = 'audio';
+          aUrl = res.url || null;
+        } else if (rawType === 'Link' || rawType === 'link' || rawType === 'Imagem' || rawType === 'image') {
+          actType = 'external_link';
+          lUrl = res.url || null;
+        } else {
+          actType = 'pdf';
+          pUrl = res.url || null;
+        }
+
+        try {
+          await supabase.from('activities').insert({
+            lesson_id: newLesson.id,
+            organization_id,
+            title: res.title || lesson_title,
+            type: actType,
+            video_url: vUrl,
+            pdf_url: pUrl,
+            audio_url: aUrl,
+            link_url: lUrl,
+            metadata: {
+              size: res.size || null,
+              original_material_type: rawType,
+            },
+          });
+        } catch (actErr) {
+          console.warn('Erro ao inserir atividade vinculada:', actErr);
+        }
+      }
+    }
+
+    revalidatePath('/professor');
+    revalidatePath('/professor/tracks');
+    if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
+    revalidatePath('/professor/planning');
+
+    return { success: true, lessonId: newLesson.id };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao salvar na biblioteca.' };
+  }
+}

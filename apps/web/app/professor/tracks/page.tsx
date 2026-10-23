@@ -6,6 +6,7 @@ import { CreateTrackModal } from '../../../src/components/CreateTrackModal';
 import { CreateUnitModal } from '../../../src/components/CreateUnitModal';
 import { TrackCardMenu } from '../../../src/components/TrackCardMenu';
 import { AssignTrackModal } from '../../../src/components/AssignTrackModal';
+import { AddToLibraryModal } from '../../../src/components/CreateLessonModal';
 import { renderInlineMarkdown } from '../../../src/components/PaginatedContent';
 
 export default async function TracksPage({
@@ -133,6 +134,15 @@ export default async function TracksPage({
     };
   });
 
+  const trackOptions = tracksWithStats.map((t) => ({
+    id: t.id,
+    title: t.title,
+    modules: (t.modules || []).map((m: any) => ({
+      id: m.id,
+      title: m.title,
+    })),
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -149,6 +159,11 @@ export default async function TracksPage({
             <CreateTrackModal
               organizationId={activeOrgId}
               triggerText="+ Novo nível"
+            />
+            <AddToLibraryModal
+              organizationId={activeOrgId}
+              tracks={trackOptions}
+              triggerText="+ Adicionar à biblioteca"
             />
           </div>
         }
