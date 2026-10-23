@@ -514,7 +514,8 @@ export async function submitStudentActivityAction(
   activityId: string,
   orgId: string,
   answers: Record<string, any>,
-  score?: number
+  score?: number,
+  total?: number
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -533,13 +534,17 @@ export async function submitStudentActivityAction(
 
   let submissionId: string | null = existing?.id || null;
 
+  const isPerfectAutoGrade = total !== undefined && total > 0 && score === total;
+  const submissionStatus = isPerfectAutoGrade ? 'completed' : 'submitted';
+
   if (existing) {
+    const preserveTeacherFeedback = existing.teacher_feedback && !existing.teacher_feedback.trim().startsWith('{');
     const { error } = await supabase
       .from('activity_submissions')
       .update({
-        status: 'completed',
+        status: submissionStatus,
         score: score ?? null,
-        teacher_feedback: serializedAnswers,
+        ...(preserveTeacherFeedback ? {} : { teacher_feedback: serializedAnswers }),
         submitted_at: nowIso,
         updated_at: nowIso,
       })
@@ -552,7 +557,7 @@ export async function submitStudentActivityAction(
         organization_id: orgId,
         activity_id: activityId,
         student_id: user.id,
-        status: 'completed',
+        status: submissionStatus,
         score: score ?? null,
         teacher_feedback: serializedAnswers,
         submitted_at: nowIso,

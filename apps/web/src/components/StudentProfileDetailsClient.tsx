@@ -1504,7 +1504,7 @@ export function StudentProfileDetailsClient({
 
               <div>
                 <label className="block text-xs font-semibold text-[#6F6865] uppercase tracking-wider mb-1">
-                  Link da Videochamada (Google Meet / Zoom)
+                  Link da videochamada
                 </label>
                 <input
                   type="url"
@@ -1650,7 +1650,7 @@ export function StudentProfileDetailsClient({
         </div>
       )}
 
-      {/* MODAL 4: AGENDAR NOVA AULA / SESSÃO PARA A ALUNA */}
+      {/* MODAL 4: AGENDAR NOVA AULA / SESSÃO PARA O ESTUDANTE */}
       {isNewSessionModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in"
@@ -1735,7 +1735,7 @@ export function StudentProfileDetailsClient({
 
                 <div>
                   <label className="block text-xs font-semibold text-[#6F6865] uppercase tracking-wider mb-1">
-                    Link Meet / Zoom
+                    Link da videochamada
                   </label>
                   <input
                     type="url"

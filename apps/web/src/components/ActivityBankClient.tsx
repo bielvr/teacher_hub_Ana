@@ -101,7 +101,7 @@ export function ActivityBankClient({
         const stats = trackStats.tracks[trk.id] || { activityCount: 0, lessonCount: 0 };
         return {
           id: trk.id,
-          title: trk.title,
+          title: trk.title || trk.name || 'Sem título',
           icon: '📚',
           count: `${stats.activityCount} atividades totais`,
           badge: null,
@@ -597,26 +597,25 @@ export function ActivityBankClient({
                 key={card.id}
                 type="button"
                 onClick={() => setSelectedTrackId(card.id)}
-                className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
+                style={
                   isSelected
-                    ? 'bg-[#6C0F37] text-white border-[#57102E] shadow-sm'
-                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/50'
-                }`}
+                    ? { backgroundColor: '#6C0F37', color: '#FFFDF7', borderColor: '#57102E' }
+                    : { backgroundColor: '#FFFFFF', color: '#2B2426', borderColor: '#E6E1D8' }
+                }
+                className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between shadow-2xs hover:border-[#6C0F37]/50"
               >
                 <div>
                   <span className="text-lg block mb-1">{card.icon}</span>
                   <h3
-                    className={`text-base font-bold transition-colors line-clamp-1 ${
-                      isSelected ? 'text-[#FFFDF7]' : 'text-[#6C0F37]'
-                    }`}
+                    style={{ color: isSelected ? '#FFFDF7' : '#6C0F37' }}
+                    className="text-base font-bold transition-colors line-clamp-1 !text-inherit"
                   >
                     {card.title}
                   </h3>
                   {card.badge && (
                     <span
-                      className={`text-xs block mt-0.5 ${
-                        isSelected ? 'text-[#FFFDF7]/90' : 'text-[#6F6865]'
-                      }`}
+                      style={{ color: isSelected ? 'rgba(255, 253, 247, 0.9)' : '#6F6865' }}
+                      className="text-xs block mt-0.5"
                     >
                       {card.badge}
                     </span>
@@ -624,14 +623,14 @@ export function ActivityBankClient({
                 </div>
 
                 <div
-                  className={`mt-3 pt-2 border-t ${
-                    isSelected ? 'border-white/20' : 'border-[#E6E1D8]'
-                  }`}
+                  style={{
+                    borderColor: isSelected ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8',
+                  }}
+                  className="mt-3 pt-2 border-t"
                 >
                   <span
-                    className={`text-xs ${
-                      isSelected ? 'text-[#FFFDF7]' : 'text-[#6F6865]'
-                    }`}
+                    style={{ color: isSelected ? '#FFFDF7' : '#6F6865' }}
+                    className="text-xs block"
                   >
                     {card.count}
                   </span>
@@ -705,12 +704,12 @@ export function ActivityBankClient({
               : 'Seu Banco de Atividades está pronto. Clique abaixo para cadastrar seu primeiro modelo reutilizável.'}
           </p>
           <CreateActivityModal
-              tracks={tracks}
-              triggerText="+ Nova atividade"
-              organizationId={organizationId}
-              students={students}
-              classes={classes}
-            />
+            tracks={tracks}
+            triggerText="+ Nova atividade"
+            organizationId={organizationId}
+            students={students}
+            classes={classes}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

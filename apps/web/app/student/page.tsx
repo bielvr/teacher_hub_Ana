@@ -38,7 +38,7 @@ export default async function StudentHomePage({
   const orgId = resolvedParams.org || orgData?.id || '';
   const orgName = orgData?.name || 'Fikra';
 
-  // Busca turmas ativas do estudante via class_students (usando organization_members.id)
+  // Busca turmas ativas do estudante via class_students
   const candidateStudentIds = Array.from(new Set([memberId, userId].filter(Boolean)));
   const { data: enrollments } =
     candidateStudentIds.length > 0
@@ -59,15 +59,17 @@ export default async function StudentHomePage({
     new Set((enrollments || []).map((e: any) => e.class_id).filter(Boolean))
   );
 
-  // Busca a próxima aula ao vivo agendada exclusivamente das turmas do aluno e com status = 'scheduled'
-  let nextLive = null;
+  // Busca a próxima aula agendada (tanto de turmas quanto individual)
+  let nextLive: any = null;
+  const nowIso = new Date().toISOString();
+
   if (enrolledClassIds.length > 0) {
     let liveQuery = supabase
       .from('live_sessions')
       .select('*')
       .in('class_id', enrolledClassIds)
       .eq('status', 'scheduled')
-      .gte('scheduled_at', new Date().toISOString())
+      .gte('scheduled_at', nowIso)
       .order('scheduled_at', { ascending: true })
       .limit(1);
 
@@ -77,6 +79,25 @@ export default async function StudentHomePage({
 
     const { data: liveData } = await liveQuery.maybeSingle();
     nextLive = liveData;
+  }
+
+  // Se não encontrou em live_sessions, busca em class_sessions para aulas individuais
+  if (!nextLive && candidateStudentIds.length > 0) {
+    let individualQuery = supabase
+      .from('class_sessions')
+      .select('*')
+      .in('student_id', candidateStudentIds)
+      .eq('status', 'scheduled')
+      .gte('scheduled_at', nowIso)
+      .order('scheduled_at', { ascending: true })
+      .limit(1);
+
+    if (orgId) {
+      individualQuery = individualQuery.eq('organization_id', orgId);
+    }
+
+    const { data: indData } = await individualQuery.maybeSingle();
+    nextLive = indData;
   }
 
   const profileData = member?.profiles as unknown as { full_name?: string } | null;

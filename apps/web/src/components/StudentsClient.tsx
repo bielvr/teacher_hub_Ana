@@ -134,7 +134,7 @@ export function StudentsClient({
 
                   return (
                     <tr key={st.id} className="hover:bg-[#F7F4ED]/30 transition-colors">
-                      {/* Aluna com Avatar Oficial (Fundo Amarelo, Iniciais Vinho) - Clicável */}
+                      {/* Estudante com Avatar Oficial (Fundo Amarelo, Iniciais Vinho) - Clicável */}
                       <td className="py-4 px-5">
                         <Link
                           href={`/professor/students/${st.id}?org=${organizationId}`}

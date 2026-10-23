@@ -74,6 +74,12 @@ export default async function StudentTrackDetailPage({
   const memberships = await getUserOrganizations(supabase);
   const activeOrgId = resolvedParams.org || memberships[0]?.organizations?.id || '';
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !activeOrgId) return notFound();
+
   // 1. Busca a trilha
   const { data: track, error: trackError } = await supabase
     .from('tracks')
@@ -88,7 +94,81 @@ export default async function StudentTrackDetailPage({
     return notFound();
   }
 
-  // 2. Busca módulos associados
+  // 2. Blindagem de Autorização Estrita: verifica se o estudante tem acesso
+  const { data: member } = await supabase
+    .from('organization_members')
+    .select('id, role')
+    .eq('organization_id', activeOrgId)
+    .eq('profile_id', user.id)
+    .maybeSingle();
+
+  const memberId = member?.id || '';
+  const candidateStudentIds = Array.from(new Set([memberId, user.id].filter(Boolean)));
+
+  // Condição 1: Liberado diretamente para o estudante
+  const { data: unlockedItems } = await supabase
+    .from('student_review_items')
+    .select('item_id')
+    .eq('organization_id', activeOrgId)
+    .in('student_id', candidateStudentIds)
+    .eq('item_type', 'resource')
+    .eq('content_preview', 'unlocked_level')
+    .eq('item_id', trackId);
+
+  const isDirectlyUnlocked = (unlockedItems || []).length > 0;
+
+  // Condição 2: Pertence a uma turma em que o estudante está matriculado
+  let isClassUnlocked = false;
+  if (!isDirectlyUnlocked && candidateStudentIds.length > 0) {
+    const { data: enrollments } = await supabase
+      .from('class_students')
+      .select(`
+        class_id,
+        classes (
+          id,
+          name,
+          level
+        )
+      `)
+      .in('student_id', candidateStudentIds);
+
+    const classLevels = (enrollments || [])
+      .map((e: any) => e.classes?.level)
+      .filter(Boolean);
+
+    if (classLevels.includes(track.title) || classLevels.includes(track.id)) {
+      isClassUnlocked = true;
+    } else {
+      const enrolledClassIds = (enrollments || []).map((e: any) => e.class_id).filter(Boolean);
+      if (enrolledClassIds.length > 0) {
+        const { data: liveLessons } = await supabase
+          .from('live_sessions')
+          .select('lesson_id')
+          .in('class_id', enrolledClassIds)
+          .not('lesson_id', 'is', null);
+
+        const lessonIds = (liveLessons || []).map((l: any) => l.lesson_id).filter(Boolean);
+        if (lessonIds.length > 0) {
+          const { data: modulesData } = await supabase
+            .from('lessons')
+            .select('module_id, modules (track_id)')
+            .in('id', lessonIds);
+
+          const trackIdsFromLessons = (modulesData || []).map((m: any) => m.modules?.track_id);
+          if (trackIdsFromLessons.includes(trackId)) {
+            isClassUnlocked = true;
+          }
+        }
+      }
+    }
+  }
+
+  // Se não cumprir nenhuma das duas condições, bloqueia o acesso
+  if (!isDirectlyUnlocked && !isClassUnlocked) {
+    return notFound();
+  }
+
+  // 3. Busca módulos associados
   const { data: modules } = await supabase
     .from('modules')
     .select('id, title, order_index')
@@ -98,7 +178,7 @@ export default async function StudentTrackDetailPage({
   const moduleIds = modules?.map((m) => m.id) || [];
   let lessons: any[] = [];
 
-  // 3. Busca lições e atividades de cada módulo
+  // 4. Busca lições e atividades de cada módulo
   if (moduleIds.length > 0) {
     const { data: lessonsData } = await supabase
       .from('lessons')
@@ -158,195 +238,162 @@ export default async function StudentTrackDetailPage({
 
       {modulesWithLessons.length === 0 ? (
         <EmptyState
-          title="Nenhum módulo liberado nesta trilha"
-          description="Os conteúdos pedagógicos desta jornada serão disponibilizados pelo seu professor."
+          title="Nenhum módulo encontrado"
+          description="Esta trilha ainda não possui lições cadastradas."
         />
       ) : (
-        <div className="space-y-8">
-          {modulesWithLessons.map((mod: any, mIdx: number) => (
-            <div key={mod.id} className="space-y-4">
-              <div className="border-b border-[#E6E1D8] pb-2 flex items-baseline justify-between">
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
-                    Módulo {mIdx + 1}
-                  </span>
-                  <h2 className="text-xl font-bold text-[#2B2426] mt-0.5">
-                    {mod.title}
-                  </h2>
-                </div>
-                <span className="text-xs text-[#6F6865] font-medium">
-                  {mod.lessons?.length || 0} {mod.lessons?.length === 1 ? 'lição' : 'lições'}
-                </span>
-              </div>
+        modulesWithLessons.map((moduleItem, mIdx) => (
+          <div key={moduleItem.id} className="space-y-4">
+            <h2 className="text-base font-bold text-[#6C0F37] uppercase tracking-wider flex items-center gap-2">
+              <span className="px-2.5 py-0.5 bg-[#6C0F37]/10 rounded-md text-xs">
+                Módulo {mIdx + 1}
+              </span>
+              <span>{moduleItem.title}</span>
+            </h2>
 
-              {(!mod.lessons || mod.lessons.length === 0) ? (
-                <p className="text-xs text-[#6F6865] italic py-2">
-                  Nenhuma lição cadastrada neste módulo até o momento.
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {mod.lessons.map((lesson: any, lIdx: number) => {
-                    const meta = parseLessonDescription(lesson.description);
-                    // Filtra apenas atividades que possuem algum conteúdo válido (sem containers vazios)
-                    const validActivities = (lesson.activities || []).filter((act: any) => {
-                      return Boolean(
-                        act.pdf_url ||
-                        act.video_url ||
-                        act.link_url ||
-                        (act.content_markdown && act.content_markdown.trim().length > 0)
-                      );
-                    });
+            <div className="space-y-4">
+              {moduleItem.lessons.map((lesson: any, lIdx: number) => {
+                const meta = parseLessonDescription(lesson.description);
 
-                    return (
-                      <Card
-                        key={lesson.id}
-                        id={`lesson-${lesson.id}`}
-                        className="p-6 space-y-4 border-[#E6E1D8] rounded-2xl bg-white shadow-xs scroll-mt-24"
-                      >
-                        {/* Cabeçalho da Lição */}
-                        <div className="border-b border-[#E6E1D8] pb-4 space-y-2">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8] rounded-md">
-                                Lição #{lesson.order_index ?? lIdx + 1}
-                              </span>
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6F6865]">
-                                {validActivities.length} {validActivities.length === 1 ? 'material anexo' : 'materiais anexos'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <h3 className="text-lg font-bold text-[#2B2426]">
+                return (
+                  <Card
+                    key={lesson.id}
+                    id={`lesson-${lesson.id}`}
+                    className="p-6 border border-[#E6E1D8] bg-white rounded-2xl shadow-xs space-y-5"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E6E1D8] pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] px-2 py-0.5 rounded-md">
+                            Lição #{lIdx + 1}
+                          </span>
+                          <h3 className="font-bold text-base text-[#2B2426]">
                             {lesson.title}
                           </h3>
-
-                          {/* Objetivos Comunicativos Formatados (sem JSON cru) */}
-                          {meta.communicativeGoals && (
-                            <p className="text-xs text-[#6F6865] leading-relaxed">
-                              {meta.communicativeGoals}
-                            </p>
-                          )}
-
-                          {/* Badges de Vocabulário & Gramática Oficiais Fikra */}
-                          {(meta.vocabulary.length > 0 || meta.grammar.length > 0) && (
-                            <div className="pt-1 flex flex-wrap gap-1.5 items-center">
-                              {meta.vocabulary.length > 0 && (
-                                <span className="text-[11px] font-bold text-[#6C0F37] mr-1">
-                                  Vocabulário:
-                                </span>
-                              )}
-                              {meta.vocabulary.map((item, vIdx) => (
-                                <span
-                                  key={vIdx}
-                                  className="bg-[#F7F4ED] text-[#6C0F37] border border-[#E6E1D8] text-xs px-2.5 py-0.5 rounded-md font-medium"
-                                >
-                                  📖 {item}
-                                </span>
-                              ))}
-
-                              {meta.grammar.length > 0 && (
-                                <span className="text-[11px] font-bold text-[#6C0F37] ml-2 mr-1">
-                                  Gramática:
-                                </span>
-                              )}
-                              {meta.grammar.map((item, gIdx) => (
-                                <span
-                                  key={gIdx}
-                                  className="bg-[#FFFDF7] text-[#6C0F37] border border-[#E6E1D8] text-xs px-2.5 py-0.5 rounded-md font-medium"
-                                >
-                                  ⚖️ {item}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
 
-                        {/* Lista de Atividades e Recursos da Aula */}
-                        {validActivities.length === 0 ? (
-                          <div className="py-2 text-xs text-[#6F6865] italic flex items-center gap-1.5">
-                            <span>📄</span>
-                            <span>Esta lição não possui materiais para download ou reprodução direta.</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-4 pt-1">
-                            {validActivities.map((act: any) => {
-                              const embedUrl = getYouTubeEmbedUrl(act.video_url);
-
-                              return (
-                                <div
-                                  key={act.id}
-                                  className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl p-4 space-y-3"
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-white border border-[#E6E1D8] px-2 py-0.5 rounded">
-                                        {act.type}
-                                      </span>
-                                      <h4 className="text-sm font-bold text-[#2B2426] mt-1">
-                                        {act.title}
-                                      </h4>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      {act.pdf_url && (
-                                        <a
-                                          href={act.pdf_url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="px-3 py-1.5 text-xs font-semibold bg-[#6C0F37] text-white rounded-lg hover:bg-[#57102E] transition shadow-2xs"
-                                        >
-                                          Abrir PDF ↗
-                                        </a>
-                                      )}
-                                      {act.link_url && (
-                                        <a
-                                          href={act.link_url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="px-3 py-1.5 text-xs font-semibold border border-[#E6E1D8] text-[#2B2426] bg-white rounded-lg hover:bg-[#FFFDF7] transition"
-                                        >
-                                          Link Externo ↗
-                                        </a>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Player Embutido (Vídeo do YouTube) */}
-                                  {embedUrl && (
-                                    <div className="overflow-hidden rounded-xl bg-black aspect-video w-full shadow-xs">
-                                      <iframe
-                                        src={embedUrl}
-                                        title={act.title}
-                                        className="w-full h-full border-0"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                        allowFullScreen
-                                      />
-                                    </div>
-                                  )}
-
-                                  {/* Instruções e Conteúdo em Markdown Formatado */}
-                                  {act.content_markdown && act.content_markdown.trim() && (
-                                    <div className="pt-2 border-t border-[#E6E1D8]">
-                                      <PaginatedContent
-                                        content={act.content_markdown}
-                                        fontSizeClass="text-xs text-[#2B2426]"
-                                        enableKeyboardNavigation={false}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                        {/* Metas Pedagógicas */}
+                        {meta.communicativeGoals && (
+                          <p className="text-xs text-[#6F6865] mt-1.5 leading-relaxed">
+                            {meta.communicativeGoals}
+                          </p>
                         )}
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
+                      </div>
+
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 self-start sm:self-auto">
+                        Liberada
+                      </span>
+                    </div>
+
+                    {/* Vocabulário & Gramática */}
+                    {(meta.vocabulary.length > 0 || meta.grammar.length > 0) && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {meta.vocabulary.map((v, vIdx) => (
+                          <span
+                            key={vIdx}
+                            className="bg-[#F7F4ED] text-[#6C0F37] border border-[#E6E1D8] text-[10px] font-medium px-2 py-0.5 rounded-md"
+                          >
+                            📖 {v}
+                          </span>
+                        ))}
+                        {meta.grammar.map((g, gIdx) => (
+                          <span
+                            key={gIdx}
+                            className="bg-[#FFFDF7] text-[#6C0F37] border border-[#E6E1D8] text-[10px] font-medium px-2 py-0.5 rounded-md"
+                          >
+                            ⚖️ {g}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Atividades e Materiais da Lição */}
+                    {lesson.activities && lesson.activities.length > 0 ? (
+                      <div className="space-y-4 pt-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37] block">
+                          Materiais & Atividades da Lição ({lesson.activities.length})
+                        </span>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          {lesson.activities.map((act: any) => (
+                            <div
+                              key={act.id}
+                              className="p-4 bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl space-y-3"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white text-[#6C0F37] border border-[#E6E1D8]">
+                                  {act.type}
+                                </span>
+                                <span className="text-xs font-bold text-[#2B2426]">
+                                  {act.title}
+                                </span>
+                              </div>
+
+                              {act.description && (
+                                <p className="text-xs text-[#6F6865]">{act.description}</p>
+                              )}
+
+                              {act.content_markdown && (
+                                <PaginatedContent
+                                  content={act.content_markdown}
+                                  fontSizeClass="text-xs text-[#2B2426]"
+                                />
+                              )}
+
+                              {act.video_url && getYouTubeEmbedUrl(act.video_url) && (
+                                <div className="aspect-video w-full rounded-xl overflow-hidden border border-[#E6E1D8]">
+                                  <iframe
+                                    src={getYouTubeEmbedUrl(act.video_url)!}
+                                    title={act.title}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    className="w-full h-full border-0"
+                                  />
+                                </div>
+                              )}
+
+                              {act.pdf_url && (
+                                <div className="pt-1">
+                                  <a
+                                    href={act.pdf_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#6C0F37] bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] rounded-lg transition"
+                                  >
+                                    <span>📄</span>
+                                    <span>Abrir material em PDF</span>
+                                  </a>
+                                </div>
+                              )}
+
+                              {act.link_url && (
+                                <div className="pt-1">
+                                  <a
+                                    href={act.link_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#6C0F37] bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] rounded-lg transition"
+                                  >
+                                    <span>🔗</span>
+                                    <span>Acessar link complementar</span>
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#6F6865] italic">
+                        Nenhum material complementar anexado a esta lição no momento.
+                      </p>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          </div>
+        ))
       )}
     </div>
   );

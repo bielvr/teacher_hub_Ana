@@ -65,7 +65,7 @@ export function StudentDashboardClient({
                   </span>
                   <span className="text-xs text-[#6F6865] flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Ao Vivo
+                    Aula
                   </span>
                 </div>
 
@@ -95,14 +95,14 @@ export function StudentDashboardClient({
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#6C0F37] hover:bg-[#57102E] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs"
                         >
-                          <span>Entrar na Sala Virtual</span>
+                          <span>Link da videochamada</span>
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
                         </a>
                       ) : (
                         <p className="text-xs text-[#6F6865] italic bg-[#FFFDF7] border border-[#E6E1D8] p-3 rounded-xl">
-                          O link da sala virtual será disponibilizado pelo seu professor pouco antes do horário marcado.
+                          O link da videochamada será disponibilizado pouco antes do horário marcado.
                         </p>
                       )}
                     </div>
@@ -116,7 +116,7 @@ export function StudentDashboardClient({
                       Nenhuma aula agendada no momento
                     </h3>
                     <p className="text-xs text-[#6F6865] mt-1 max-w-sm mx-auto">
-                      Aguarde o agendamento da próxima sessão da sua turma pelo professor.
+                      Aguarde o agendamento de suas aulas pelo professor.
                     </p>
                   </div>
                 )}

@@ -394,7 +394,7 @@ export function StudentNotesEditorClient({
       )}
 
       {/* ============================================================== */}
-      {/* MODO AULA / APRESENTAÇÃO (FULLSCREEN TELA LIMPA PARA ZOOM/MEET) */}
+      {/* MODO AULA / APRESENTAÇÃO (FULLSCREEN TELA LIMPA PARA VIDEOCHAMADA) */}
       {/* ============================================================== */}
       {isClassMode ? (
         <div className="fixed inset-0 z-50 bg-[#F7F4ED] flex flex-col p-6 sm:p-10 overflow-hidden animate-in fade-in duration-200">

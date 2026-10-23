@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../src/services/organizations';
-import { getStudentContext } from '../../../src/services/student';
 import { Card } from '../../../src/components/Card';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { renderInlineMarkdown } from '../../../src/components/PaginatedContent';
@@ -67,20 +66,156 @@ export default async function StudentTracksPage({
 
   if (!activeOrgId) return null;
 
-  const context = await getStudentContext(supabase, activeOrgId);
-  const tracks = context?.tracks || [];
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Busca permissões específicas de nivelamento salvas pela professora
+  if (!user) return null;
+
+  // 1. Identifica a membership do estudante na organização
+  const { data: member } = await supabase
+    .from('organization_members')
+    .select('id, role')
+    .eq('organization_id', activeOrgId)
+    .eq('profile_id', user.id)
+    .maybeSingle();
+
+  const memberId = member?.id || '';
+  const candidateStudentIds = Array.from(new Set([memberId, user.id].filter(Boolean)));
+
+  // 2. Condição 1: Níveis/Trilhas liberados diretamente para o estudante
   const { data: unlockedItems } = await supabase
     .from('student_review_items')
     .select('item_id')
     .eq('organization_id', activeOrgId)
-    .eq('student_id', context?.user?.id || '')
+    .in('student_id', candidateStudentIds)
     .eq('item_type', 'resource')
     .eq('content_preview', 'unlocked_level');
 
-  const unlockedTrackIds = (unlockedItems || []).map((u: any) => u.item_id);
-  const hasSpecificUnlocked = unlockedTrackIds.length > 0;
+  const directlyUnlockedTrackIds = (unlockedItems || []).map((u: any) => u.item_id).filter(Boolean);
+
+  // 3. Condição 2: Trilhas associadas às turmas em que o estudante está matriculado
+  const { data: enrollments } =
+    candidateStudentIds.length > 0
+      ? await supabase
+          .from('class_students')
+          .select(`
+            class_id,
+            classes (
+              id,
+              name,
+              level
+            )
+          `)
+          .in('student_id', candidateStudentIds)
+      : { data: [] };
+
+  const classLevels = (enrollments || [])
+    .map((e: any) => e.classes?.level)
+    .filter(Boolean);
+
+  const enrolledClassIds = (enrollments || [])
+    .map((e: any) => e.class_id)
+    .filter(Boolean);
+
+  // Se a turma tiver um nível que corresponda a track title ou id
+  let classTrackIds: string[] = [];
+  if (classLevels.length > 0) {
+    const { data: matchedTracks } = await supabase
+      .from('tracks')
+      .select('id')
+      .eq('organization_id', activeOrgId)
+      .or(
+        classLevels
+          .map((lvl: string) => `title.eq."${lvl.replace(/"/g, '')}",id.eq."${lvl.replace(/"/g, '')}"`)
+          .join(',')
+      );
+
+    classTrackIds = (matchedTracks || []).map((t) => t.id);
+  }
+
+  // Também verifica se há lições vinculadas às sessões da turma
+  if (enrolledClassIds.length > 0) {
+    const { data: liveLessons } = await supabase
+      .from('live_sessions')
+      .select('lesson_id')
+      .in('class_id', enrolledClassIds)
+      .not('lesson_id', 'is', null);
+
+    const lessonIds = (liveLessons || []).map((l: any) => l.lesson_id).filter(Boolean);
+    if (lessonIds.length > 0) {
+      const { data: modulesData } = await supabase
+        .from('lessons')
+        .select('module_id, modules (track_id)')
+        .in('id', lessonIds);
+
+      const trackIdsFromLessons = (modulesData || [])
+        .map((m: any) => m.modules?.track_id)
+        .filter(Boolean);
+
+      classTrackIds = Array.from(new Set([...classTrackIds, ...trackIdsFromLessons]));
+    }
+  }
+
+  // União das permissões estritas (Nenhum fallback permissivo)
+  const allowedTrackIds = Array.from(new Set([...directlyUnlockedTrackIds, ...classTrackIds]));
+
+  // Se não houver itens liberados, exibe o Empty State limpo exigido
+  if (allowedTrackIds.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div className="border-b border-[#E6E1D8] pb-4">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
+            Materiais Didáticos
+          </span>
+          <h1 className="text-3xl font-bold tracking-tight text-[#6C0F37] mt-1">
+            Trilhas & Conteúdos de Estudo
+          </h1>
+          <p className="text-sm text-[#6F6865] mt-1">
+            Acesse os módulos pedagógicos, lições liberadas, vocabulário e materiais de apoio.
+          </p>
+        </div>
+
+        <Card className="p-8 border-[#E6E1D8] bg-white rounded-2xl">
+          <EmptyState
+            title="Nenhum material didático liberado no momento"
+            description="Conforme suas aulas avançarem, seus materiais aparecerão aqui."
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  // Busca estritamente as trilhas liberadas para este estudante
+  const { data: tracks } = await supabase
+    .from('tracks')
+    .select(`
+      id,
+      title,
+      description,
+      modules (
+        id,
+        title,
+        order_index,
+        lessons (
+          id,
+          title,
+          description,
+          order_index,
+          release_type,
+          activities (
+            id,
+            title,
+            type
+          )
+        )
+      )
+    `)
+    .eq('organization_id', activeOrgId)
+    .in('id', allowedTrackIds)
+    .order('created_at', { ascending: true });
+
+  const allowedTracks = tracks || [];
 
   return (
     <div className="space-y-8">
@@ -97,63 +232,35 @@ export default async function StudentTracksPage({
         </p>
       </div>
 
-      {tracks.length === 0 ? (
-        <EmptyState
-          title="Nenhuma trilha liberada no momento"
-          description="Seu professor disponibilizará os módulos e lições aqui conforme o avanço dos seus estudos."
-        />
+      {allowedTracks.length === 0 ? (
+        <Card className="p-8 border-[#E6E1D8] bg-white rounded-2xl">
+          <EmptyState
+            title="Nenhum material didático liberado no momento"
+            description="Conforme suas aulas avançarem, seus materiais aparecerão aqui."
+          />
+        </Card>
       ) : (
-        tracks.map((track: any) => {
-          const isTrackUnlocked = !hasSpecificUnlocked || unlockedTrackIds.includes(track.id);
-
-          if (!isTrackUnlocked) {
-            return (
-              <div key={track.id} className="space-y-4 opacity-70">
-                <div className="border-b border-[#E6E1D8] pb-3 flex items-baseline justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold text-[#6F6865]">{track.title}</h2>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">
-                        🔒 Nível Bloqueado
-                      </span>
-                    </div>
-                    {track.description && (
-                      <div className="text-xs text-[#6F6865] mt-0.5">{renderInlineMarkdown(track.description)}</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-4 text-xs text-[#6F6865] flex items-center gap-3">
-                  <span className="text-xl">🔒</span>
-                  <span>
-                    Este nível pedagógico ainda não foi liberado para você. Conforme você evoluir nos estudos, seu professor liberará o acesso.
+        allowedTracks.map((track: any) => (
+          <div key={track.id} className="space-y-6">
+            <div className="border-b border-[#E6E1D8] pb-3 flex items-baseline justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-[#6C0F37]">{track.title}</h2>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    ✓ Liberado
                   </span>
                 </div>
+                {track.description && (
+                  <div className="text-xs text-[#6F6865] mt-0.5">{renderInlineMarkdown(track.description)}</div>
+                )}
               </div>
-            );
-          }
-
-          return (
-            <div key={track.id} className="space-y-6">
-              <div className="border-b border-[#E6E1D8] pb-3 flex items-baseline justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold text-[#6C0F37]">{track.title}</h2>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      ✓ Liberado
-                    </span>
-                  </div>
-                  {track.description && (
-                    <div className="text-xs text-[#6F6865] mt-0.5">{renderInlineMarkdown(track.description)}</div>
-                  )}
-                </div>
-                <Link
-                  href={`/student/tracks/${track.id}?org=${activeOrgId}`}
-                  className="text-xs font-semibold text-[#6C0F37] hover:underline"
-                >
-                  Abrir trilha completa →
-                </Link>
-              </div>
+              <Link
+                href={`/student/tracks/${track.id}?org=${activeOrgId}`}
+                className="text-xs font-semibold text-[#6C0F37] hover:underline"
+              >
+                Abrir trilha completa →
+              </Link>
+            </div>
 
             {/* Módulos */}
             {track.modules?.map((mod: any, mIdx: number) => (
@@ -197,14 +304,14 @@ export default async function StudentTracksPage({
                               {lesson.title}
                             </h4>
 
-                            {/* Metas Pedagógicas / Objetivos Comunicativos */}
+                            {/* Metas Pedagógicas */}
                             {meta.communicativeGoals && (
                               <p className="text-xs text-[#6F6865] mt-1.5 line-clamp-2 leading-relaxed">
                                 {meta.communicativeGoals}
                               </p>
                             )}
 
-                            {/* Badges de Vocabulário e Gramática (Fikra Oficial) */}
+                            {/* Badges de Vocabulário e Gramática */}
                             {(meta.vocabulary.length > 0 || meta.grammar.length > 0) && (
                               <div className="flex flex-wrap gap-1 mt-2.5">
                                 {meta.vocabulary.slice(0, 3).map((item, vIdx) => (
@@ -243,9 +350,8 @@ export default async function StudentTracksPage({
               </div>
             ))}
           </div>
-        );
-      })
-    )}
-  </div>
-);
+        ))
+      )}
+    </div>
+  );
 }
