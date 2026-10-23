@@ -1,12 +1,15 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
-import { createClient } from '../lib/supabase/server';
+import { headers, cookies } from 'next/headers';
+import { createClient, COOKIE_MAX_AGE_30_DAYS } from '../lib/supabase/server';
 
 export async function loginAction(formData: FormData) {
   const email = (formData.get('email') as string)?.trim();
   const password = (formData.get('password') as string)?.trim();
+  const rememberField = formData.get('remember');
+  // Por padrão o checkbox vem marcado (true/on); se o usuário desmarcar vem null/undefined
+  const remember = rememberField === 'true' || rememberField === 'on' || rememberField !== null;
 
   if (!email || !password) {
     return { error: 'E-mail e senha são obrigatórios.' };
@@ -21,6 +24,20 @@ export async function loginAction(formData: FormData) {
   if (error || !data.user) {
     return { error: error?.message || 'Credenciais inválidas.' };
   }
+
+  // Reforça a persistência dos cookies de sessão com 30 dias se 'remember' for true
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  allCookies.forEach((c) => {
+    if (c.name.startsWith('sb-') || c.name.includes('auth-token')) {
+      cookieStore.set(c.name, c.value, {
+        maxAge: remember ? COOKIE_MAX_AGE_30_DAYS : undefined,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      });
+    }
+  });
 
   // Consulta membro na organização
   const { data: member } = await supabase
@@ -42,6 +59,23 @@ export async function loginAction(formData: FormData) {
 export async function logoutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+
+  // Limpa explicitamente quaisquer cookies remanescentes do Supabase
+  try {
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+    allCookies.forEach((c) => {
+      if (c.name.startsWith('sb-') || c.name.includes('auth-token')) {
+        cookieStore.set(c.name, '', {
+          maxAge: 0,
+          path: '/',
+        });
+      }
+    });
+  } catch {
+    // Ignora se indisponível
+  }
+
   redirect('/login');
 }
 
@@ -100,4 +134,3 @@ export async function resetPasswordAction(formData: FormData) {
 
   return { success: true };
 }
-

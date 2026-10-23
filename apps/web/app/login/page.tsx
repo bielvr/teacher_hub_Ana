@@ -172,6 +172,17 @@ function LoginForm() {
           </div>
         </div>
 
+        <label className="flex items-center gap-2 text-xs text-[#6F6865] cursor-pointer select-none mt-2">
+          <input 
+            type="checkbox" 
+            name="remember" 
+            value="true" 
+            defaultChecked 
+            className="w-4 h-4 text-[#6C0F37] border-[#E6E1D8] rounded focus:ring-[#6C0F37] accent-[#6C0F37] cursor-pointer" 
+          />
+          <span>Mantenha-me conectado</span>
+        </label>
+
         <button
           type="submit"
           disabled={loading || googleLoading}
