@@ -146,15 +146,15 @@ export default async function TracksPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Materiais Didáticos"
-        description="Acervo finalizado de slides, PDFs, áudios, links e atividades prontos para liberar e vincular aos alunos e turmas."
+        title="Materiais didáticos"
+        description="Acervo finalizado de materiais, documentos, áudios, links e atividades prontos para disponibilizar e vincular a estudantes e turmas."
         action={
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
               href={`/professor/planning?org=${activeOrgId}`}
               className="px-3.5 py-2 bg-white border border-[#E6E1D8] text-[#6C0F37] text-xs font-semibold rounded-xl hover:bg-[#FAF8F5] transition-colors"
             >
-              📝 Ir para Planejamento
+              📝 Ir para planejamento
             </Link>
             <CreateTrackModal
               organizationId={activeOrgId}

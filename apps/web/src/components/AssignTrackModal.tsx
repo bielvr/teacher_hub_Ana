@@ -19,7 +19,7 @@ export function AssignTrackModal({
   organizationId,
   classes,
   students,
-  triggerText = 'Atribuir a aluno/turma',
+  triggerText = 'Atribuir a estudante ou turma',
 }: AssignTrackModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [targetType, setTargetType] = useState<'class' | 'student'>('class');
@@ -82,167 +82,184 @@ export function AssignTrackModal({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsOpen(false);
+            if (e.target === e.currentTarget && !isPending) setIsOpen(false);
           }}
         >
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-2xl w-full max-w-md relative animate-in zoom-in-95 duration-150">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 text-[#6F6865] hover:text-[#2B2426] p-1 font-bold text-base cursor-pointer"
-              aria-label="Fechar"
-            >
-              ✕
-            </button>
+          <div
+            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho Fixo no Topo */}
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="text-left">
+                <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+                  Materiais didáticos
+                </span>
+                <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+                  Usar nível: {track.title}
+                </h1>
+                <p className="text-xs text-[#6F6865] mt-0.5 text-left">
+                  Vincule este material didático para ser seguido por uma turma ou por um estudante individual.
+                </p>
+              </div>
 
-            <div className="mb-4">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8]">
-                Atribuição Curricular
-              </span>
-              <h3 className="text-lg font-bold text-[#6C0F37] mt-1.5">
-                Usar nível: {track.title}
-              </h3>
-              <p className="text-xs text-[#6F6865] mt-0.5">
-                Vincule este material didático para ser seguido por uma turma inteira ou por um aluno VIP/individual.
-              </p>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                disabled={isPending}
+                className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer disabled:opacity-50"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
             </div>
 
-            {errorMsg && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-                <span>⚠️</span>
-                <span>{errorMsg}</span>
-              </div>
-            )}
+            {/* Formulário com corpo e rodapé */}
+            <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
+                {errorMsg && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
 
-            {successMsg && (
-              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-medium">
-                <span>✓</span>
-                <span>{successMsg}</span>
-              </div>
-            )}
+                {successMsg && (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-medium">
+                    <span>✓</span>
+                    <span>{successMsg}</span>
+                  </div>
+                )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Seletor de Tipo de Atribuição */}
-              <div>
-                <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                  Destinatário da Atribuição
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTargetType('class')}
-                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                      targetType === 'class'
-                        ? 'bg-[#6C0F37] text-white border-[#6C0F37]'
-                        : 'bg-[#F7F4ED] text-[#2B2426] border-[#E6E1D8] hover:bg-white'
-                    }`}
-                  >
-                    <span>👥</span>
-                    <span>Turma Inteira</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTargetType('student')}
-                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                      targetType === 'student'
-                        ? 'bg-[#6C0F37] text-white border-[#6C0F37]'
-                        : 'bg-[#F7F4ED] text-[#2B2426] border-[#E6E1D8] hover:bg-white'
-                    }`}
-                  >
-                    <span>👤</span>
-                    <span>Aluno Individual</span>
-                  </button>
-                </div>
-              </div>
-
-              {targetType === 'class' ? (
-                <div>
-                  <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    Selecionar Turma <span className="text-red-500">*</span>
-                  </label>
-                  {classes.length === 0 ? (
-                    <p className="text-xs text-[#6F6865] bg-[#F7F4ED] p-3 rounded-xl border border-[#E6E1D8]">
-                      Nenhuma turma cadastrada. Crie uma turma em Gestão &gt; Turmas primeiro.
-                    </p>
-                  ) : (
-                    <select
-                      value={selectedClassId}
-                      onChange={(e) => setSelectedClassId(e.target.value)}
-                      required
-                      className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                    >
-                      {classes.map((cls) => (
-                        <option key={cls.id} value={cls.id}>
-                          {cls.name} {cls.level ? `(Nível atual: ${cls.level})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs max-w-2xl">
+                  {/* Seletor de Tipo de Atribuição */}
                   <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                      Selecionar Aluno <span className="text-red-500">*</span>
+                    <label className="block text-xs font-semibold text-[#2B2426] mb-2">
+                      Destinatário da atribuição
                     </label>
-                    {students.length === 0 ? (
-                      <p className="text-xs text-[#6F6865] bg-[#F7F4ED] p-3 rounded-xl border border-[#E6E1D8]">
-                        Nenhum aluno cadastrado nesta organização.
-                      </p>
-                    ) : (
-                      <select
-                        value={selectedStudentId}
-                        onChange={(e) => setSelectedStudentId(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('class')}
+                        className={`py-3 px-4 text-xs font-semibold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
+                          targetType === 'class'
+                            ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-2xs'
+                            : 'bg-[#FAF8F5] text-[#2B2426] border-[#E6E1D8] hover:bg-white'
+                        }`}
                       >
-                        {students.map((st) => (
-                          <option key={st.id} value={st.id}>
-                            {st.full_name} {st.email ? `(${st.email})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                        <span>👥</span>
+                        <span>Turma</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('student')}
+                        className={`py-3 px-4 text-xs font-semibold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
+                          targetType === 'student'
+                            ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-2xs'
+                            : 'bg-[#FAF8F5] text-[#2B2426] border-[#E6E1D8] hover:bg-white'
+                        }`}
+                      >
+                        <span>👤</span>
+                        <span>Estudante individual</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {classes.length > 0 && (
+                  {targetType === 'class' ? (
                     <div>
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                        Vincular à Turma deste Nível <span className="text-[#6F6865] font-normal">(Opcional)</span>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Selecionar turma <span className="text-red-500">*</span>
                       </label>
-                      <select
-                        value={selectedClassId}
-                        onChange={(e) => setSelectedClassId(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                      >
-                        <option value="">Nenhuma turma específica (Aluno VIP / Avulso)</option>
-                        {classes.map((cls) => (
-                          <option key={cls.id} value={cls.id}>
-                            {cls.name}
-                          </option>
-                        ))}
-                      </select>
+                      {classes.length === 0 ? (
+                        <p className="text-xs text-[#6F6865] bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E6E1D8]">
+                          Nenhuma turma cadastrada. Crie uma turma em Gestão &gt; Turmas primeiro.
+                        </p>
+                      ) : (
+                        <select
+                          value={selectedClassId}
+                          onChange={(e) => setSelectedClassId(e.target.value)}
+                          required
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                        >
+                          {classes.map((cls) => (
+                            <option key={cls.id} value={cls.id}>
+                              {cls.name} {cls.level ? `(Nível atual: ${cls.level})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Selecionar estudante <span className="text-red-500">*</span>
+                        </label>
+                        {students.length === 0 ? (
+                          <p className="text-xs text-[#6F6865] bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E6E1D8]">
+                            Nenhum estudante cadastrado nesta organização.
+                          </p>
+                        ) : (
+                          <select
+                            value={selectedStudentId}
+                            onChange={(e) => setSelectedStudentId(e.target.value)}
+                            required
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                          >
+                            {students.map((st) => (
+                              <option key={st.id} value={st.id}>
+                                {st.full_name} {st.email ? `(${st.email})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      {classes.length > 0 && (
+                        <div>
+                          <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                            Vincular à turma deste nível <span className="text-[#6F6865] font-normal">(opcional)</span>
+                          </label>
+                          <select
+                            value={selectedClassId}
+                            onChange={(e) => setSelectedClassId(e.target.value)}
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                          >
+                            <option value="">Nenhuma turma específica (estudante individual)</option>
+                            {classes.map((cls) => (
+                              <option key={cls.id} value={cls.id}>
+                                {cls.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E1D8]">
+              {/* Rodapé Fixo na Base */}
+              <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
                   disabled={isPending}
-                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:bg-[#F7F4ED] rounded-xl transition cursor-pointer"
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending || (targetType === 'class' && classes.length === 0) || (targetType === 'student' && students.length === 0)}
-                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                  disabled={
+                    isPending ||
+                    (targetType === 'class' && classes.length === 0) ||
+                    (targetType === 'student' && students.length === 0)
+                  }
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
                 >
                   {isPending ? (
                     <>
@@ -250,7 +267,7 @@ export function AssignTrackModal({
                       <span>Salvando...</span>
                     </>
                   ) : (
-                    <span>Confirmar Atribuição</span>
+                    <span>Confirmar atribuição</span>
                   )}
                 </button>
               </div>

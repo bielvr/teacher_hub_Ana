@@ -27,7 +27,7 @@ export default async function ClassesPage({
     <div className="space-y-6">
       <PageHeader
         title="Turmas"
-        description="Cadastre turmas, organize módulos e gerencie seus alunos matriculados."
+        description="Cadastre turmas, organize módulos e gerencie estudantes matriculados."
         action={<CreateClassModal orgId={activeOrgId} />}
       />
 
@@ -63,7 +63,7 @@ export default async function ClassesPage({
 
                   <p className="mt-4 text-sm text-zinc-500 flex items-center gap-2">
                     <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                    {studentCount} {studentCount === 1 ? 'aluno matriculado' : 'alunos matriculados'}
+                    {studentCount} {studentCount === 1 ? 'estudante matriculado' : 'estudantes matriculados'}
                   </p>
                 </div>
 
@@ -72,7 +72,7 @@ export default async function ClassesPage({
                     href={`/professor/classes/${cls.id}?org=${activeOrgId}`}
                     className="text-sm font-semibold text-zinc-900 hover:underline"
                   >
-                    Ver Detalhes →
+                    Ver detalhes →
                   </Link>
                 </div>
               </Card>

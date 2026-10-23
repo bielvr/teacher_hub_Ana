@@ -435,7 +435,7 @@ export function ActivityBankClient({
               {selectedIds.length} {selectedIds.length === 1 ? 'selecionada' : 'selecionadas'}
             </span>
             <span className="text-xs font-semibold">
-              Atividades selecionadas para atribuição coletiva a alunos ou turmas.
+              Atividades selecionadas para atribuição coletiva a estudantes ou turmas.
             </span>
           </div>
 
@@ -453,7 +453,7 @@ export function ActivityBankClient({
               className="px-4 py-2 bg-[#D7CE36] hover:bg-[#C2B92F] text-[#6C0F37] font-bold text-xs rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
             >
               <span>🎯</span>
-              <span>Atribuir selecionadas ao aluno</span>
+              <span>Atribuir selecionadas</span>
             </button>
           </div>
         </div>
@@ -733,98 +733,118 @@ export function ActivityBankClient({
       {/* REQUISITO 3: Modal de Atribuição em Lote */}
       {isBulkAssignOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
           onClick={(e) => {
             if (e.target === e.currentTarget && !bulkAssignLoading) setIsBulkAssignOpen(false);
           }}
         >
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-2xl w-full max-w-lg relative animate-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-[#6C0F37]">Atribuir em Lote</h3>
-                <p className="text-xs text-[#6F6865]">
-                  Atribuir <strong>{selectedIds.length}</strong> atividades selecionadas para um aluno individual ou turma inteira.
+          <div
+            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho Fixo no Topo */}
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="text-left">
+                <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+                  Materiais didáticos
+                </span>
+                <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+                  Atribuir em lote
+                </h1>
+                <p className="text-xs text-[#6F6865] mt-0.5 text-left">
+                  Atribuir {selectedIds.length} atividades selecionadas para um estudante individual ou turma.
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => setIsBulkAssignOpen(false)}
-                className="text-[#6F6865] hover:text-[#2B2426] p-1 font-bold cursor-pointer"
+                disabled={bulkAssignLoading}
+                className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer disabled:opacity-50"
+                aria-label="Fechar"
               >
                 ✕
               </button>
             </div>
 
-            {/* Lista das atividades selecionadas */}
-            <div className="max-h-36 overflow-y-auto p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-1.5 text-xs">
-              <span className="font-bold text-[#2B2426] block mb-1">
-                Atividades que serão atribuídas:
-              </span>
-              {initialActivities
-                .filter((a) => selectedIds.includes(a.id))
-                .map((a) => (
-                  <div key={a.id} className="flex items-center gap-1.5 text-[#6C0F37] font-medium">
-                    <span>✓</span>
-                    <span className="truncate">{a.title}</span>
+            {/* Formulário com corpo e rodapé */}
+            <form onSubmit={handleBulkAssignSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
+                {/* Lista das atividades selecionadas */}
+                <div className="p-4 bg-white border border-[#E6E1D8] rounded-2xl space-y-2 shadow-2xs max-w-2xl">
+                  <span className="font-bold text-xs text-[#2B2426] block">
+                    Atividades que serão atribuídas ({selectedIds.length}):
+                  </span>
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 pt-1">
+                    {initialActivities
+                      .filter((a) => selectedIds.includes(a.id))
+                      .map((a) => (
+                        <div key={a.id} className="flex items-center gap-2 text-xs text-[#6C0F37] font-medium bg-[#FAF8F5] p-2 rounded-lg border border-[#E6E1D8]/60">
+                          <span>✓</span>
+                          <span className="truncate">{a.title}</span>
+                        </div>
+                      ))}
                   </div>
-                ))}
-            </div>
+                </div>
 
-            <form onSubmit={handleBulkAssignSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                  Destino da Atribuição
-                </label>
-                <select
-                  name="target_type"
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426]"
-                >
-                  <option value="student">Aluno Individual</option>
-                  <option value="class">Turma Completa</option>
-                </select>
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs max-w-2xl">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                      Destino da atribuição
+                    </label>
+                    <select
+                      name="target_type"
+                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                    >
+                      <option value="student">Estudante individual</option>
+                      <option value="class">Turma</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                      Selecione o estudante ou turma
+                    </label>
+                    <select
+                      name="target_id"
+                      required
+                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                    >
+                      <optgroup label="Estudantes">
+                        {students.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.full_name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Turmas">
+                        {classes.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                  Selecione o Aluno ou Turma
-                </label>
-                <select
-                  name="target_id"
-                  required
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426]"
-                >
-                  <optgroup label="Alunos">
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.full_name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Turmas">
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E1D8]">
+              {/* Rodapé Fixo na Base */}
+              <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
                 <button
                   type="button"
                   onClick={() => setIsBulkAssignOpen(false)}
                   disabled={bulkAssignLoading}
-                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:bg-[#F7F4ED] rounded-xl cursor-pointer"
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={bulkAssignLoading}
-                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
                 >
-                  {bulkAssignLoading ? 'Atribuindo...' : `Atribuir ${selectedIds.length} Atividades`}
+                  {bulkAssignLoading ? 'Atribuindo...' : `Atribuir ${selectedIds.length} atividades`}
                 </button>
               </div>
             </form>

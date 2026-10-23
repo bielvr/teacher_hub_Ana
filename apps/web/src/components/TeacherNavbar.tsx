@@ -133,7 +133,7 @@ export function TeacherNavbar({
   const managementLinks = [
     { href: `/professor/calendar?org=${activeOrgId}`, path: '/professor/calendar', label: 'Agenda' },
     { href: `/professor/classes?org=${activeOrgId}`, path: '/professor/classes', label: 'Turmas' },
-    { href: `/professor/students?org=${activeOrgId}`, path: '/professor/students', label: 'Alunos' },
+    { href: `/professor/students?org=${activeOrgId}`, path: '/professor/students', label: 'Estudantes' },
   ];
 
   const activeMembership =

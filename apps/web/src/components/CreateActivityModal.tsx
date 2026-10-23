@@ -140,6 +140,7 @@ export function CreateActivityModal({
     return ['Prática', 'Revisão'];
   });
   const [newTagInput, setNewTagInput] = useState('');
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
 
   // ETAPA 2: Blocos da Atividade
   const [blocks, setBlocks] = useState<ModularBlock[]>(() => {
@@ -612,7 +613,7 @@ export function CreateActivityModal({
           }}
         >
           <div
-            className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl max-w-[1440px] w-[94vw] min-h-[90vh] max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Feedback flutuante */}
@@ -624,16 +625,16 @@ export function CreateActivityModal({
             )}
 
             {/* 1. CABEÇALHO COM STEPPER EM 3 ETAPAS REAIS */}
-            <div className="px-6 py-4 bg-white border-b border-[#E6E1D8] shrink-0 z-20 space-y-3">
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white space-y-3 z-20">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="text-left">
                   <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
-                    ATIVIDADES
+                    Materiais didáticos
                   </span>
-                  <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5">
+                  <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
                     Criar atividade
                   </h1>
-                  <p className="text-xs text-[#6F6865] mt-0.5">
+                  <p className="text-xs text-[#6F6865] mt-0.5 text-left">
                     {activeStep === 1 &&
                       'Comece pelas informações que ajudam a organizar sua atividade.'}
                     {activeStep === 2 &&
@@ -705,7 +706,7 @@ export function CreateActivityModal({
             </div>
 
             {/* 2. CORPO DO CONTEÚDO (TELAS EXCLUSIVAS POR ETAPA) */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-white scroll-smooth">
+            <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
               {errorMsg && (
                 <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
                   <span>⚠️</span>
@@ -739,7 +740,7 @@ export function CreateActivityModal({
                           type="text"
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
-                          placeholder="Talking about future plans"
+                          placeholder="Ex: Introdução à termodinâmica ou Análise sintática"
                           className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
                         />
                       </div>
@@ -906,68 +907,80 @@ export function CreateActivityModal({
 
                   {/* Seção Inferior: Tags Dinâmicas */}
                   <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3 shadow-2xs">
-                    <div>
-                      <label className="text-xs font-semibold text-[#2B2426]">
-                        Tags (opcional)
-                      </label>
-                      <p className="text-[11px] text-[#6F6865] mt-0.5">
-                        Adicione tags para facilitar a organização e a busca.
-                      </p>
+                    <div
+                      className="flex items-center justify-between cursor-pointer select-none"
+                      onClick={() => setIsTagsOpen(!isTagsOpen)}
+                    >
+                      <div className="text-left">
+                        <label className="text-xs font-semibold text-[#2B2426] cursor-pointer">
+                          Tags (opcional)
+                        </label>
+                        <p className="text-[11px] text-[#6F6865] mt-0.5">
+                          Adicione tags para facilitar a organização e a busca.
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-[#6C0F37] hover:underline">
+                        {isTagsOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                      </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      {tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#F3E8EC] border border-[#6C0F37]/30 text-[#6C0F37] text-xs font-semibold rounded-lg shadow-2xs"
-                        >
-                          <span>#{tag}</span>
+                    {isTagsOpen && (
+                      <div className="space-y-3 pt-2 border-t border-[#E6E1D8]/60">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#F3E8EC] border border-[#6C0F37]/30 text-[#6C0F37] text-xs font-semibold rounded-lg shadow-2xs"
+                            >
+                              <span>#{tag}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTag(tag)}
+                                className="text-[#6C0F37] hover:text-red-600 font-bold text-[10px] cursor-pointer"
+                                title="Remover tag"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+
+                          {/* Sugestões rápidas de 1 clique */}
+                          {DEFAULT_TAGS.filter((dt) => !tags.includes(dt)).map((sug) => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => setTags((prev) => [...prev, sug])}
+                              className="px-2.5 py-1 text-xs text-[#6F6865] hover:text-[#6C0F37] bg-[#FAF8F5] hover:bg-[#F3E8EC] border border-dashed border-[#E6E1D8] rounded-lg transition cursor-pointer"
+                            >
+                              + {sug}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex gap-2 max-w-md pt-1">
+                          <input
+                            type="text"
+                            value={newTagInput}
+                            onChange={(e) => setNewTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddTag();
+                              }
+                            }}
+                            placeholder="Digitar nova tag e pressionar Enter..."
+                            className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                          />
                           <button
                             type="button"
-                            onClick={() => handleRemoveTag(tag)}
-                            className="text-[#6C0F37] hover:text-red-600 font-bold text-[10px] cursor-pointer"
-                            title="Remover tag"
+                            onClick={handleAddTag}
+                            className="px-3.5 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer"
                           >
-                            ✕
+                            + Adicionar tag
                           </button>
-                        </span>
-                      ))}
-
-                      {/* Sugestões rápidas de 1 clique */}
-                      {DEFAULT_TAGS.filter((dt) => !tags.includes(dt)).map((sug) => (
-                        <button
-                          key={sug}
-                          type="button"
-                          onClick={() => setTags((prev) => [...prev, sug])}
-                          className="px-2.5 py-1 text-xs text-[#6F6865] hover:text-[#6C0F37] bg-[#FAF8F5] hover:bg-[#F3E8EC] border border-dashed border-[#E6E1D8] rounded-lg transition cursor-pointer"
-                        >
-                          + {sug}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2 max-w-md pt-1">
-                      <input
-                        type="text"
-                        value={newTagInput}
-                        onChange={(e) => setNewTagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddTag();
-                          }
-                        }}
-                        placeholder="Digitar nova tag e pressionar Enter..."
-                        className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddTag}
-                        className="px-3.5 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer"
-                      >
-                        + Adicionar tag
-                      </button>
-                    </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1643,7 +1656,7 @@ export function CreateActivityModal({
             </div>
 
             {/* 3. RODAPÉ FIXO COM BOTÕES DE NAVEGAÇÃO DA JORNADA */}
-            <div className="sticky bottom-0 bg-white border-t border-[#E6E1D8] px-6 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex flex-wrap items-center justify-between gap-3 z-20">
               {/* Botão Voltar ou Cancelar */}
               {activeStep === 1 ? (
                 <button

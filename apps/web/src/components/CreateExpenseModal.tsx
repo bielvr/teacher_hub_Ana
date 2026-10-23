@@ -62,138 +62,158 @@ export function CreateExpenseModal({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsOpen(false);
+            if (e.target === e.currentTarget && !loading) setIsOpen(false);
           }}
         >
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-2xl w-full max-w-md relative animate-in zoom-in-95 duration-150">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 text-[#6F6865] hover:text-[#2B2426] p-1 font-bold"
-            >
-              ✕
-            </button>
+          <div
+            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho Fixo no Topo */}
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="text-left">
+                <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+                  Financeiro
+                </span>
+                <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+                  Cadastrar despesa
+                </h1>
+                <p className="text-xs text-[#6F6865] mt-0.5 text-left">
+                  Registre uma conta recorrente ou despesa avulsa do seu negócio de ensino.
+                </p>
+              </div>
 
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-[#6C0F37]">Cadastrar despesa</h3>
-              <p className="text-xs text-[#6F6865] mt-0.5">
-                Registre uma conta recorrente ou despesa avulsa do seu negócio de ensino.
-              </p>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                disabled={loading}
+                className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer disabled:opacity-50"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
             </div>
 
-            {errorMsg && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
-                {errorMsg}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Formulário com corpo e rodapé */}
+            <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <input type="hidden" name="organization_id" value={organizationId} />
 
-              <div>
-                <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                  Descrição da Conta <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="description"
-                  required
-                  placeholder="Ex: Assinatura da Fikra, Internet Fibra..."
-                  className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  autoFocus
-                />
+              <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
+                {errorMsg && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs max-w-2xl">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                      Descrição da conta <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="description"
+                      required
+                      placeholder="Ex: Assinatura de plataforma, Internet..."
+                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                      Categoria
+                    </label>
+                    <select
+                      name="category"
+                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                    >
+                      {EXPENSE_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Valor (R$) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="amount"
+                        required
+                        placeholder="150.00"
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Vencimento <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="due_date"
+                        required
+                        defaultValue={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Recorrência
+                      </label>
+                      <select
+                        name="recurrence"
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                      >
+                        <option value="Mensal">Mensal</option>
+                        <option value="Única">Única</option>
+                        <option value="Anual">Anual</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Status
+                      </label>
+                      <select
+                        name="status"
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                      >
+                        <option value="pending">Pendente</option>
+                        <option value="paid">Paga</option>
+                        <option value="overdue">Vencida</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                  Categoria
-                </label>
-                <select
-                  name="category"
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                >
-                  {EXPENSE_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    Valor (R$) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="amount"
-                    required
-                    placeholder="150.00"
-                    className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    Vencimento <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="due_date"
-                    required
-                    defaultValue={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    Recorrência
-                  </label>
-                  <select
-                    name="recurrence"
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                  >
-                    <option value="Mensal">Mensal</option>
-                    <option value="Única">Única</option>
-                    <option value="Anual">Anual</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] focus:border-[#6C0F37] cursor-pointer"
-                  >
-                    <option value="pending">Pendente</option>
-                    <option value="paid">Paga</option>
-                    <option value="overdue">Vencida</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E1D8]">
+              {/* Rodapé Fixo na Base */}
+              <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
                   disabled={loading}
-                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:bg-[#F7F4ED] rounded-xl cursor-pointer"
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer"
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
                 >
                   {loading ? 'Salvando...' : 'Salvar despesa'}
                 </button>

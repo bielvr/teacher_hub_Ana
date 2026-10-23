@@ -58,7 +58,7 @@ export default async function ProfessorCorrectionsPage({
   const students: { id: string; full_name: string }[] = (membersData || [])
     .map((m: any) => ({
       id: m.profiles?.id || m.profile_id,
-      full_name: m.profiles?.full_name || 'Aluno',
+      full_name: m.profiles?.full_name || 'Estudante',
     }))
     .filter((s: any) => Boolean(s.id))
     .sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
@@ -105,7 +105,7 @@ export default async function ProfessorCorrectionsPage({
     return {
       id: sub.id,
       student_id: sub.student_id,
-      student_name: sub.profiles?.full_name || 'Aluno Fikra',
+      student_name: sub.profiles?.full_name || 'Estudante',
       activity_title: sub.title,
       level_name: tracks[0]?.title || 'Geral',
       class_name: classes[0]?.name || 'Individual',
@@ -122,7 +122,7 @@ export default async function ProfessorCorrectionsPage({
     <div className="space-y-6">
       <PageHeader
         title="Atividades e correções"
-        description="Acompanhe as atividades já atribuídas, as entregas dos alunos e tudo o que ainda precisa de correção ou feedback."
+        description="Acompanhe as atividades já atribuídas, as entregas dos estudantes e tudo o que ainda precisa de correção ou feedback."
       />
 
       <CorrectionsClient

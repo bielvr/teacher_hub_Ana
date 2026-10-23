@@ -40,7 +40,7 @@ const DEFAULT_TIMELINE: TimelineStep[] = [
     id: 'step-2',
     title: 'Desenvolvimento e prática',
     duration: 30,
-    description: 'Explicação dos conceitos, demonstração guiada e atividades práticas com os alunos.',
+    description: 'Explicação dos conceitos, demonstração guiada e atividades práticas com os estudantes.',
   },
   {
     id: 'step-3',
@@ -114,6 +114,12 @@ export function CreatePlanningLessonModal({
   // 8. Checklist de Preparo
   const [checklist, setChecklist] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
   const [newCheckItem, setNewCheckItem] = useState('');
+
+  // Seções opcionais colapsadas por padrão
+  const [isObjectivesSectionOpen, setIsObjectivesSectionOpen] = useState(false);
+  const [isTimelineSectionOpen, setIsTimelineSectionOpen] = useState(false);
+  const [isMaterialsSectionOpen, setIsMaterialsSectionOpen] = useState(false);
+  const [isChecklistSectionOpen, setIsChecklistSectionOpen] = useState(false);
 
   // Atualiza módulos disponíveis ao mudar o nível selecionado
   const currentTrack = tracks.find((t) => t.id === selectedTrackId);
@@ -415,7 +421,7 @@ export function CreatePlanningLessonModal({
           }}
         >
           <div
-            className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl max-w-[1440px] w-[94vw] max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Feedback de sucesso flutuante */}
@@ -427,16 +433,16 @@ export function CreatePlanningLessonModal({
             )}
 
             {/* 1. CABEÇALHO FIXO NO TOPO */}
-            <div className="px-6 py-4 bg-white border-b border-[#E6E1D8] flex items-center justify-between shrink-0 z-20">
-              <div className="space-y-1">
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="space-y-1 text-left">
                 <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
-                  PLANEJAMENTO
+                  Planejamento
                 </span>
-                <h1 className="text-2xl font-bold text-[#6C0F37] leading-tight">
+                <h1 className="text-2xl font-bold text-[#6C0F37] leading-tight text-left">
                   Criar planejamento de aula
                 </h1>
-                <p className="text-xs text-[#6F6865]">
-                  Planeje sua aula e, quando estiver pronta, envie-a para Materiais Didáticos.
+                <p className="text-xs text-[#6F6865] text-left mt-0.5">
+                  Planeje sua aula e, quando estiver pronta, envie-a para materiais didáticos.
                 </p>
               </div>
 
@@ -452,8 +458,8 @@ export function CreatePlanningLessonModal({
               </button>
             </div>
 
-            {/* 2. CORPO DO CONTEÚDO COM ROLAGEM INTERNA */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-white scroll-smooth">
+            {/* 2. CORPO DO CONTEÚDO COM ROLAGEM EXCLUSIVA */}
+            <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
               {errorMsg && (
                 <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
                   <span>⚠️</span>
@@ -702,48 +708,71 @@ export function CreatePlanningLessonModal({
                 </div>
               </div>
 
-              {/* 2.3 OBJETIVOS DA AULA & CONTEÚDOS TRABALHADOS (GRID 2 COLUNAS) */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-                {/* Coluna Esquerda: Objetivos da Aula */}
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                      <span>🎯</span>
-                      <span>Objetivos da aula (opcional)</span>
-                    </label>
+              {/* 2.3 OBJETIVOS DA AULA & CONTEÚDOS TRABALHADOS (OPCIONAL) */}
+              <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xs overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsObjectivesSectionOpen((prev) => !prev)}
+                  className="w-full p-4 bg-white hover:bg-[#FAF8F5] flex items-center justify-between transition cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">🎯</span>
+                    <div>
+                      <div className="text-sm font-bold text-[#6C0F37]">
+                        Objetivos da aula e conteúdos trabalhados (opcional)
+                      </div>
+                      <p className="text-[11px] text-[#6F6865] mt-0.5">
+                        Defina as metas pedagógicas gerais e tópicos conceituais que serão abordados.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#6F6865]">
-                    Descreva os objetivos pedagógicos gerais, habilidades e competências que os alunos desenvolverão nesta aula.
-                  </p>
-                  <textarea
-                    rows={7}
-                    value={objectives}
-                    onChange={(e) => setObjectives(e.target.value)}
-                    placeholder="Ex: Desenvolver a capacidade de expor argumentos de forma estruturada, compreender termos essenciais do tema e praticar a resolução de problemas em grupo..."
-                    className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
-                  />
-                </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#E6E1D8] text-[#6F6865] bg-[#FAF8F5]">
+                    {isObjectivesSectionOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                  </span>
+                </button>
 
-                {/* Coluna Direita: Conteúdos Trabalhados (Tópicos Dinâmicos) */}
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3.5 shadow-2xs flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                        <span>📚</span>
-                        <span>Conteúdos trabalhados (opcional)</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingTopic(true)}
-                        className="px-2.5 py-1 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer"
-                      >
-                        + Adicionar tópico
-                      </button>
+                {isObjectivesSectionOpen && (
+                  <div className="p-5 border-t border-[#E6E1D8] grid grid-cols-1 lg:grid-cols-2 gap-6 bg-[#FAF8F5]/40 animate-in fade-in">
+                    {/* Coluna Esquerda: Objetivos da Aula */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                          <span>🎯</span>
+                          <span>Objetivos da aula</span>
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-[#6F6865]">
+                        Descreva os objetivos pedagógicos gerais, habilidades e competências que os estudantes desenvolverão nesta aula.
+                      </p>
+                      <textarea
+                        rows={7}
+                        value={objectives}
+                        onChange={(e) => setObjectives(e.target.value)}
+                        placeholder="Ex: Desenvolver a capacidade de expor argumentos de forma estruturada, compreender termos essenciais do tema e praticar a resolução de problemas em grupo..."
+                        className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                      />
                     </div>
 
-                    <p className="text-[11px] text-[#6F6865]">
-                      Crie tópicos personalizados (ex: &quot;Estruturas e uso&quot;, &quot;Palavras e expressões&quot;, ou conceitos da sua disciplina) e adicione itens em cada um.
-                    </p>
+                    {/* Coluna Direita: Conteúdos Trabalhados (Tópicos Dinâmicos) */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3.5 shadow-2xs flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                            <span>📚</span>
+                            <span>Conteúdos trabalhados</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingTopic(true)}
+                            className="px-2.5 py-1 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer"
+                          >
+                            + Adicionar tópico
+                          </button>
+                        </div>
+
+                        <p className="text-[11px] text-[#6F6865]">
+                          Crie tópicos personalizados (ex: &quot;Estruturas e uso&quot;, &quot;Palavras e expressões&quot;, ou conceitos da sua disciplina) e adicione itens em cada um.
+                        </p>
 
                     {/* Formulário para novo tópico */}
                     {isAddingTopic && (
@@ -908,30 +937,46 @@ export function CreatePlanningLessonModal({
                   </div>
                 </div>
               </div>
+              )}
+            </div>
 
-              {/* 2.4 ROTEIRO DA AULA & MATERIAIS / CHECKLIST (GRID 2 COLUNAS INFERIOR) */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-                {/* Coluna Esquerda: Roteiro da Aula (Etapas Numeradas) */}
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
-                  <div className="flex items-center justify-between">
+              {/* 2.4 ROTEIRO DA AULA (OPCIONAL) */}
+              <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xs overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsTimelineSectionOpen((prev) => !prev)}
+                  className="w-full p-4 bg-white hover:bg-[#FAF8F5] flex items-center justify-between transition cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">⏱️</span>
                     <div>
-                      <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                        <span>⏱️</span>
-                        <span>Roteiro da aula (opcional)</span>
-                      </h2>
+                      <div className="text-sm font-bold text-[#6C0F37]">
+                        Roteiro da aula (opcional)
+                      </div>
                       <p className="text-[11px] text-[#6F6865] mt-0.5">
                         Defina a sequência didática em etapas numeradas com duração e orientações.
                       </p>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={handleAddTimelineStep}
-                      className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
-                    >
-                      + Adicionar etapa
-                    </button>
                   </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#E6E1D8] text-[#6F6865] bg-[#FAF8F5]">
+                    {isTimelineSectionOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                  </span>
+                </button>
+
+                {isTimelineSectionOpen && (
+                  <div className="p-5 border-t border-[#E6E1D8] space-y-4 bg-[#FAF8F5]/40 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-[#6F6865]">
+                        Etapas sequenciais da sua aula:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleAddTimelineStep}
+                        className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                      >
+                        + Adicionar etapa
+                      </button>
+                    </div>
 
                   <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
                     {timeline.length === 0 ? (
@@ -1018,7 +1063,7 @@ export function CreatePlanningLessonModal({
                             onChange={(e) =>
                               handleUpdateTimelineStep(step.id, 'description', e.target.value)
                             }
-                            placeholder="Descreva o que o professor e os alunos farão nesta etapa..."
+                            placeholder="Descreva o que o docente e os estudantes farão nesta etapa..."
                             className="w-full px-2.5 py-1.5 text-xs text-[#2B2426] bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37] resize-y"
                           />
                         </div>
@@ -1026,30 +1071,46 @@ export function CreatePlanningLessonModal({
                     )}
                   </div>
                 </div>
+              )}
+            </div>
 
-                {/* Coluna Direita: Materiais & Recursos + Checklist de Preparo */}
-                <div className="space-y-6">
-                  {/* Materiais e Recursos */}
-                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3.5 shadow-2xs">
-                    <div className="flex items-center justify-between">
+              {/* 2.5 MATERIAIS & CHECKLIST (GRID 2 COLUNAS) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Materiais e Recursos */}
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xs overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setIsMaterialsSectionOpen((prev) => !prev)}
+                    className="w-full p-4 bg-white hover:bg-[#FAF8F5] flex items-center justify-between transition cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">📎</span>
                       <div>
-                        <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                          <span>📎</span>
-                          <span>Materiais e recursos (opcional)</span>
-                        </h2>
+                        <div className="text-sm font-bold text-[#6C0F37]">
+                          Materiais e recursos (opcional)
+                        </div>
                         <p className="text-[11px] text-[#6F6865] mt-0.5">
                           Anexe documentos, slides ou adicione links úteis para a aula.
                         </p>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowAddMaterial((prev) => !prev)}
-                        className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
-                      >
-                        + Adicionar material ou link
-                      </button>
                     </div>
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#E6E1D8] text-[#6F6865] bg-[#FAF8F5]">
+                      {isMaterialsSectionOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                    </span>
+                  </button>
+
+                  {isMaterialsSectionOpen && (
+                    <div className="p-5 border-t border-[#E6E1D8] space-y-3.5 bg-[#FAF8F5]/40 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[#6F6865]">Recursos anexados:</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddMaterial((prev) => !prev)}
+                          className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                        >
+                          + Adicionar material ou link
+                        </button>
+                      </div>
 
                     {/* Mini formulário de adicionar material ou link */}
                     {showAddMaterial && (
@@ -1186,21 +1247,34 @@ export function CreatePlanningLessonModal({
                       )}
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {/* Checklist de Preparo */}
-                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3.5 shadow-2xs">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                          <span>☑️</span>
-                          <span>Checklist de preparo (opcional)</span>
-                        </h2>
-                        <p className="text-[11px] text-[#6F6865] mt-0.5">
-                          Itens de verificação rápida para garantir que tudo está pronto antes da aula.
-                        </p>
+              {/* Checklist de Preparo */}
+              <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xs overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsChecklistSectionOpen((prev) => !prev)}
+                  className="w-full p-4 bg-white hover:bg-[#FAF8F5] flex items-center justify-between transition cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">☑️</span>
+                    <div>
+                      <div className="text-sm font-bold text-[#6C0F37]">
+                        Checklist de preparo (opcional)
                       </div>
+                      <p className="text-[11px] text-[#6F6865] mt-0.5">
+                        Itens de verificação rápida para garantir que tudo está pronto antes da aula.
+                      </p>
                     </div>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#E6E1D8] text-[#6F6865] bg-[#FAF8F5]">
+                    {isChecklistSectionOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                  </span>
+                </button>
 
+                {isChecklistSectionOpen && (
+                  <div className="p-5 border-t border-[#E6E1D8] space-y-3.5 bg-[#FAF8F5]/40 animate-in fade-in">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {checklist.map((item, idx) => (
                         <div
@@ -1208,7 +1282,7 @@ export function CreatePlanningLessonModal({
                           className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition ${
                             item.done
                               ? 'bg-[#F0FDF4] border-[#B9F5D0] text-[#198754]'
-                              : 'bg-[#FAF8F5] border-[#E6E1D8] text-[#2B2426]'
+                              : 'bg-white border-[#E6E1D8] text-[#2B2426]'
                           }`}
                         >
                           <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
@@ -1263,48 +1337,46 @@ export function CreatePlanningLessonModal({
                       </button>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
+          </div>
 
-            {/* 3. RODAPÉ COM AÇÕES FIXAS NA BASE DO MODAL */}
-            <div className="sticky bottom-0 bg-white border-t border-[#E6E1D8] px-6 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
-              {/* Botão Cancelar */}
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                disabled={isPending}
-                className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
-              >
-                Cancelar
-              </button>
+          {/* 3. RODAPÉ FIXO NA BASE */}
+          <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
+            {/* Botão Cancelar */}
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              disabled={isPending}
+              className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
+            >
+              Cancelar
+            </button>
 
-              {/* Ações da Direita */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                {/* Salvar Rascunho */}
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => executeSubmit('draft')}
-                  className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
-                >
-                  {isPending ? 'Salvando...' : 'Salvar rascunho'}
-                </button>
+            {/* Salvar Rascunho */}
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => executeSubmit('draft')}
+              className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
+            >
+              {isPending ? 'Salvando...' : 'Salvar rascunho'}
+            </button>
 
-                {/* Enviar para Materiais Didáticos */}
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => executeSubmit('publish')}
-                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
-                >
-                  <span>📤</span>
-                  <span>
-                    {isPending ? 'Processando envio...' : 'Enviar para Materiais Didáticos'}
-                  </span>
-                </button>
-              </div>
-            </div>
+            {/* Enviar para Materiais Didáticos */}
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => executeSubmit('publish')}
+              className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
+            >
+              <span>📤</span>
+              <span>
+                {isPending ? 'Processando envio...' : 'Enviar para materiais didáticos'}
+              </span>
+            </button>
+          </div>
           </div>
         </div>
       )}

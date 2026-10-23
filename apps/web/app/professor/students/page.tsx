@@ -96,7 +96,7 @@ export default async function ProfessorStudentsPage({
 
     return {
       id: prof.id || m.profile_id,
-      full_name: prof.full_name || 'Aluna',
+      full_name: prof.full_name || 'Estudante',
       email: prof.email || null,
       phone: prof.phone || null,
       status: m.status || 'active',
@@ -109,8 +109,8 @@ export default async function ProfessorStudentsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Alunos"
-        description="Acompanhe os alunos matriculados, status das turmas, histórico de estudos e dados de contato."
+        title="Estudantes"
+        description="Acompanhe estudantes matriculados, status das turmas, histórico de estudos e dados de contato."
       />
 
       <StudentsClient

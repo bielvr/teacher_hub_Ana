@@ -81,9 +81,9 @@ export function ScheduleSessionModal({
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
 
   // 5. Link de Videochamada
-  const [platform, setPlatform] = useState<'google_meet' | 'zoom' | 'teams' | 'other'>('google_meet');
-  const [meetUrl, setMeetUrl] = useState('https://meet.google.com/new');
+  const [meetUrl, setMeetUrl] = useState('');
   const [useDefaultMeet, setUseDefaultMeet] = useState(true);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // 6. Recorrência
   const [isRecurring, setIsRecurring] = useState(false);
@@ -147,28 +147,12 @@ export function ScheduleSessionModal({
         const defaultLink = selectedStudent?.default_meet_url || localSaved;
         if (defaultLink) {
           setMeetUrl(defaultLink);
-          if (defaultLink.includes('zoom')) setPlatform('zoom');
-          else if (defaultLink.includes('teams')) setPlatform('teams');
-          else if (defaultLink.includes('meet.google')) setPlatform('google_meet');
-          else setPlatform('other');
         }
       } catch {
         // Ignora erro de acesso a localStorage
       }
     }
   }, [selectedStudentId, selectedStudent]);
-
-  // Atualiza URL sugerida se o usuário trocar a plataforma
-  const handlePlatformChange = (newPlatform: 'google_meet' | 'zoom' | 'teams' | 'other') => {
-    setPlatform(newPlatform);
-    if (newPlatform === 'google_meet' && (!meetUrl || meetUrl.includes('zoom') || meetUrl.includes('teams'))) {
-      setMeetUrl('https://meet.google.com/new');
-    } else if (newPlatform === 'zoom' && (!meetUrl || meetUrl.includes('meet.google') || meetUrl.includes('teams'))) {
-      setMeetUrl('https://zoom.us/join');
-    } else if (newPlatform === 'teams' && (!meetUrl || meetUrl.includes('meet.google') || meetUrl.includes('zoom'))) {
-      setMeetUrl('https://teams.microsoft.com');
-    }
-  };
 
   const toggleDay = (dayValue: number) => {
     setSelectedDays((prev) =>
@@ -394,20 +378,20 @@ export function ScheduleSessionModal({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden"
           onClick={(e) => {
             if (e.target === e.currentTarget && !loading) setIsOpen(false);
           }}
         >
-          <div className="bg-[#FFFDF7] rounded-2xl shadow-2xl max-w-[1440px] w-[94vw] max-h-[92vh] border border-[#E6E1D8] flex flex-col animate-in zoom-in-95 duration-150 overflow-hidden">
-            {/* CABEÇALHO FIXO */}
-            <div className="px-6 py-5 border-b border-[#E6E1D8] bg-white flex items-center justify-between shrink-0">
-              <div>
+          <div className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative">
+            {/* CABEÇALHO FIXO NO TOPO */}
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="text-left">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37] block mb-1">
-                  AGENDA
+                  Agenda
                 </span>
-                <h2 className="text-xl sm:text-2xl font-bold text-[#6C0F37]">Gerar aulas</h2>
-                <p className="text-xs text-[#6F6865] mt-0.5">
+                <h2 className="text-2xl font-bold text-[#6C0F37] leading-tight text-left">Gerar aulas</h2>
+                <p className="text-xs text-[#6F6865] mt-0.5 text-left">
                   Crie uma aula única ou uma sequência de aulas recorrentes.
                 </p>
               </div>
@@ -415,7 +399,7 @@ export function ScheduleSessionModal({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-[#6F6865] hover:text-[#2B2426] text-xl font-bold p-2 hover:bg-[#FAF8F5] rounded-xl cursor-pointer transition"
+                className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer"
                 aria-label="Fechar"
               >
                 ✕
@@ -442,12 +426,12 @@ export function ScheduleSessionModal({
               </div>
             )}
 
-            {/* CORPO DO FORMULÁRIO COM SCROLL SUAVE */}
-            <form id="schedule-class-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* CORPO DO FORMULÁRIO COM ROLAGEM EXCLUSIVA */}
+            <form id="schedule-class-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6">
               {/* 2. SELEÇÃO DE TIPO DE EVENTO (4 CARDS) */}
               <div>
                 <label className="block text-xs font-bold text-[#2B2426] mb-2 uppercase tracking-wide">
-                  Tipo de Evento
+                  Tipo de evento
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* Card 1: Aula regular */}
@@ -639,7 +623,7 @@ export function ScheduleSessionModal({
                           onChange={(e) => setSelectedStudentId(e.target.value)}
                           className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white"
                         >
-                          <option value="">Selecione o(a) estudante...</option>
+                          <option value="">Selecione o estudante...</option>
                           {students.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name} {s.email ? `(${s.email})` : ''}
@@ -773,7 +757,7 @@ export function ScheduleSessionModal({
                           onChange={(e) => setSelectedStudentId(e.target.value)}
                           className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white"
                         >
-                          <option value="">Selecione o(a) estudante...</option>
+                          <option value="">Selecione o estudante...</option>
                           {students.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name} {s.email ? `(${s.email})` : ''}
@@ -852,14 +836,14 @@ export function ScheduleSessionModal({
                     {sessionType === 'individual' ? (
                       <div className="pt-2">
                         <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                          Selecione o(a) Estudante
+                          Selecione o estudante
                         </label>
                         <select
                           value={selectedStudentId}
                           onChange={(e) => setSelectedStudentId(e.target.value)}
                           className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
                         >
-                          <option value="">Selecione o(a) estudante...</option>
+                          <option value="">Selecione o estudante...</option>
                           {students.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name} {s.email ? `(${s.email})` : ''}
@@ -868,14 +852,14 @@ export function ScheduleSessionModal({
                         </select>
                         {students.length === 0 && (
                           <p className="text-[11px] text-amber-700 mt-1">
-                            Nenhum(a) estudante cadastrado(a) encontrado(a) nesta organização.
+                            Nenhum estudante cadastrado encontrado nesta organização.
                           </p>
                         )}
                       </div>
                     ) : (
                       <div className="pt-2">
                         <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                          Selecione a Turma
+                          Selecione a turma
                         </label>
                         <select
                           value={selectedClassId}
@@ -901,7 +885,7 @@ export function ScheduleSessionModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#E6E1D8]">
                       <div>
                         <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                          Título do Encontro (opcional)
+                          Título do encontro (opcional)
                         </label>
                         <input
                           type="text"
@@ -1019,91 +1003,89 @@ export function ScheduleSessionModal({
                   </div>
 
                   {/* 3. DETALHES DA AULA (LINK DA VIDEOCHAMADA & OBSERVAÇÃO PRIVADA) */}
-                  <div className="p-5 bg-white border border-[#E6E1D8] rounded-2xl space-y-4">
-                    <label className="block text-xs font-bold text-[#2B2426] uppercase tracking-wide">
-                      Detalhes da Aula (Opcional)
-                    </label>
-
-                    {/* Plataforma e Link */}
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <label className="block text-xs font-semibold text-[#2B2426]">
-                          Link da videochamada
-                        </label>
-                        <div className="flex gap-1.5">
-                          {[
-                            { key: 'google_meet', label: 'Google Meet' },
-                            { key: 'zoom', label: 'Zoom' },
-                            { key: 'teams', label: 'Teams' },
-                            { key: 'other', label: 'Outro' },
-                          ].map((plat) => (
-                            <button
-                              key={plat.key}
-                              type="button"
-                              onClick={() => handlePlatformChange(plat.key as any)}
-                              className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border cursor-pointer transition ${
-                                platform === plat.key
-                                  ? 'bg-[#FAF8F5] border-[#6C0F37] text-[#6C0F37]'
-                                  : 'bg-white border-[#E6E1D8] text-[#6F6865]'
-                              }`}
-                            >
-                              {plat.label}
-                            </button>
-                          ))}
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xs overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsDetailsOpen((prev) => !prev)}
+                      className="w-full p-4 bg-white hover:bg-[#FAF8F5] flex items-center justify-between transition cursor-pointer text-left"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-base">📹</span>
+                        <div>
+                          <div className="text-sm font-bold text-[#6C0F37]">
+                            Detalhes da aula (opcional)
+                          </div>
+                          <p className="text-[11px] text-[#6F6865] mt-0.5">
+                            Link da videochamada e observação privada do docente.
+                          </p>
                         </div>
                       </div>
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#E6E1D8] text-[#6F6865] bg-[#FAF8F5]">
+                        {isDetailsOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                      </span>
+                    </button>
 
-                      <div className="flex gap-2">
-                        <input
-                          type="url"
-                          value={meetUrl}
-                          onChange={(e) => setMeetUrl(e.target.value)}
-                          placeholder="https://meet.google.com/..."
-                          className="flex-1 px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleCopyLink}
-                          className="px-3.5 py-2.5 text-xs font-semibold border border-[#E6E1D8] rounded-xl bg-[#FAF8F5] hover:bg-white text-[#2B2426] transition cursor-pointer shrink-0"
-                          title="Copiar link"
-                        >
-                          {copyFeedback ? '✓ Copiado!' : '📋 Copiar link'}
-                        </button>
-                      </div>
+                    {isDetailsOpen && (
+                      <div className="p-5 border-t border-[#E6E1D8] space-y-4 bg-[#FAF8F5]/40 animate-in fade-in">
+                        {/* Link da videochamada */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-[#2B2426]">
+                            Link da videochamada
+                          </label>
 
-                      {/* Checkbox para Estudante Individual */}
-                      {sessionType === 'individual' && selectedStudent && (
-                        <label className="flex items-start gap-2.5 pt-1 text-xs text-[#2B2426] cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={useDefaultMeet}
-                            onChange={(e) => setUseDefaultMeet(e.target.checked)}
-                            className="mt-0.5 w-4 h-4 text-[#6C0F37] rounded border-[#E6E1D8] focus:ring-[#6C0F37] cursor-pointer"
-                          />
-                          <div>
-                            <span className="font-semibold">Usar link padrão deste estudante</span>
-                            <p className="text-[11px] text-[#6F6865] mt-0.5">
-                              Este link será salvo para as próximas aulas com{' '}
-                              <strong>{selectedStudent.name}</strong>.
-                            </p>
+                          <div className="flex gap-2">
+                            <input
+                              type="url"
+                              value={meetUrl}
+                              onChange={(e) => setMeetUrl(e.target.value)}
+                              placeholder="https://..."
+                              className="flex-1 px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCopyLink}
+                              className="px-3.5 py-2.5 text-xs font-semibold border border-[#E6E1D8] rounded-xl bg-[#FAF8F5] hover:bg-white text-[#2B2426] transition cursor-pointer shrink-0"
+                              title="Copiar link"
+                            >
+                              {copyFeedback ? '✓ Copiado!' : '📋 Copiar link'}
+                            </button>
                           </div>
-                        </label>
-                      )}
-                    </div>
 
-                    {/* Observação Privada */}
-                    <div className="pt-2 border-t border-[#E6E1D8]">
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                        Observação privada (opcional)
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={privateNotes}
-                        onChange={(e) => setPrivateNotes(e.target.value)}
-                        placeholder="Anotações internas do docente (ex: foco pedagógico, lembretes particulares). Não fica visível para os estudantes."
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                      />
-                    </div>
+                          {/* Checkbox para Estudante Individual */}
+                          {sessionType === 'individual' && selectedStudent && (
+                            <label className="flex items-start gap-2.5 pt-1 text-xs text-[#2B2426] cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={useDefaultMeet}
+                                onChange={(e) => setUseDefaultMeet(e.target.checked)}
+                                className="mt-0.5 w-4 h-4 text-[#6C0F37] rounded border-[#E6E1D8] focus:ring-[#6C0F37] cursor-pointer"
+                              />
+                              <div>
+                                <span className="font-semibold">Usar link padrão deste estudante</span>
+                                <p className="text-[11px] text-[#6F6865] mt-0.5">
+                                  Este link será salvo para as próximas aulas com{' '}
+                                  <strong>{selectedStudent.name}</strong>.
+                                </p>
+                              </div>
+                            </label>
+                          )}
+                        </div>
+
+                        {/* Observação Privada */}
+                        <div className="pt-2 border-t border-[#E6E1D8]">
+                          <label className="block text-xs font-semibold text-[#2B2426] mb-1">
+                            Observação privada (opcional)
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={privateNotes}
+                            onChange={(e) => setPrivateNotes(e.target.value)}
+                            placeholder="Anotações internas do docente (ex: foco pedagógico, lembretes particulares). Não fica visível para os estudantes."
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 4. MOTOR DE RECORRÊNCIA (APENAS EM AULA REGULAR) */}
@@ -1461,54 +1443,52 @@ export function ScheduleSessionModal({
               )}
             </form>
 
-            {/* RODAPÉ FIXO COM AÇÕES SEMPRE VISÍVEIS */}
-            <div className="px-6 py-4 border-t border-[#E6E1D8] bg-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+            {/* RODAPÉ FIXO NA BASE */}
+            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 disabled={loading}
-                className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] rounded-xl transition cursor-pointer"
+                className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
               >
                 Cancelar
               </button>
 
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const form = document.getElementById('schedule-class-form') as HTMLFormElement;
-                    if (form) form.requestSubmit();
-                  }}
-                  disabled={loading}
-                  className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] hover:bg-[#F2EDE4] border border-[#E6E1D8] rounded-xl transition cursor-pointer"
-                >
-                  Salvar como rascunho
-                </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const form = document.getElementById('schedule-class-form') as HTMLFormElement;
+                  if (form) form.requestSubmit();
+                }}
+                disabled={loading}
+                className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
+              >
+                Salvar como rascunho
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const form = document.getElementById('schedule-class-form') as HTMLFormElement;
-                    if (form) form.requestSubmit();
-                  }}
-                  disabled={loading || (isRecurring && selectedDays.length === 0)}
-                  className="px-6 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer flex items-center gap-2"
-                >
-                  {loading ? (
-                    'Gerando agendamentos...'
-                  ) : eventType === 'holiday' ? (
-                    'Registrar feriado'
-                  ) : eventType === 'vacation' ? (
-                    'Registrar recesso / férias'
-                  ) : eventType === 'replacement' ? (
-                    'Agendar reposição'
-                  ) : isRecurring ? (
-                    `Criar ${realClassesCount} aulas`
-                  ) : (
-                    'Criar aula'
-                  )}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const form = document.getElementById('schedule-class-form') as HTMLFormElement;
+                  if (form) form.requestSubmit();
+                }}
+                disabled={loading || (isRecurring && selectedDays.length === 0)}
+                className="px-6 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer flex items-center gap-2"
+              >
+                {loading ? (
+                  'Gerando agendamentos...'
+                ) : eventType === 'holiday' ? (
+                  'Registrar feriado'
+                ) : eventType === 'vacation' ? (
+                  'Registrar recesso / férias'
+                ) : eventType === 'replacement' ? (
+                  'Agendar reposição'
+                ) : isRecurring ? (
+                  `Criar ${realClassesCount} aulas`
+                ) : (
+                  'Criar aula'
+                )}
+              </button>
             </div>
           </div>
         </div>

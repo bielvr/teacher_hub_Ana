@@ -208,15 +208,26 @@ export function CreateEditPartnerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white border border-[#E6E1D8] rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-6 my-8">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isPending) onClose();
+      }}
+    >
+      <div
+        className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Cabeçalho do Modal */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#E6E1D8]">
-          <div>
-            <h2 className="text-xl font-bold text-[#6C0F37]">
-              {isEditing ? 'Configurar Cupom & Regras' : 'Cadastrar Nova Parceira & Cupom'}
-            </h2>
-            <p className="text-xs text-[#6F6865] mt-0.5">
+        <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+          <div className="text-left">
+            <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+              Parceiras
+            </span>
+            <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+              {isEditing ? 'Configurar cupom e regras' : 'Cadastrar nova parceira e cupom'}
+            </h1>
+            <p className="text-xs text-[#6F6865] mt-0.5 text-left">
               {isEditing
                 ? `Editando parâmetros de "${partnerToEdit?.partnerName}" (${partnerToEdit?.referralCode}). Afeta apenas novas contratações.`
                 : 'Defina a conta da parceira e configure as regras promocionais exclusivas.'}
@@ -225,19 +236,22 @@ export function CreateEditPartnerModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#F7F4ED] text-[#6F6865] hover:text-[#2B2426] flex items-center justify-center font-bold text-sm cursor-pointer"
+            disabled={isPending}
+            className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer disabled:opacity-50"
+            aria-label="Fechar"
           >
             ✕
           </button>
         </div>
 
-        {errorMsg && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl">
-            ⚠️ {errorMsg}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Formulário com corpo e rodapé */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
+            {errorMsg && (
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl">
+                ⚠️ {errorMsg}
+              </div>
+            )}
           {/* SEÇÃO 1: VINCULAÇÃO DE CONTA (Apenas em criação) */}
           {!isEditing && (
             <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-4 space-y-3">
@@ -580,27 +594,28 @@ export function CreateEditPartnerModal({
               </div>
             )}
           </div>
+        </div>
 
-          {/* Botões de Ação */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E6E1D8]">
+          {/* Rodapé Fixo na Base */}
+          <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
             <button
               type="button"
               onClick={onClose}
               disabled={isPending}
-              className="px-5 py-2.5 rounded-xl border border-[#E6E1D8] text-xs font-bold text-[#6F6865] hover:bg-[#FAF8F5] cursor-pointer"
+              className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="px-6 py-2.5 rounded-xl bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
             >
               {isPending
                 ? 'Salvando regras...'
                 : isEditing
-                ? 'Salvar Alterações do Cupom'
-                : 'Concluir Cadastro da Parceira'}
+                ? 'Salvar alterações do cupom'
+                : 'Concluir cadastro da parceira'}
             </button>
           </div>
         </form>

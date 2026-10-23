@@ -73,7 +73,7 @@ export default async function CalendarPage({
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <PageHeader
-          title="Agenda de Aulas"
+          title="Agenda de aulas"
           description="Gerencie os encontros ao vivo, horários das turmas e links de transmissão."
         />
         <div className="flex flex-wrap items-center gap-3">

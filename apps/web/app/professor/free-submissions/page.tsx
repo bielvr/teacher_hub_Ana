@@ -37,14 +37,14 @@ export default async function ProfessorFreeSubmissionsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Produções Livres dos Alunos"
-        description="Textos enviados espontaneamente. Avalie a gramática, fluência e deixe notas personalizadas."
+        title="Produções livres dos estudantes"
+        description="Textos enviados espontaneamente pelos estudantes. Avalie e deixe notas e recomendações personalizadas."
       />
 
       {list.length === 0 ? (
         <EmptyState
           title="Nenhuma produção enviada"
-          description="Conforme os alunos enviarem redações ou textos livres, eles serão listados aqui para correção."
+          description="Conforme os estudantes enviarem redações ou textos livres, eles serão listados aqui para correção."
         />
       ) : (
         <div className="space-y-4">
@@ -53,7 +53,7 @@ export default async function ProfessorFreeSubmissionsPage({
               <div className="flex justify-between items-start">
                 <div>
                   <span className="text-xs font-semibold text-emerald-800">
-                    Aluno: {sub.profiles?.full_name || 'Desconhecido'}
+                    Estudante: {sub.profiles?.full_name || 'Desconhecido'}
                   </span>
                   <h3 className="text-lg font-bold text-stone-900 mt-0.5">{sub.title}</h3>
                   <span className="text-xs text-stone-400">
@@ -75,7 +75,7 @@ export default async function ProfessorFreeSubmissionsPage({
               <form action={reviewFreeProductionAction} className="space-y-2 pt-2 border-t border-stone-100">
                 <input type="hidden" name="submission_id" value={sub.id} />
                 <label className="block text-xs font-semibold text-stone-700">
-                  {sub.teacher_feedback ? 'Editar Feedback:' : 'Escrever Feedback:'}
+                  {sub.teacher_feedback ? 'Editar feedback:' : 'Escrever feedback:'}
                 </label>
                 <textarea
                   name="teacher_feedback"
@@ -86,9 +86,9 @@ export default async function ProfessorFreeSubmissionsPage({
                 />
                 <button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-lg transition"
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-lg transition-colors shadow-xs"
                 >
-                  Salvar Feedback
+                  Salvar feedback
                 </button>
               </form>
             </Card>

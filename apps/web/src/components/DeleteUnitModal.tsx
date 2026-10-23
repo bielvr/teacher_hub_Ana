@@ -64,7 +64,7 @@ export function DeleteUnitModal({ module, trackId }: DeleteUnitModalProps) {
                 ⚠️
               </div>
               <h3 className="text-base font-bold text-[#2B2426]">
-                Excluir Unidade?
+                Excluir unidade?
               </h3>
               <p className="text-xs text-[#6F6865] leading-relaxed">
                 Você tem certeza que deseja excluir <strong>{module.title}</strong>? As aulas e materiais desta unidade serão removidos permanentemente.
@@ -91,7 +91,7 @@ export function DeleteUnitModal({ module, trackId }: DeleteUnitModalProps) {
                   disabled={isPending}
                   className="px-5 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  {isPending ? 'Excluindo...' : 'Sim, Excluir'}
+                  {isPending ? 'Excluindo...' : 'Sim, excluir'}
                 </button>
               </div>
             </div>

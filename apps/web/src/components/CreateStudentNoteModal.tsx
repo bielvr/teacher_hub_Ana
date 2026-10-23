@@ -71,87 +71,101 @@ export function CreateStudentNoteModal({ activeOrgId }: CreateStudentNoteModalPr
 
       {isCreateModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsCreateModalOpen(false);
+            if (e.target === e.currentTarget && !loading) setIsCreateModalOpen(false);
           }}
         >
           <div
-            className="bg-[#FFFFFF] border border-[#E6E1D8] rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 relative animate-in zoom-in-95 duration-150"
+            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabeçalho */}
-            <div className="flex items-center justify-between border-b border-[#E6E1D8] pb-3">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] block">
-                  Caderno Pessoal
+            {/* Cabeçalho Fixo no Topo */}
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="text-left">
+                <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+                  Caderno pessoal
                 </span>
-                <h3 className="text-lg font-bold text-[#2B2426]">Criar no Meu Caderno</h3>
+                <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+                  Criar no meu caderno
+                </h1>
+                <p className="text-xs text-[#6F6865] mt-0.5 text-left">
+                  Registre anotações, conceitos trabalhados e reflexões de estudo.
+                </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-[#6F6865] hover:text-[#2B2426] p-1.5 rounded-lg text-sm font-bold transition-colors cursor-pointer"
+                disabled={loading}
+                className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer disabled:opacity-50"
                 aria-label="Fechar"
               >
                 ✕
               </button>
             </div>
 
-            {errorMsg && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
-                {errorMsg}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Formulário com corpo e rodapé */}
+            <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <input type="hidden" name="organization_id" value={activeOrgId} />
               <input type="hidden" name="author_role" value="student" />
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#6F6865] mb-1.5">
-                  Título
-                </label>
-                <input
-                  name="title"
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Dúvida sobre pronúncia ou Vocabulário da aula"
-                  className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  autoFocus
-                />
+              <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
+                {errorMsg && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                      Título da anotação <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      name="title"
+                      type="text"
+                      required
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Ex: Conceitos fundamentais e dúvidas da aula"
+                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                      Conteúdo <span className="text-red-500">*</span>
+                    </label>
+                    <RichTextEditor
+                      value={content}
+                      onChange={setContent}
+                      placeholder="Minhas anotações, conceitos trabalhados e reflexões..."
+                      minHeight="min-h-[260px]"
+                      enablePageBreak={false}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#6F6865] mb-1.5">
-                  Conteúdo
-                </label>
-                <RichTextEditor
-                  value={content}
-                  onChange={setContent}
-                  placeholder="Minhas anotações, conceitos trabalhados e reflexões..."
-                  minHeight="min-h-[160px]"
-                  enablePageBreak={false}
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E6E1D8]">
+              {/* Rodapé Fixo na Base */}
+              <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
                   disabled={loading}
-                  className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] hover:bg-[#F7F4ED] rounded-xl transition cursor-pointer"
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="px-5 py-2.5 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer"
+                  disabled={loading || !title.trim() || !content.trim()}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
                 >
-                  {loading ? 'Salvando...' : 'Salvar Anotação'}
+                  {loading ? 'Salvando...' : 'Salvar anotação'}
                 </button>
               </div>
             </form>

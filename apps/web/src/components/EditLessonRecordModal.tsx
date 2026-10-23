@@ -231,24 +231,29 @@ export function EditLessonRecordModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isPending) onClose();
       }}
     >
-      <div className="bg-[#FFFDF7] rounded-2xl shadow-2xl max-w-2xl w-full border border-[#E6E1D8] flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative">
         {/* CABEÇALHO */}
-        <div className="px-6 py-5 border-b border-[#E6E1D8] bg-white flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-xl font-bold text-[#6C0F37]">Editar registro da aula</h2>
-            <p className="text-xs text-[#6F6865] mt-0.5">
-              Atualize o que aconteceu neste encontro.
+        <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+          <div className="text-left">
+            <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+              Agenda
+            </span>
+            <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+              Editar registro da aula
+            </h1>
+            <p className="text-xs text-[#6F6865] mt-0.5 text-left">
+              Atualize o que aconteceu neste encontro e a presença dos estudantes.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-[#6F6865] hover:text-[#2B2426] text-xl font-bold p-1 cursor-pointer"
+            className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer"
             aria-label="Fechar"
           >
             ✕
@@ -270,9 +275,10 @@ export function EditLessonRecordModal({
         )}
 
         {/* CORPO DO FORMULÁRIO COM ROLAGEM */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* LINHA DE RESUMO NO TOPO */}
-          <div className="p-4 bg-white border border-[#E6E1D8] rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+        <form onSubmit={handleSave} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
+            {/* LINHA DE RESUMO NO TOPO */}
+            <div className="p-4 bg-white border border-[#E6E1D8] rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-2xs">
             <div className="flex items-center gap-3">
               <div className="text-center px-3 py-1.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-lg">
                 <span className="block text-[10px] font-bold uppercase text-[#6C0F37]">
@@ -585,27 +591,28 @@ export function EditLessonRecordModal({
               </div>
             </div>
           )}
+        </div>
 
-          {/* AÇÕES DO RODAPÉ */}
-          <div className="pt-3 border-t border-[#E6E1D8] flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isPending}
-              className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] rounded-xl transition cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="px-5 py-2 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              {isPending ? 'Salvando...' : 'Salvar registro'}
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* AÇÕES DO RODAPÉ FIXO */}
+        <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isPending}
+            className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
+          >
+            {isPending ? 'Salvando...' : 'Salvar registro'}
+          </button>
+        </div>
+      </form>
     </div>
-  );
+  </div>
+);
 }

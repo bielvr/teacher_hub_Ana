@@ -420,7 +420,7 @@ export function CreateLessonModal({
           }}
         >
           <div
-            className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl max-w-[1440px] w-[94vw] max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Feedback flutuante de sucesso */}
@@ -432,15 +432,15 @@ export function CreateLessonModal({
             )}
 
             {/* 1. CABEÇALHO FIXO NO TOPO */}
-            <div className="px-6 py-4 bg-white border-b border-[#E6E1D8] flex items-center justify-between shrink-0 z-20">
-              <div className="space-y-1">
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="text-left">
                 <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
-                  MATERIAIS DIDÁTICOS
+                  Materiais didáticos
                 </span>
-                <h1 className="text-2xl font-bold text-[#6C0F37] leading-tight">
+                <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
                   Adicionar à biblioteca
                 </h1>
-                <p className="text-xs text-[#6F6865]">
+                <p className="text-xs text-[#6F6865] mt-0.5 text-left">
                   Guarde aulas prontas e recursos para usar quando quiser.
                 </p>
               </div>
@@ -458,7 +458,7 @@ export function CreateLessonModal({
             </div>
 
             {/* 2. CORPO DO CONTEÚDO COM ROLAGEM INTERNA */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-white scroll-smooth">
+            <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
               {errorMsg && (
                 <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
                   <span>⚠️</span>
@@ -1290,7 +1290,7 @@ export function CreateLessonModal({
             </div>
 
             {/* 3. RODAPÉ FIXO COM AÇÕES NA BASE */}
-            <div className="sticky bottom-0 bg-white border-t border-[#E6E1D8] px-6 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex flex-wrap items-center justify-between gap-3 z-20">
               {/* Botão Cancelar */}
               <button
                 type="button"
@@ -1322,7 +1322,7 @@ export function CreateLessonModal({
                 >
                   <span>💾</span>
                   <span>
-                    {isPending ? 'Salvando conteúdo...' : 'Salvar em Materiais Didáticos'}
+                    {isPending ? 'Salvando conteúdo...' : 'Salvar em materiais didáticos'}
                   </span>
                 </button>
               </div>

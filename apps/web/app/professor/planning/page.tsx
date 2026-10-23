@@ -210,15 +210,15 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
   return (
     <div className="space-y-6 pb-12">
       <PageHeader
-        title="Planejamento Pedagógico"
-        description="Espaço de rascunho e preparação do professor: crie aulas como rascunho, defina objetivos pedagógicos, anotações e checklist, e envie para Materiais Didáticos quando estiverem prontas para uso."
+        title="Planejamento pedagógico"
+        description="Espaço de rascunho e preparação docente: elabore aulas como rascunho, defina objetivos pedagógicos, anotações e checklist, e envie para materiais didáticos quando estiverem prontas para uso."
         action={
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
               href={`/professor/tracks?org=${activeOrgId}`}
               className="px-3.5 py-2.5 bg-white border border-[#E6E1D8] text-[#6C0F37] text-xs font-semibold rounded-xl hover:bg-[#FAF8F5] transition-colors"
             >
-              📚 Ir para Materiais Didáticos
+              📚 Ir para materiais didáticos
             </Link>
             <CreatePlanningLessonModal
               organizationId={activeOrgId}

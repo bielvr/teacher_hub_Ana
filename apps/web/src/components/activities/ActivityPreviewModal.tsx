@@ -13,6 +13,8 @@ interface ActivityPreviewModalProps {
   instructions: string;
   blocks: ActivityBlock[];
   correctionType: CorrectionType;
+  embedded?: boolean;
+  backLabel?: string;
 }
 
 export function ActivityPreviewModal({
@@ -24,6 +26,8 @@ export function ActivityPreviewModal({
   instructions,
   blocks,
   correctionType,
+  embedded = false,
+  backLabel,
 }: ActivityPreviewModalProps) {
   // Quebra de página baseada em <!--page-break-->
   const rawPages = instructions ? instructions.split(/<!--page-break-->/i) : [''];
@@ -87,36 +91,45 @@ export function ActivityPreviewModal({
     });
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-zoomIn">
-        {/* Cabeçalho de Simulação */}
-        <div className="px-6 py-4 border-b border-[#E6E1D8] bg-[#6C0F37] text-[#FFFDF7] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="p-1.5 rounded-lg bg-[#57102E] text-[#D7CE36] text-xs font-bold uppercase tracking-wider">
-              Modo Estudante (Simulação)
+  const modalContent = (
+    <div className={embedded ? "w-full h-full flex flex-col bg-white overflow-hidden relative" : "w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-zoomIn relative"}>
+      {/* Cabeçalho Fixo Padrão */}
+      <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+        <div className="flex items-center gap-3">
+          {embedded && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl hover:bg-[#F3E8EC] transition cursor-pointer flex items-center gap-1.5"
+            >
+              <span>←</span> {backLabel || 'Voltar'}
+            </button>
+          )}
+          <div className="text-left">
+            <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+              Materiais didáticos
             </span>
-            <span className="text-xs text-[#FFFDF7]/80 hidden sm:inline">
-              Visualize a experiência exata do aluno
-            </span>
+            <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+              Pré-visualização da atividade
+            </h1>
+            <p className="text-xs text-[#6F6865] mt-0.5 text-left">
+              Visualize a experiência do estudante nesta atividade em modo de simulação.
+            </p>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[#FFFDF7]/80 hover:text-[#FFFDF7] p-1.5 rounded-lg hover:bg-[#57102E] transition-colors"
-          >
-            ✕ Fechar
-          </button>
         </div>
 
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer"
+          aria-label="Fechar modal"
+        >
+          ✕
+        </button>
+      </div>
+
         {/* Barra de Status e Metadados */}
-        <div className="px-6 py-3 border-b border-[#E6E1D8] bg-[#FFFDF7] flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="px-6 py-3 border-b border-[#E6E1D8] bg-[#FAF8F5] flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full font-bold bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8]">
               {category}
@@ -140,7 +153,7 @@ export function ActivityPreviewModal({
                   : 'bg-amber-50 text-amber-800 border-amber-200'
               }`}
             >
-              Correção {correctionType === 'auto' ? 'Automática' : correctionType === 'mixed' ? 'Mista' : 'Manual'}
+              Correção {correctionType === 'auto' ? 'automática' : correctionType === 'mixed' ? 'mista' : 'manual'}
             </span>
           </div>
 
@@ -158,7 +171,7 @@ export function ActivityPreviewModal({
         </div>
 
         {/* Conteúdo Central da Atividade */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6">
           {/* Título Principal */}
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-[#2B2426]">
@@ -478,35 +491,35 @@ export function ActivityPreviewModal({
         </div>
 
         {/* Rodapé com Navegação de Etapas e Teste de Gabarito */}
-        <div className="px-6 py-4 border-t border-[#E6E1D8] bg-[#FFFDF7] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex flex-wrap items-center justify-between gap-3 z-20">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleTestAutoCorrection}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] transition-colors shadow-xs cursor-pointer"
             >
-              ⚡ Testar Gabarito Automático
+              ⚡ Testar gabarito automático
             </button>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-center">
+          <div className="flex items-center gap-2">
             {pages.length > 1 && (
               <>
                 <button
                   type="button"
                   disabled={currentPage === 0}
                   onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#2B2426] bg-white border border-[#E6E1D8] disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] disabled:opacity-40 cursor-pointer"
                 >
-                  ← Etapa Anterior
+                  ← Etapa anterior
                 </button>
                 <button
                   type="button"
                   disabled={currentPage >= pages.length - 1}
                   onClick={() => setCurrentPage((p) => Math.min(pages.length - 1, p + 1))}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] hover:bg-[#F3E8EC] disabled:opacity-40 cursor-pointer"
                 >
-                  Avançar Etapa →
+                  Avançar etapa →
                 </button>
               </>
             )}
@@ -514,13 +527,27 @@ export function ActivityPreviewModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-[#6F6865] hover:bg-[#FAF8F5] border border-[#E6E1D8]"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-[#E6E1D8] transition cursor-pointer"
             >
-              Fechar
+              {embedded ? (backLabel || 'Voltar aos detalhes da aula') : 'Fechar'}
             </button>
           </div>
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return modalContent;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-70 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {modalContent}
     </div>
   );
 }
