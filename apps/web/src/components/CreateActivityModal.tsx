@@ -1,108 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createActivityAction, updateActivityAction } from '../actions/activities';
 import {
-  PedagogicalObjective,
-  TargetSkill,
-  PEDAGOGICAL_OBJECTIVES,
-  TARGET_SKILLS,
   ActivityBlock,
   QuestionBlock,
   ResourceBlock,
-  QuestionBlockType,
-  ResourceBlockType,
-  computeCorrectionType,
-  CorrectionType,
 } from '../types/activities';
-import { ActivityBlockSelector } from './activities/ActivityBlockSelector';
-import { ActivityPreviewModal } from './activities/ActivityPreviewModal';
-import { RichMarkdownRenderer } from './PaginatedContent';
-import { RichTextEditor } from './RichTextEditor';
-
-const SUGGESTED_TAGS: string[] = [
-  'Teoria',
-  'Prática',
-  'Exercício',
-  'Fixação',
-  'Leitura',
-  'Raciocínio',
-  'Redação',
-  'Interpretação',
-  'Conceitos-chave',
-  'Revisão',
-  'Gramática',
-  'Vocabulário',
-];
-
-function markdownToHtml(md: string): string {
-  if (!md) return '';
-  let html = md;
-  // Page break delimiter
-  html = html.replace(
-    /<!--page-break-->/gi,
-    '<div class="page-break-badge" contenteditable="false" style="padding: 6px 12px; margin: 12px 0; background: #FAF8F5; border: 1.5px dashed #D7CE36; border-radius: 8px; color: #6C0F37; font-weight: bold; font-size: 11px; text-align: center; user-select: none;">📄 Delimitador de Quebra de Página</div>'
-  );
-  // Headings
-  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-  // Bold & Italic & Underline
-  html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-  html = html.replace(/\*(.*?)\*/g, '<i>$1</i>');
-  html = html.replace(/<u>(.*?)<\/u>/gi, '<u>$1</u>');
-  // Links
-  html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" style="color: #0d6efd; text-decoration: underline;">$1</a>'
-  );
-  // Lists
-  html = html.replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
-  html = html.replace(/<\/ul>\s*<ul>/gim, '');
-  // Numbered Lists
-  html = html.replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="num-item">$1</li>');
-  html = html.replace(/(<li class="num-item">.*<\/li>)/gim, '<ol>$1</ol>');
-  html = html.replace(/<\/ol>\s*<ol>/gim, '');
-  // Line breaks
-  html = html.replace(/\n/g, '<br>');
-  return html;
-}
-
-function htmlToMarkdown(html: string): string {
-  if (!html) return '';
-  let md = html;
-  // Page break badges
-  md = md.replace(/<div class="page-break-badge"[^>]*>.*?<\/div>/gi, '\n\n<!--page-break-->\n\n');
-  // Headings
-  md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
-  md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
-  md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
-  // Bold & Italic & Underline
-  md = md.replace(/<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gi, '**$1**');
-  md = md.replace(/<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gi, '*$1*');
-  md = md.replace(/<u[^>]*>(.*?)<\/u>/gi, '<u>$1</u>');
-  // Links
-  md = md.replace(/<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
-  // Lists
-  md = md.replace(/<li class="num-item"[^>]*>(.*?)<\/li>/gi, '1. $1\n');
-  md = md.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
-  md = md.replace(/<\/?(?:ul|ol)[^>]*>/gi, '\n');
-  // Paragraphs & Divs & Line breaks
-  md = md.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
-  md = md.replace(/<div[^>]*>(.*?)<\/div>/gi, '$1\n');
-  md = md.replace(/<br\s*[\/]?>/gi, '\n');
-  // Strip remaining HTML tags except <u>
-  md = md.replace(/<(?!\/?u\b)[^>]+>/gi, '');
-  // Decode HTML entities
-  md = md
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"');
-  return md.trim();
-}
 
 interface TrackOption {
   id: string;
@@ -135,8 +40,20 @@ interface ActivityInitialData {
   } | null;
 }
 
+export interface StudentOption {
+  id: string;
+  full_name: string;
+}
+
+export interface ClassOption {
+  id: string;
+  name: string;
+}
+
 interface CreateActivityModalProps {
-  tracks: TrackOption[];
+  tracks?: TrackOption[];
+  students?: StudentOption[];
+  classes?: ClassOption[];
   triggerText?: string;
   defaultOpen?: boolean;
   isOpen?: boolean;
@@ -145,62 +62,36 @@ interface CreateActivityModalProps {
   initialData?: ActivityInitialData | null;
 }
 
-function getQuestionTypeLabel(type: QuestionBlockType): string {
-  switch (type) {
-    case 'multiple_choice':
-      return 'Múltipla Escolha';
-    case 'multiple_select':
-      return 'Múltipla Seleção';
-    case 'true_false':
-      return 'Verdadeiro ou Falso';
-    case 'fill_blank':
-      return 'Preencher Lacunas';
-    case 'short_answer_auto':
-      return 'Resposta Curta (Gabarito)';
-    case 'translation':
-      return 'Tradução';
-    case 'error_correction':
-      return 'Correção de Erros';
-    case 'ordering':
-      return 'Ordenação';
-    case 'match_columns':
-      return 'Associação de Colunas';
-    case 'sequence_ranking':
-      return 'Sequência e Ranking';
-    case 'categorize':
-      return 'Categorização';
-    case 'short_answer_manual':
-      return 'Resposta Discursiva';
-    case 'long_answer_manual':
-      return 'Redação / Texto Longo';
-    case 'open_production_manual':
-      return 'Produção Livre / Áudio';
-    default:
-      return 'Questão';
-  }
+// 6 Tipos de Blocos Modulares
+export type ModularBlockType =
+  | 'text_instruction'
+  | 'open_question'
+  | 'multiple_choice'
+  | 'file_upload'
+  | 'media'
+  | 'external_link';
+
+export interface ModularBlock {
+  id: string;
+  type: ModularBlockType;
+  title: string;
+  contentMarkdown?: string;
+  prompt?: string;
+  options?: { id: string; text: string; isCorrect: boolean }[];
+  fileInstructions?: string;
+  acceptedFormats?: string;
+  mediaType?: 'video' | 'audio';
+  mediaUrl?: string;
+  linkUrl?: string;
+  linkTitle?: string;
 }
 
-function getResourceTypeLabel(type: ResourceBlockType): string {
-  switch (type) {
-    case 'text':
-      return 'Texto de Apoio';
-    case 'video':
-      return 'Vídeo';
-    case 'audio':
-      return 'Áudio';
-    case 'pdf':
-      return 'Documento PDF';
-    case 'image':
-      return 'Imagem';
-    case 'link':
-      return 'Link Externo';
-    default:
-      return 'Recurso';
-  }
-}
+const DEFAULT_TAGS = ['Prática', 'Revisão', 'Avaliação', 'Estudo livre'];
 
 export function CreateActivityModal({
-  tracks,
+  tracks = [],
+  students = [],
+  classes = [],
   triggerText = '+ Nova atividade',
   defaultOpen = false,
   isOpen: controlledIsOpen,
@@ -219,389 +110,493 @@ export function CreateActivityModal({
     else setInternalOpen(false);
   };
 
-  const [activeStep, setActiveStep] = useState<1 | 2>(1);
-  const [loading, setLoading] = useState(false);
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+  const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState('');
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Modais auxiliares
-  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
-  // ETAPA 1: Informações Básicas
+  // ETAPA 1: Informações
   const [title, setTitle] = useState(initialData?.title || '');
-  const [category, setCategory] = useState<PedagogicalObjective>(
-    (initialData?.metadata?.category as PedagogicalObjective) || 'Exercício e prática'
+  const [sendToType, setSendToType] = useState<'none' | 'class' | 'students'>(() => {
+    if (initialData?.metadata?.send_to) return initialData.metadata.send_to;
+    return 'none';
+  });
+  const [selectedTargetId, setSelectedTargetId] = useState<string>(
+    initialData?.metadata?.target_id || ''
   );
-  const [targetSkills, setTargetSkills] = useState<(TargetSkill | string)[]>(() => {
-    if (initialData?.metadata?.target_skills && Array.isArray(initialData.metadata.target_skills)) {
-      return initialData.metadata.target_skills;
-    }
-    if (initialData?.metadata?.skills && Array.isArray(initialData.metadata.skills)) {
-      return initialData.metadata.skills;
-    }
+  const [hasDueDate, setHasDueDate] = useState<boolean>(
+    Boolean(initialData?.metadata?.due_date)
+  );
+  const [dueDate, setDueDate] = useState<string>(
+    initialData?.metadata?.due_date || ''
+  );
+  const [instructions, setInstructions] = useState<string>(
+    initialData?.metadata?.instructions || initialData?.content_markdown || ''
+  );
+  const [tags, setTags] = useState<string[]>(() => {
     if (initialData?.metadata?.tags && Array.isArray(initialData.metadata.tags)) {
       return initialData.metadata.tags;
     }
-    return ['Prática', 'Fixação'];
+    return ['Prática', 'Revisão'];
   });
-  const [selectedTrackId, setSelectedTrackId] = useState(
-    initialData?.lessons?.modules?.tracks?.id || initialData?.metadata?.track_id || ''
-  );
-  const [selectedModuleId, setSelectedModuleId] = useState(
-    initialData?.lessons?.modules?.id || initialData?.metadata?.module_id || ''
-  );
-  const [selectedLessonId, setSelectedLessonId] = useState(
-    initialData?.lessons?.id || initialData?.lesson_id || ''
-  );
-  const [instructions, setInstructions] = useState(initialData?.content_markdown || '');
+  const [newTagInput, setNewTagInput] = useState('');
 
-  // Tag Input & Autocomplete State
-  const [tagInput, setTagInput] = useState('');
-  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
-  const tagContainerRef = useRef<HTMLDivElement>(null);
-  const tagInputRef = useRef<HTMLInputElement>(null);
-
-  // Editor Visual WYSIWYG
-  const editorRef = useRef<HTMLDivElement>(null);
-  const isEditorInitialized = useRef(false);
-
-  // Flag: Não precisa de correção / Correção externa
-  const [noCorrectionNeeded, setNoCorrectionNeeded] = useState<boolean>(
-    Boolean(
-      initialData?.metadata?.no_correction_needed ||
-        initialData?.metadata?.external_correction ||
-        initialData?.metadata?.correction_type === 'external'
-    )
-  );
-
-  // ETAPA 2: Blocos de Atividade
-  const [blocks, setBlocks] = useState<ActivityBlock[]>(() => {
+  // ETAPA 2: Blocos da Atividade
+  const [blocks, setBlocks] = useState<ModularBlock[]>(() => {
     if (initialData?.metadata?.blocks && Array.isArray(initialData.metadata.blocks)) {
-      return initialData.metadata.blocks;
-    }
-    // Reconstrução de blocos legados (items e resources)
-    const legacyBlocks: ActivityBlock[] = [];
-    if (Array.isArray(initialData?.metadata?.resources)) {
-      initialData.metadata.resources.forEach((r: any, idx: number) => {
-        legacyBlocks.push({
-          id: r.id || `res-${idx}-${Date.now()}`,
-          kind: 'resource',
-          type: r.type || 'text',
-          title: r.title || 'Recurso',
-          url: r.url || '',
-          content_markdown: r.content_markdown || '',
-        });
+      return initialData.metadata.blocks.map((b: any, idx: number): ModularBlock => {
+        if (b.type === 'multiple_choice') {
+          return {
+            id: b.id || `block-${idx}`,
+            type: 'multiple_choice',
+            title: b.title || 'Múltipla escolha',
+            prompt: b.prompt || '',
+            options: (b.options || []).map((optText: string, oIdx: number) => ({
+              id: `opt-${oIdx}`,
+              text: optText,
+              isCorrect: (b.correct_options || []).includes(optText) || b.answer_key === optText,
+            })),
+          };
+        }
+        if (b.kind === 'question') {
+          if (b.type === 'open_production_manual') {
+            return {
+              id: b.id || `block-${idx}`,
+              type: 'file_upload',
+              title: b.title || 'Anexar arquivo',
+              prompt: b.prompt || '',
+              fileInstructions: b.instructions || '',
+            };
+          }
+          return {
+            id: b.id || `block-${idx}`,
+            type: 'open_question',
+            title: b.title || 'Pergunta aberta',
+            prompt: b.prompt || '',
+          };
+        }
+        if (b.kind === 'resource') {
+          if (b.type === 'video' || b.type === 'audio') {
+            return {
+              id: b.id || `block-${idx}`,
+              type: 'media',
+              title: b.title || 'Áudio ou vídeo',
+              mediaType: b.type,
+              mediaUrl: b.url || '',
+            };
+          }
+          if (b.type === 'link') {
+            return {
+              id: b.id || `block-${idx}`,
+              type: 'external_link',
+              title: b.title || 'Link externo',
+              linkUrl: b.url || '',
+            };
+          }
+          return {
+            id: b.id || `block-${idx}`,
+            type: 'text_instruction',
+            title: b.title || 'Texto e instruções',
+            contentMarkdown: b.content_markdown || '',
+          };
+        }
+        return {
+          id: b.id || `block-${idx}`,
+          type: b.type || 'text_instruction',
+          title: b.title || 'Bloco',
+          contentMarkdown: b.contentMarkdown || b.content_markdown || '',
+          prompt: b.prompt || '',
+          options: b.options || [],
+        };
       });
     }
-    if (Array.isArray(initialData?.metadata?.items)) {
-      initialData.metadata.items.forEach((q: any, idx: number) => {
-        legacyBlocks.push({
-          id: q.id || `q-${idx}-${Date.now()}`,
-          kind: 'question',
-          type: q.type || 'multiple_choice',
-          prompt: q.prompt || '',
-          options: q.options || (q.type === 'multiple_choice' ? ['Opção 1', 'Opção 2'] : undefined),
-          answer_key: q.answer_key || undefined,
-        });
-      });
-    }
-    return legacyBlocks;
+
+    // Default: 1 bloco de instrução inicial para começar com conforto
+    return [
+      {
+        id: 'block-init-1',
+        type: 'text_instruction',
+        title: 'Introdução e instruções',
+        contentMarkdown: 'Leia atentamente as orientações antes de responder às questões.',
+      },
+    ];
   });
 
-  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-
-  // Sincroniza initialData caso mude em modo de edição
-  useEffect(() => {
-    if (initialData) {
-      setTitle(initialData.title || '');
-      setCategory((initialData.metadata?.category as PedagogicalObjective) || 'Exercício e prática');
-      setTargetSkills(
-        initialData.metadata?.target_skills ||
-          initialData.metadata?.skills ||
-          initialData.metadata?.tags || ['Prática', 'Fixação']
-      );
-      setSelectedTrackId(
-        initialData.lessons?.modules?.tracks?.id || initialData.metadata?.track_id || ''
-      );
-      setSelectedModuleId(
-        initialData.lessons?.modules?.id || initialData.metadata?.module_id || ''
-      );
-      setSelectedLessonId(initialData.lessons?.id || initialData.lesson_id || '');
-      setInstructions(initialData.content_markdown || '');
-      setNoCorrectionNeeded(
-        Boolean(
-          initialData.metadata?.no_correction_needed ||
-            initialData.metadata?.external_correction ||
-            initialData.metadata?.correction_type === 'external'
-        )
-      );
-
-      if (initialData.metadata?.blocks && Array.isArray(initialData.metadata.blocks)) {
-        setBlocks(initialData.metadata.blocks);
-      } else if (initialData.metadata?.items || initialData.metadata?.resources) {
-        const loaded: ActivityBlock[] = [];
-        (initialData.metadata.resources || []).forEach((r: any, i: number) => {
-          loaded.push({
-            id: r.id || `res-${i}-${Date.now()}`,
-            kind: 'resource',
-            type: r.type || 'text',
-            title: r.title || 'Recurso',
-            url: r.url || '',
-            content_markdown: r.content_markdown || '',
-          });
-        });
-        (initialData.metadata.items || []).forEach((q: any, i: number) => {
-          loaded.push({
-            id: q.id || `q-${i}-${Date.now()}`,
-            kind: 'question',
-            type: q.type || 'multiple_choice',
-            prompt: q.prompt || '',
-            options: q.options,
-            answer_key: q.answer_key,
-          });
-        });
-        setBlocks(loaded);
-      }
+  // ETAPA 3: Entrega e Correção
+  const [visibility, setVisibility] = useState<'now' | 'later'>(
+    initialData?.metadata?.visibility === 'later' ? 'later' : 'now'
+  );
+  const [requiresSubmission, setRequiresSubmission] = useState<boolean>(() => {
+    if (initialData?.metadata?.requires_submission !== undefined) {
+      return Boolean(initialData.metadata.requires_submission);
     }
-  }, [initialData]);
+    return true;
+  });
+  const [requiresCorrection, setRequiresCorrection] = useState<boolean>(() => {
+    if (initialData?.metadata?.requires_correction !== undefined) {
+      return Boolean(initialData.metadata.requires_correction);
+    }
+    return !initialData?.metadata?.no_correction_needed;
+  });
+  const [autoShowResults, setAutoShowResults] = useState<boolean>(() => {
+    if (initialData?.metadata?.auto_show_results !== undefined) {
+      return Boolean(initialData.metadata.auto_show_results);
+    }
+    return false;
+  });
 
-  // Filtros encadeados de Nível -> Unidade -> Aula
-  const availableModules = tracks.find((t) => t.id === selectedTrackId)?.modules || [];
-  const availableLessons = availableModules.find((m) => m.id === selectedModuleId)?.lessons || [];
-
-  // Motor de Correção
-  const computedCorrection = computeCorrectionType(blocks);
-  const correctionType: CorrectionType = noCorrectionNeeded ? 'external' : computedCorrection;
-
-  // Fecha no ESC
+  // Fechar com Escape
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && isOpen && !isSelectorOpen && !isPreviewOpen) {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && isOpen && !isPending) {
         handleClose();
       }
     }
-    if (isOpen) document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSelectorOpen, isPreviewOpen]);
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, isPending]);
 
-  // Fecha dropdown de tags ao clicar fora
+  // Se o toggle de envio de resposta for desligado, desativa correção
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (tagContainerRef.current && !tagContainerRef.current.contains(event.target as Node)) {
-        setIsTagDropdownOpen(false);
-      }
+    if (!requiresSubmission) {
+      setRequiresCorrection(false);
+      setAutoShowResults(false);
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [requiresSubmission]);
 
-  // Sincroniza conteúdo no editor visual ao abrir ou mudar para etapa 1
-  useEffect(() => {
-    if (activeStep === 1 && editorRef.current) {
-      if (!isEditorInitialized.current || editorRef.current.innerHTML === '') {
-        editorRef.current.innerHTML = markdownToHtml(instructions);
-        isEditorInitialized.current = true;
-      }
-    }
-  }, [isOpen, activeStep, instructions]);
+  // Editor Simples & Limpo: Aplica formatações markdown no textarea
+  const instructionsTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const applyFormatting = (prefix: string, suffix: string = prefix) => {
+    const textarea = instructionsTextareaRef.current;
+    if (!textarea) return;
 
-  // Manipulação de tags dinâmicas
-  const addTag = (tag: string) => {
-    const clean = tag.trim().replace(/^,+|,+$/g, '');
-    if (clean && !targetSkills.includes(clean)) {
-      setTargetSkills([...targetSkills, clean]);
-    }
-    setTagInput('');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const previousText = textarea.value;
+    const selected = previousText.substring(start, end);
+
+    const replacement = `${prefix}${selected || 'texto'}${suffix}`;
+    const newText =
+      previousText.substring(0, start) +
+      replacement +
+      previousText.substring(end);
+
+    setInstructions(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + prefix.length,
+        start + prefix.length + (selected ? selected.length : 5)
+      );
+    }, 10);
   };
 
-  const removeTag = (tagToRemove: string) => {
-    setTargetSkills(targetSkills.filter((t) => t !== tagToRemove));
+  // Funções de Tags
+  const handleAddTag = () => {
+    const clean = newTagInput.trim().replace(/^#/, '');
+    if (!clean || tags.includes(clean)) return;
+    setTags((prev) => [...prev, clean]);
+    setNewTagInput('');
   };
 
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      if (tagInput.trim()) {
-        addTag(tagInput);
-      }
-    } else if (e.key === 'Backspace' && !tagInput && targetSkills.length > 0) {
-      removeTag(targetSkills[targetSkills.length - 1]);
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags((prev) => prev.filter((t) => t !== tagToRemove));
+  };
+
+  // Funções de Blocos (Etapa 2)
+  const handleAddBlock = (type: ModularBlockType) => {
+    const newId = `block-${Date.now()}`;
+    let newBlock: ModularBlock;
+
+    switch (type) {
+      case 'text_instruction':
+        newBlock = {
+          id: newId,
+          type: 'text_instruction',
+          title: 'Texto e instruções',
+          contentMarkdown: '',
+        };
+        break;
+      case 'open_question':
+        newBlock = {
+          id: newId,
+          type: 'open_question',
+          title: 'Pergunta aberta',
+          prompt: '',
+        };
+        break;
+      case 'multiple_choice':
+        newBlock = {
+          id: newId,
+          type: 'multiple_choice',
+          title: 'Múltipla escolha',
+          prompt: '',
+          options: [
+            { id: 'opt-1', text: 'Alternativa A', isCorrect: true },
+            { id: 'opt-2', text: 'Alternativa B', isCorrect: false },
+            { id: 'opt-3', text: 'Alternativa C', isCorrect: false },
+          ],
+        };
+        break;
+      case 'file_upload':
+        newBlock = {
+          id: newId,
+          type: 'file_upload',
+          title: 'Anexar arquivo',
+          prompt: 'Envie o arquivo solicitado para avaliação.',
+          fileInstructions: 'Formatos aceitos: PDF, Imagem ou Documento.',
+        };
+        break;
+      case 'media':
+        newBlock = {
+          id: newId,
+          type: 'media',
+          title: 'Áudio ou vídeo',
+          mediaType: 'video',
+          mediaUrl: '',
+        };
+        break;
+      case 'external_link':
+        newBlock = {
+          id: newId,
+          type: 'external_link',
+          title: 'Link externo',
+          linkTitle: 'Recurso de apoio',
+          linkUrl: '',
+        };
+        break;
     }
+
+    setBlocks((prev) => [...prev, newBlock]);
   };
 
-  const filteredSuggestions = SUGGESTED_TAGS.filter(
-    (s) =>
-      !targetSkills.includes(s) &&
-      (tagInput.trim() ? s.toLowerCase().includes(tagInput.toLowerCase()) : true)
-  );
-
-  // Editor Visual WYSIWYG com sincronização imediata
-  const handleEditorInput = () => {
-    if (editorRef.current) {
-      const html = editorRef.current.innerHTML;
-      const md = htmlToMarkdown(html);
-      setInstructions(md);
-    }
+  const handleRemoveBlock = (id: string) => {
+    setBlocks((prev) => prev.filter((b) => b.id !== id));
   };
 
-  const formatDoc = (cmd: string, val: string | undefined = undefined) => {
-    if (editorRef.current) {
-      editorRef.current.focus();
-    }
-    document.execCommand(cmd, false, val);
-    handleEditorInput();
-  };
-
-  const handleInsertLink = () => {
-    const url = prompt('Digite a URL do link (ex: https://...):');
-    if (url) {
-      formatDoc('createLink', url);
-    }
-  };
-
-  const handleInsertPageBreak = () => {
-    const pageBreakBadge =
-      '<div class="page-break-badge" contenteditable="false" style="padding: 6px 12px; margin: 12px 0; background: #FAF8F5; border: 1.5px dashed #D7CE36; border-radius: 8px; color: #6C0F37; font-weight: bold; font-size: 11px; text-align: center; user-select: none;">📄 Delimitador de Quebra de Página</div><p><br></p>';
-    if (editorRef.current) {
-      editorRef.current.focus();
-    }
-    document.execCommand('insertHTML', false, pageBreakBadge);
-    handleEditorInput();
-  };
-
-  // Adição de bloco via catálogo
-  const handleAddBlock = (
-    type: QuestionBlockType | ResourceBlockType,
-    kind: 'question' | 'resource'
-  ) => {
-    const id = Date.now().toString();
-
-    if (kind === 'resource') {
-      const newResource: ResourceBlock = {
-        id,
-        kind: 'resource',
-        type: type as ResourceBlockType,
-        title: `Recurso: ${getResourceTypeLabel(type as ResourceBlockType)}`,
-        url: '',
-        content_markdown: '',
-      };
-      setBlocks([...blocks, newResource]);
-      setEditingBlockId(id);
-    } else {
-      const newQuestion: QuestionBlock = {
-        id,
-        kind: 'question',
-        type: type as QuestionBlockType,
-        prompt: '',
-        options:
-          type === 'multiple_choice' || type === 'multiple_select'
-            ? ['Opção A', 'Opção B', 'Opção C', 'Opção D']
-            : undefined,
-        answer_key:
-          type === 'true_false'
-            ? 'True'
-            : type === 'multiple_choice'
-            ? 'Opção A'
-            : undefined,
-      };
-      setBlocks([...blocks, newQuestion]);
-      setEditingBlockId(id);
-    }
-  };
-
-  // Manipulação de Blocos
-  const moveBlock = (index: number, direction: 'up' | 'down') => {
+  const handleMoveBlock = (index: number, direction: 'up' | 'down') => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === blocks.length - 1) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    const newBlocks = [...blocks];
-    const [removed] = newBlocks.splice(index, 1);
-    newBlocks.splice(targetIndex, 0, removed);
-    setBlocks(newBlocks);
+    const updated = [...blocks];
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+    setBlocks(updated);
   };
 
-  const duplicateBlock = (index: number) => {
-    const blockToCopy = blocks[index];
-    const duplicated: ActivityBlock = {
-      ...JSON.parse(JSON.stringify(blockToCopy)),
-      id: Date.now().toString(),
-    };
-    const newBlocks = [...blocks];
-    newBlocks.splice(index + 1, 0, duplicated);
-    setBlocks(newBlocks);
-  };
-
-  const removeBlock = (id: string) => {
-    setBlocks(blocks.filter((b) => b.id !== id));
-    if (editingBlockId === id) setEditingBlockId(null);
-  };
-
-  const updateBlock = (id: string, updates: Partial<ActivityBlock>) => {
+  const handleUpdateBlockField = (
+    id: string,
+    field: keyof ModularBlock,
+    value: any
+  ) => {
     setBlocks((prev) =>
-      prev.map((b) => (b.id === id ? ({ ...b, ...updates } as ActivityBlock) : b))
+      prev.map((b) => (b.id === id ? { ...b, [field]: value } : b))
     );
   };
 
-  // Submissão (Criação ou Edição)
-  const handleSubmit = async (status: 'published' | 'draft') => {
-    if (!title.trim()) {
-      setErrorMsg('Informe o título da atividade.');
-      setActiveStep(1);
-      return;
-    }
+  // Funções de Alternativas da Múltipla Escolha
+  const handleAddOptionToBlock = (blockId: string) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== blockId) return b;
+        const currentOpts = b.options || [];
+        const nextLetter = String.fromCharCode(65 + currentOpts.length);
+        const newOpts = [
+          ...currentOpts,
+          {
+            id: `opt-${Date.now()}`,
+            text: `Alternativa ${nextLetter}`,
+            isCorrect: false,
+          },
+        ];
+        return { ...b, options: newOpts };
+      })
+    );
+  };
 
-    setLoading(true);
+  const handleRemoveOptionFromBlock = (blockId: string, optId: string) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== blockId) return b;
+        return {
+          ...b,
+          options: (b.options || []).filter((o) => o.id !== optId),
+        };
+      })
+    );
+  };
+
+  const handleSetOptionCorrect = (blockId: string, optId: string) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== blockId) return b;
+        return {
+          ...b,
+          options: (b.options || []).map((o) => ({
+            ...o,
+            isCorrect: o.id === optId,
+          })),
+        };
+      })
+    );
+  };
+
+  const handleUpdateOptionText = (
+    blockId: string,
+    optId: string,
+    text: string
+  ) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== blockId) return b;
+        return {
+          ...b,
+          options: (b.options || []).map((o) =>
+            o.id === optId ? { ...o, text } : o
+          ),
+        };
+      })
+    );
+  };
+
+  // Submissão do Formulário
+  const executeSubmit = (actionType: 'draft' | 'publish') => {
     setErrorMsg('');
 
-    try {
-      const formData = new FormData();
-      formData.append('title', title.trim());
-      formData.append('type', 'quiz');
-      if (selectedLessonId) formData.append('lesson_id', selectedLessonId);
-      if (organizationId) formData.append('organization_id', organizationId);
-      formData.append('content_markdown', instructions.trim());
-      formData.append('category', category);
-      formData.append('target_skills', JSON.stringify(targetSkills));
-      formData.append('skills', JSON.stringify(targetSkills));
-      formData.append('tags', JSON.stringify(targetSkills));
-      formData.append('correction_type', correctionType);
-      formData.append('no_correction_needed', noCorrectionNeeded ? 'true' : 'false');
-      formData.append('status', status);
-      formData.append('blocks', JSON.stringify(blocks));
+    // Prepara payload compatível com o schema do Supabase
+    const formData = new FormData();
+    const effectiveTitle = title.trim() || 'Atividade sem título';
+    formData.append('title', effectiveTitle);
+    formData.append('content_markdown', instructions.trim());
+    formData.append('instructions', instructions.trim());
+    if (organizationId) formData.append('organization_id', organizationId);
+    if (initialData?.id) formData.append('activity_id', initialData.id);
 
-      const items = blocks.filter((b) => b.kind === 'question');
-      const resources = blocks.filter((b) => b.kind === 'resource');
-      formData.append('items', JSON.stringify(items));
-      formData.append('resources', JSON.stringify(resources));
-
-      if (initialData?.id) {
-        formData.append('activity_id', initialData.id);
-        await updateActivityAction(formData);
-      } else {
-        await createActivityAction(formData);
+    // Mapeamento de blocos para modelo legado (items e resources)
+    const legacyBlocks: ActivityBlock[] = blocks.map((b) => {
+      if (b.type === 'multiple_choice') {
+        const correctOpt = (b.options || []).find((o) => o.isCorrect)?.text || '';
+        return {
+          id: b.id,
+          kind: 'question',
+          type: 'multiple_choice',
+          prompt: b.prompt || b.title,
+          options: (b.options || []).map((o) => o.text),
+          correct_options: correctOpt ? [correctOpt] : [],
+          answer_key: correctOpt,
+        } as QuestionBlock;
       }
-
-      handleClose();
-      if (!initialData?.id) {
-        setTitle('');
-        setInstructions('');
-        setBlocks([]);
-        setActiveStep(1);
+      if (b.type === 'open_question') {
+        return {
+          id: b.id,
+          kind: 'question',
+          type: 'short_answer_manual',
+          prompt: b.prompt || b.title,
+        } as QuestionBlock;
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao salvar atividade.');
-    } finally {
-      setLoading(false);
-    }
+      if (b.type === 'file_upload') {
+        return {
+          id: b.id,
+          kind: 'question',
+          type: 'open_production_manual',
+          prompt: b.prompt || b.title,
+          instructions: b.fileInstructions || '',
+        } as QuestionBlock;
+      }
+      if (b.type === 'media') {
+        return {
+          id: b.id,
+          kind: 'resource',
+          type: b.mediaType === 'audio' ? 'audio' : 'video',
+          title: b.title,
+          url: b.mediaUrl || '',
+        } as ResourceBlock;
+      }
+      if (b.type === 'external_link') {
+        return {
+          id: b.id,
+          kind: 'resource',
+          type: 'link',
+          title: b.linkTitle || b.title,
+          url: b.linkUrl || '',
+        } as ResourceBlock;
+      }
+      return {
+        id: b.id,
+        kind: 'resource',
+        type: 'text',
+        title: b.title,
+        content_markdown: b.contentMarkdown || '',
+      } as ResourceBlock;
+    });
+
+    formData.append('blocks', JSON.stringify(legacyBlocks));
+    formData.append('target_skills', JSON.stringify(tags));
+    formData.append('status', actionType === 'publish' ? 'published' : 'draft');
+    formData.append('send_to', sendToType);
+    if (selectedTargetId) formData.append('target_id', selectedTargetId);
+    if (hasDueDate && dueDate) formData.append('due_date', dueDate);
+    formData.append('visibility', visibility);
+    formData.append('requires_submission', requiresSubmission ? 'true' : 'false');
+    formData.append('requires_correction', requiresCorrection ? 'true' : 'false');
+    formData.append('auto_show_results', autoShowResults ? 'true' : 'false');
+    formData.append('no_correction_needed', !requiresCorrection ? 'true' : 'false');
+
+    startTransition(async () => {
+      try {
+        if (initialData?.id) {
+          await updateActivityAction(formData);
+        } else {
+          await createActivityAction(formData);
+        }
+
+        setSuccessToast(
+          actionType === 'publish'
+            ? 'Atividade enviada com sucesso aos estudantes!'
+            : 'Rascunho da atividade salvo com sucesso!'
+        );
+
+        setTimeout(() => {
+          handleClose();
+          setSuccessToast(null);
+        }, 1200);
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Erro ao processar a atividade.');
+      }
+    });
   };
+
+  // Nome do destinatário selecionado para o resumo
+  const getSelectedTargetLabel = () => {
+    if (sendToType === 'none') return 'Ninguém por enquanto (salvar como modelo)';
+    if (sendToType === 'class') {
+      const found = classes.find((c) => c.id === selectedTargetId);
+      return found ? `Turma: ${found.name}` : 'Turma selecionada';
+    }
+    const found = students.find((s) => s.id === selectedTargetId);
+    return found ? `Estudante: ${found.full_name}` : 'Estudantes selecionados';
+  };
+
+  const hasMultipleChoiceBlocks = blocks.some((b) => b.type === 'multiple_choice');
 
   return (
     <>
       {controlledIsOpen === undefined && (
         <button
           type="button"
-          onClick={() => setInternalOpen(true)}
-          className="px-4 py-2 text-sm font-semibold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D7CE36]/60"
+          onClick={() => {
+            setActiveStep(1);
+            setInternalOpen(true);
+          }}
+          className="px-4 py-2.5 bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer hover:shadow-md active:scale-[0.98]"
         >
           <span>{triggerText}</span>
         </button>
@@ -609,1143 +604,1121 @@ export function CreateActivityModal({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
           onClick={(e) => {
-            if (e.target === e.currentTarget && !isSelectorOpen && !isPreviewOpen) handleClose();
+            if (e.target === e.currentTarget && !isPending) {
+              handleClose();
+            }
           }}
         >
-          <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Topo do Modal */}
-            <div className="px-6 py-4 border-b border-[#E6E1D8] flex items-center justify-between bg-[#FAF8F5]">
-              <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-white border border-[#E6E1D8] text-[#6C0F37] font-bold text-lg">
-                  {initialData ? '✏️' : '📝'}
-                </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-white border border-[#E6E1D8] px-2 py-0.5 rounded">
-                      {initialData ? 'Editar Atividade' : 'Construtor de Atividades'}
-                    </span>
-                    <span className="text-xs text-[#6F6865]">
-                      {activeStep === 1 ? 'Etapa 1: Organização' : 'Etapa 2: Montagem de Blocos'}
-                    </span>
-                  </div>
-                  <h2 className="text-xl font-bold text-[#6C0F37] mt-0.5 truncate max-w-md sm:max-w-xl">
-                    {title ? title : initialData ? 'Editar atividade' : 'Nova atividade pedagógica'}
-                  </h2>
-                </div>
+          <div
+            className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl max-w-[1440px] w-[94vw] min-h-[90vh] max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Feedback flutuante */}
+            {successToast && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#198754] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                <span>✓</span>
+                <span>{successToast}</span>
               </div>
+            )}
 
-              {/* Indicador de Etapas no Topo */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(1)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                    activeStep === 1
-                      ? 'bg-[#6C0F37] text-white'
-                      : 'bg-white text-[#6F6865] border border-[#E6E1D8] hover:bg-[#FAF8F5]'
-                  }`}
-                >
-                  1. Informações Básicas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!title.trim()) {
-                      setErrorMsg('Informe o título antes de avançar para os blocos.');
-                      return;
-                    }
-                    setErrorMsg('');
-                    setActiveStep(2);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                    activeStep === 2
-                      ? 'bg-[#6C0F37] text-white'
-                      : 'bg-white text-[#6F6865] border border-[#E6E1D8] hover:bg-[#FAF8F5]'
-                  }`}
-                >
-                  2. Construtor por Blocos ({blocks.length})
-                </button>
+            {/* 1. CABEÇALHO COM STEPPER EM 3 ETAPAS REAIS */}
+            <div className="px-6 py-4 bg-white border-b border-[#E6E1D8] shrink-0 z-20 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
+                    ATIVIDADES
+                  </span>
+                  <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5">
+                    Criar atividade
+                  </h1>
+                  <p className="text-xs text-[#6F6865] mt-0.5">
+                    {activeStep === 1 &&
+                      'Comece pelas informações que ajudam a organizar sua atividade.'}
+                    {activeStep === 2 &&
+                      'Organize os blocos que seus estudantes vão realizar.'}
+                    {activeStep === 3 &&
+                      'Defina como a atividade será entregue e acompanhada.'}
+                  </p>
+                </div>
 
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="p-1.5 text-[#6F6865] hover:text-[#2B2426] hover:bg-white rounded-lg transition-colors ml-2 cursor-pointer font-bold"
-                  aria-label="Fechar"
+                  disabled={isPending}
+                  className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer disabled:opacity-50"
+                  aria-label="Fechar modal"
                 >
                   ✕
                 </button>
               </div>
+
+              {/* Barra de Progresso Numerada (Stepper) */}
+              <div className="flex items-center justify-between max-w-xl mx-auto pt-1 pb-1">
+                {[
+                  { step: 1 as const, title: 'Informações' },
+                  { step: 2 as const, title: 'Monte a atividade' },
+                  { step: 3 as const, title: 'Entrega e correção' },
+                ].map((item, idx) => {
+                  const isCurrent = activeStep === item.step;
+                  const isPast = activeStep > item.step;
+
+                  return (
+                    <div key={item.step} className="flex items-center flex-1 last:flex-none">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(item.step)}
+                        className={`flex items-center gap-2.5 text-xs font-semibold transition cursor-pointer ${
+                          isCurrent
+                            ? 'text-[#6C0F37]'
+                            : isPast
+                            ? 'text-[#2B2426]'
+                            : 'text-[#6F6865]/60 hover:text-[#2B2426]'
+                        }`}
+                      >
+                        <span
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition shadow-2xs ${
+                            isCurrent
+                              ? 'bg-[#6C0F37] text-white ring-4 ring-[#6C0F37]/15'
+                              : isPast
+                              ? 'bg-[#198754] text-white'
+                              : 'bg-[#FAF8F5] text-[#6F6865] border border-[#E6E1D8]'
+                          }`}
+                        >
+                          {isPast ? '✓' : item.step}
+                        </span>
+                        <span className="hidden sm:inline">{item.title}</span>
+                      </button>
+
+                      {idx < 2 && (
+                        <div
+                          className={`flex-1 h-0.5 mx-3 sm:mx-4 transition-colors ${
+                            activeStep > item.step ? 'bg-[#198754]' : 'bg-[#E6E1D8]'
+                          }`}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Mensagem de Erro Geral */}
-            {errorMsg && (
-              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-800 text-xs font-medium rounded-xl">
-                {errorMsg}
-              </div>
-            )}
+            {/* 2. CORPO DO CONTEÚDO (TELAS EXCLUSIVAS POR ETAPA) */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-white scroll-smooth">
+              {errorMsg && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
-            {/* Conteúdo Dinâmico por Etapa */}
-            <div className="p-6 overflow-y-auto flex-1">
-              {activeStep === 1 ? (
-                /* ================= ETAPA 1 ================= */
-                <div className="space-y-6 max-w-4xl mx-auto">
-                  {/* Título da Atividade */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
-                      Título da Atividade *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Prática de Present Perfect vs Past Simple ou Diálogo no Restaurante"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-[#E6E1D8] rounded-xl text-sm font-semibold text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#D7CE36]"
-                    />
+              {/* ======================================================== */}
+              {/* ETAPA 1 — INFORMAÇÕES */}
+              {/* ======================================================== */}
+              {activeStep === 1 && (
+                <div className="space-y-6 animate-in fade-in duration-150">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Coluna Esquerda: Dados Básicos */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                      <div>
+                        <h2 className="text-sm font-bold text-[#6C0F37]">
+                          Dados básicos da atividade
+                        </h2>
+                        <p className="text-[11px] text-[#6F6865] mt-0.5">
+                          Identifique e organize para quem esta atividade se destina.
+                        </p>
+                      </div>
+
+                      {/* Título da atividade */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Título da atividade (opcional)
+                        </label>
+                        <input
+                          type="text"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder="Talking about future plans"
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                        />
+                      </div>
+
+                      {/* Enviar para */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Enviar para (opcional)
+                        </label>
+                        <select
+                          value={
+                            sendToType === 'none'
+                              ? 'none'
+                              : `${sendToType}:${selectedTargetId}`
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'none') {
+                              setSendToType('none');
+                              setSelectedTargetId('');
+                            } else {
+                              const [t, id] = val.split(':');
+                              setSendToType(t as 'class' | 'students');
+                              setSelectedTargetId(id || '');
+                            }
+                          }}
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                        >
+                          <option value="none">Ninguém por enquanto (salvar como modelo)</option>
+                          {classes.length > 0 && (
+                            <optgroup label="Turmas">
+                              {classes.map((c) => (
+                                <option key={c.id} value={`class:${c.id}`}>
+                                  Turma: {c.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {students.length > 0 && (
+                            <optgroup label="Estudantes específicos">
+                              {students.map((s) => (
+                                <option key={s.id} value={`students:${s.id}`}>
+                                  {s.full_name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </select>
+                      </div>
+
+                      {/* Prazo de entrega */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs font-semibold text-[#2B2426]">
+                            Prazo de entrega (opcional)
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs text-[#6F6865] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!hasDueDate}
+                              onChange={(e) => {
+                                setHasDueDate(!e.target.checked);
+                                if (e.target.checked) setDueDate('');
+                              }}
+                              className="accent-[#6C0F37] rounded"
+                            />
+                            <span>Sem prazo</span>
+                          </label>
+                        </div>
+
+                        {hasDueDate ? (
+                          <input
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                          />
+                        ) : (
+                          <div className="p-2.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl text-xs text-[#6F6865] italic">
+                            Atividade sem data limite de entrega.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Coluna Direita: Orientações para estudantes (Editor Simples e Limpo) */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3 shadow-2xs flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#2B2426]">
+                            Orientações para estudantes (opcional)
+                          </label>
+                          <p className="text-[11px] text-[#6F6865] mt-0.5">
+                            Explique de forma clara o que os estudantes devem fazer.
+                          </p>
+                        </div>
+
+                        {/* Barra de Ferramentas Essencial e Limpa */}
+                        <div className="flex items-center gap-1 p-1.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => applyFormatting('**')}
+                            className="w-7 h-7 rounded-lg hover:bg-white text-xs font-bold text-[#2B2426] transition flex items-center justify-center cursor-pointer"
+                            title="Negrito"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyFormatting('*')}
+                            className="w-7 h-7 rounded-lg hover:bg-white text-xs italic font-serif text-[#2B2426] transition flex items-center justify-center cursor-pointer"
+                            title="Itálico"
+                          >
+                            I
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyFormatting('<u>', '</u>')}
+                            className="w-7 h-7 rounded-lg hover:bg-white text-xs underline text-[#2B2426] transition flex items-center justify-center cursor-pointer"
+                            title="Sublinhado"
+                          >
+                            U
+                          </button>
+                          <div className="w-[1px] h-4 bg-[#E6E1D8] mx-1" />
+                          <button
+                            type="button"
+                            onClick={() => applyFormatting('\n- ')}
+                            className="w-7 h-7 rounded-lg hover:bg-white text-xs text-[#2B2426] transition flex items-center justify-center cursor-pointer"
+                            title="Lista com marcadores"
+                          >
+                            •
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyFormatting('\n1. ')}
+                            className="w-7 h-7 rounded-lg hover:bg-white text-xs font-semibold text-[#2B2426] transition flex items-center justify-center cursor-pointer"
+                            title="Lista numerada"
+                          >
+                            1.
+                          </button>
+                          <div className="w-[1px] h-4 bg-[#E6E1D8] mx-1" />
+                          <button
+                            type="button"
+                            onClick={() => applyFormatting('[', '](https://)')}
+                            className="w-7 h-7 rounded-lg hover:bg-white text-xs text-[#2B2426] transition flex items-center justify-center cursor-pointer"
+                            title="Inserir link"
+                          >
+                            🔗
+                          </button>
+                        </div>
+
+                        {/* Textarea confortável */}
+                        <textarea
+                          ref={instructionsTextareaRef}
+                          rows={7}
+                          value={instructions}
+                          onChange={(e) => setInstructions(e.target.value)}
+                          placeholder="Olá, estudantes! Assistam ao vídeo introdutório e respondam com atenção às perguntas a seguir..."
+                          className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Objetivo Pedagógico Geral (Select Único) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Seção Inferior: Tags Dinâmicas */}
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3 shadow-2xs">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
-                        Objetivo Pedagógico Geral *
+                      <label className="text-xs font-semibold text-[#2B2426]">
+                        Tags (opcional)
                       </label>
-                      <select
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value as PedagogicalObjective)}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36]"
-                      >
-                        {PEDAGOGICAL_OBJECTIVES.map((obj) => (
-                          <option key={obj} value={obj}>
-                            {obj}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] text-[#6F6865] mt-1">
-                        Define a finalidade pedagógica desta atividade.
+                      <p className="text-[11px] text-[#6F6865] mt-0.5">
+                        Adicione tags para facilitar a organização e a busca.
                       </p>
                     </div>
 
-                    {/* Vínculo Curricular Opcional */}
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
-                        Nível / Trilha Curricular (Opcional)
-                      </label>
-                      <select
-                        value={selectedTrackId}
-                        onChange={(e) => {
-                          setSelectedTrackId(e.target.value);
-                          setSelectedModuleId('');
-                          setSelectedLessonId('');
-                        }}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36]"
-                      >
-                        <option value="">Atividade Geral (Sem vínculo obrigatório)</option>
-                        {tracks.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.title}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Alerta de Entrega Textual Dissertativa Automática */}
-                  {category === 'Produção escrita' && (
-                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 shadow-2xs">
-                      <span className="text-xl shrink-0 mt-0.5">✍️</span>
-                      <div>
-                        <h4 className="text-xs font-bold text-amber-900 flex items-center gap-2">
-                          <span>Entrega Textual Dissertativa Automática</span>
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.2 rounded border border-amber-300">
-                            Ativo
-                          </span>
-                        </h4>
-                        <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed">
-                          Como esta atividade é uma <strong>Produção Escrita</strong>, o sistema disponibilizará automaticamente uma caixa de resposta textual/redação na tela do estudante. Não é obrigatório configurar blocos de perguntas extras caso queira orientar o tema apenas nas instruções gerais.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Unidade e Aula (Se Nível selecionado) */}
-                  {selectedTrackId && availableModules.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8]">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                          Unidade Curricular
-                        </label>
-                        <select
-                          value={selectedModuleId}
-                          onChange={(e) => {
-                            setSelectedModuleId(e.target.value);
-                            setSelectedLessonId('');
-                          }}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426]"
-                        >
-                          <option value="">Selecione a unidade</option>
-                          {availableModules.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.title}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                          Aula Específica
-                        </label>
-                        <select
-                          value={selectedLessonId}
-                          onChange={(e) => setSelectedLessonId(e.target.value)}
-                          disabled={!selectedModuleId}
-                          className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] disabled:opacity-50"
-                        >
-                          <option value="">Vincular a uma aula específica</option>
-                          {availableLessons.map((l) => (
-                            <option key={l.id} value={l.id}>
-                              {l.title}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Habilidades / Tags Dinâmicas com Autocomplete */}
-                  <div className="relative" ref={tagContainerRef}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426]">
-                        Habilidades & Tags da Atividade
-                      </label>
-                      <span className="text-[11px] text-[#6F6865]">
-                        Pressione <kbd className="px-1 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded text-[10px] font-mono">Enter</kbd> ou <kbd className="px-1 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded text-[10px] font-mono">,</kbd> para adicionar
-                      </span>
-                    </div>
-
-                    <div
-                      onClick={() => tagInputRef.current?.focus()}
-                      className="min-h-[46px] p-2 bg-white border border-[#E6E1D8] rounded-xl flex flex-wrap items-center gap-1.5 focus-within:ring-2 focus-within:ring-[#6C0F37]/30 focus-within:border-[#6C0F37] transition-all cursor-text shadow-2xs"
-                    >
-                      {targetSkills.map((tag) => (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {tags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#6C0F37] text-[#FFFDF7] rounded-lg text-xs font-semibold shadow-2xs"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#F3E8EC] border border-[#6C0F37]/30 text-[#6C0F37] text-xs font-semibold rounded-lg shadow-2xs"
                         >
-                          <span>{tag}</span>
+                          <span>#{tag}</span>
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeTag(tag);
-                            }}
-                            className="w-4 h-4 rounded-full hover:bg-black/20 flex items-center justify-center text-xs leading-none transition-colors cursor-pointer"
-                            title={`Remover tag ${tag}`}
+                            onClick={() => handleRemoveTag(tag)}
+                            className="text-[#6C0F37] hover:text-red-600 font-bold text-[10px] cursor-pointer"
+                            title="Remover tag"
                           >
-                            ×
+                            ✕
                           </button>
                         </span>
                       ))}
 
+                      {/* Sugestões rápidas de 1 clique */}
+                      {DEFAULT_TAGS.filter((dt) => !tags.includes(dt)).map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => setTags((prev) => [...prev, sug])}
+                          className="px-2.5 py-1 text-xs text-[#6F6865] hover:text-[#6C0F37] bg-[#FAF8F5] hover:bg-[#F3E8EC] border border-dashed border-[#E6E1D8] rounded-lg transition cursor-pointer"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2 max-w-md pt-1">
                       <input
-                        ref={tagInputRef}
                         type="text"
-                        value={tagInput}
-                        onChange={(e) => {
-                          setTagInput(e.target.value);
-                          if (!isTagDropdownOpen) setIsTagDropdownOpen(true);
+                        value={newTagInput}
+                        onChange={(e) => setNewTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTag();
+                          }
                         }}
-                        onFocus={() => setIsTagDropdownOpen(true)}
-                        onKeyDown={handleTagKeyDown}
-                        placeholder={
-                          targetSkills.length === 0
-                            ? 'Digite tags ou selecione sugestões (ex: Teoria, Prática, Equação do 2º Grau)...'
-                            : 'Adicionar outra tag...'
-                        }
-                        className="flex-1 min-w-[180px] bg-transparent text-xs text-[#2B2426] placeholder-[#6F6865] focus:outline-none py-1 px-1"
+                        placeholder="Digitar nova tag e pressionar Enter..."
+                        className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                       />
-                    </div>
-
-                    {/* Dropdown Popover de Sugestões */}
-                    {isTagDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl shadow-xl z-30 p-2.5 max-h-52 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#6F6865] px-2 py-1">
-                          Sugestões Pedagógicas
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {filteredSuggestions.length > 0 ? (
-                            filteredSuggestions.map((suggestion) => (
-                              <button
-                                key={suggestion}
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  addTag(suggestion);
-                                }}
-                                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white hover:bg-[#6C0F37] hover:text-[#FFFDF7] text-[#2B2426] border border-[#E6E1D8] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                              >
-                                <span>+</span>
-                                <span>{suggestion}</span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="text-xs text-[#6F6865] px-2 py-1 italic">
-                              {tagInput.trim()
-                                ? `Pressione Enter para adicionar "${tagInput.trim()}" como nova tag.`
-                                : 'Todas as sugestões padrão já foram adicionadas.'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* REQUISITO 3: FLAG DE CORREÇÃO EXTERNA / NÃO PRECISA DE CORREÇÃO */}
-                  <div className="p-3.5 bg-white border border-[#E6E1D8] rounded-xl flex items-start gap-3 shadow-2xs">
-                    <input
-                      id="no-correction-checkbox"
-                      type="checkbox"
-                      checked={noCorrectionNeeded}
-                      onChange={(e) => setNoCorrectionNeeded(e.target.checked)}
-                      className="w-4 h-4 text-[#6C0F37] border-[#E6E1D8] rounded focus:ring-[#6C0F37] mt-0.5 cursor-pointer accent-[#6C0F37]"
-                    />
-                    <div>
-                      <label
-                        htmlFor="no-correction-checkbox"
-                        className="text-xs font-bold text-[#2B2426] cursor-pointer flex items-center gap-1.5"
-                      >
-                        <span>Não precisa de correção / Correção externa</span>
-                        {noCorrectionNeeded && (
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
-                            Ativo
-                          </span>
-                        )}
-                      </label>
-                      <p className="text-[11px] text-[#6F6865] mt-0.5 leading-relaxed">
-                        Atividades com essa marcação nunca geram pendências na aba de correção da equipe docente, sendo tratadas como estudo livre ou prática em sala ao vivo.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Instruções Gerais para o Aluno (Editor Visual Imediato WYSIWYG) */}
-                  <div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
-                        Instruções Gerais para o Aluno
-                      </label>
                       <button
                         type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleInsertPageBreak();
-                        }}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-[#6C0F37] bg-[#D7CE36]/30 border border-[#D7CE36] hover:bg-[#D7CE36] transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Insere um delimitador visual de quebra de página <!--page-break-->"
+                        onClick={handleAddTag}
+                        className="px-3.5 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer"
                       >
-                        <span>📄</span>
-                        <span>Inserir Quebra de Página</span>
+                        + Adicionar tag
                       </button>
                     </div>
-
-                    {/* Barra de Ferramentas Rica WYSIWYG */}
-                    <div className="flex flex-wrap items-center gap-1 p-2 bg-[#FAF8F5] border border-b-0 border-[#E6E1D8] rounded-t-xl text-xs select-none">
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          formatDoc('bold');
-                        }}
-                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] font-bold text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
-                        title="Negrito (Ctrl+B)"
-                      >
-                        B
-                      </button>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          formatDoc('italic');
-                        }}
-                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] italic text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
-                        title="Itálico (Ctrl+I)"
-                      >
-                        I
-                      </button>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          formatDoc('underline');
-                        }}
-                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] underline text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
-                        title="Sublinhado (Ctrl+U)"
-                      >
-                        U
-                      </button>
-
-                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
-
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          formatDoc('formatBlock', '<h2>');
-                        }}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
-                        title="Título H2"
-                      >
-                        H2
-                      </button>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          formatDoc('formatBlock', '<h3>');
-                        }}
-                        className="px-2 py-1 rounded bg-white border border-[#E6E1D8] font-bold text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
-                        title="Título H3"
-                      >
-                        H3
-                      </button>
-
-                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
-
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          formatDoc('insertUnorderedList');
-                        }}
-                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
-                        title="Lista com marcadores"
-                      >
-                        • Lista
-                      </button>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          formatDoc('insertOrderedList');
-                        }}
-                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer"
-                        title="Lista numerada"
-                      >
-                        1. Lista
-                      </button>
-
-                      <span className="w-px h-4 bg-[#E6E1D8] mx-1" />
-
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleInsertLink();
-                        }}
-                        className="px-2.5 py-1 rounded bg-white border border-[#E6E1D8] text-xs text-[#2B2426] hover:bg-[#F0EBE1] hover:text-[#6C0F37] transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
-                        title="Inserir Link"
-                      >
-                        <span>🔗</span>
-                        <span>Link</span>
-                      </button>
-                    </div>
-
-                    {/* Área Editável Visual Imediata */}
-                    <div
-                      ref={editorRef}
-                      contentEditable
-                      suppressContentEditableWarning
-                      onInput={handleEditorInput}
-                      data-placeholder="Digite as instruções e orientações didáticas da aula aqui. Formate textos diretamente com a barra de ferramentas acima..."
-                      className="w-full min-h-[160px] max-h-[380px] overflow-y-auto p-4 border border-[#E6E1D8] rounded-b-xl text-xs sm:text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] leading-relaxed prose prose-sm max-w-none empty:before:content-[attr(data-placeholder)] empty:before:text-[#6F6865] empty:before:italic"
-                    />
                   </div>
                 </div>
-              ) : (
-                /* ================= ETAPA 2 ================= */
-                <div className="space-y-6">
-                  {/* Resumo do Cabeçalho e Motor de Correção */}
-                  <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8] flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-[#6C0F37] bg-white px-2.5 py-0.5 rounded border border-[#E6E1D8]">
-                          {category}
-                        </span>
-                        {targetSkills.map((s) => (
-                          <span
-                            key={s}
-                            className="text-[11px] font-medium bg-white px-2 py-0.5 rounded text-[#6F6865] border border-[#E6E1D8]"
-                          >
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                      <h3 className="text-base font-bold text-[#2B2426] mt-1">{title}</h3>
-                    </div>
+              )}
 
-                    {/* Status do Motor de Correção */}
-                    <div className="flex items-center gap-2 self-start md:self-center">
-                      <div className="text-right">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#6F6865] block">
-                          Formato de Correção:
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                            noCorrectionNeeded
-                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                              : correctionType === 'auto'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              : correctionType === 'mixed'
-                              ? 'bg-purple-50 text-purple-800 border-purple-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}
-                        >
-                          {noCorrectionNeeded
-                            ? '🌐 Externa / Sem pendência'
-                            : correctionType === 'auto'
-                            ? '⚡ Automática (Gabarito)'
-                            : correctionType === 'mixed'
-                            ? '🔀 Mista'
-                            : '✍️ Manual (Pela Equipe Docente)'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Lista de Blocos Inseridos */}
-                  <div className="space-y-4">
+              {/* ======================================================== */}
+              {/* ETAPA 2 — MONTE A ATIVIDADE (CONSTRUTOR MODULAR) */}
+              {/* ======================================================== */}
+              {activeStep === 2 && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-150">
+                  {/* Coluna Esquerda: Blocos da Atividade (8 Colunas) */}
+                  <div className="lg:col-span-8 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#2B2426]">
-                        Blocos de Conteúdo & Questões ({blocks.length})
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setIsSelectorOpen(true)}
-                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                      >
-                        <span>+ Adicionar bloco</span>
-                      </button>
+                      <div>
+                        <h2 className="text-sm font-bold text-[#6C0F37]">
+                          Blocos da atividade ({blocks.length})
+                        </h2>
+                        <p className="text-[11px] text-[#6F6865] mt-0.5">
+                          Ordene e edite os elementos que os estudantes verão nesta atividade.
+                        </p>
+                      </div>
                     </div>
 
-                    {blocks.length === 0 ? (
-                      <div className="py-12 px-4 text-center rounded-2xl border-2 border-dashed border-[#E6E1D8] bg-[#FAF8F5]/40 space-y-3">
-                        <div className="w-12 h-12 mx-auto rounded-full bg-white border border-[#E6E1D8] flex items-center justify-center text-xl">
-                          🧩
-                        </div>
-                        <div className="max-w-md mx-auto space-y-1">
-                          <h4 className="text-sm font-bold text-[#2B2426]">
-                            Nenhum bloco inserido ainda
-                          </h4>
-                          <p className="text-xs text-[#6F6865]">
-                            Monte sua atividade combinando materiais de apoio e questões interativas.
+                    {/* Lista Vertical de Blocos */}
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+                      {blocks.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed border-[#E6E1D8] rounded-2xl bg-[#FAF8F5]/60 p-6 space-y-2">
+                          <span className="text-3xl">🧩</span>
+                          <h3 className="text-xs font-bold text-[#2B2426]">
+                            Nenhum bloco adicionado ainda
+                          </h3>
+                          <p className="text-xs text-[#6F6865] max-w-sm mx-auto">
+                            Clique em um dos tipos no painel ao lado para adicionar perguntas, instruções, vídeos ou arquivos.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setIsSelectorOpen(true)}
-                          className="px-4 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs cursor-pointer"
-                        >
-                          + Abrir Catálogo de Formatos
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {blocks.map((block, idx) => {
-                          const isQuestion = block.kind === 'question';
-                          const questionNumber = blocks
-                            .slice(0, idx + 1)
-                            .filter((b) => b.kind === 'question').length;
+                      ) : (
+                        blocks.map((block, index) => (
+                          <div
+                            key={block.id}
+                            className="bg-white border border-[#E6E1D8] rounded-2xl p-4 shadow-2xs space-y-3 relative hover:border-[#6C0F37]/40 transition"
+                          >
+                            {/* Barra Superior do Bloco */}
+                            <div className="flex items-center justify-between gap-2 border-b border-[#E6E1D8] pb-2.5">
+                              <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-lg bg-[#6C0F37] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                  {index + 1}
+                                </span>
+                                <span className="text-xs font-bold text-[#2B2426]">
+                                  {block.type === 'text_instruction' && '📝 Texto e instruções'}
+                                  {block.type === 'open_question' && '💬 Pergunta aberta'}
+                                  {block.type === 'multiple_choice' && '🔘 Múltipla escolha'}
+                                  {block.type === 'file_upload' && '📎 Anexar arquivo'}
+                                  {block.type === 'media' && '🎬 Áudio ou vídeo'}
+                                  {block.type === 'external_link' && '🔗 Link externo'}
+                                </span>
+                              </div>
 
-                          const blockTitleLabel = isQuestion
-                            ? `Questão ${questionNumber}: ${getQuestionTypeLabel(
-                                (block as QuestionBlock).type
-                              )}`
-                            : `Material: ${getResourceTypeLabel((block as ResourceBlock).type)}`;
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => handleMoveBlock(index, 'up')}
+                                  className="w-7 h-7 rounded-lg bg-[#FAF8F5] border border-[#E6E1D8] text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
+                                  title="Subir bloco"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === blocks.length - 1}
+                                  onClick={() => handleMoveBlock(index, 'down')}
+                                  className="w-7 h-7 rounded-lg bg-[#FAF8F5] border border-[#E6E1D8] text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
+                                  title="Descer bloco"
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveBlock(block.id)}
+                                  className="w-7 h-7 rounded-lg bg-[#FAF8F5] border border-[#E6E1D8] text-xs text-red-600 hover:bg-red-50 cursor-pointer flex items-center justify-center font-bold"
+                                  title="Excluir bloco"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
 
-                          return (
-                            <div
-                              key={block.id}
-                              className="p-4 rounded-xl border border-[#E6E1D8] bg-white shadow-xs space-y-3 transition-all"
-                            >
-                              {/* Barra Superior do Bloco - Numeração Limpa sem Badges Técnicos */}
-                              <div className="flex items-center justify-between gap-2 border-b border-[#E6E1D8]/60 pb-2.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-6 h-6 rounded-md bg-[#FAF8F5] border border-[#E6E1D8] text-xs font-bold text-[#6C0F37] flex items-center justify-center">
-                                    {idx + 1}
-                                  </span>
-                                  <span className="text-xs font-bold text-[#2B2426]">
-                                    {blockTitleLabel}
-                                  </span>
+                            {/* Conteúdo Conforme o Tipo do Bloco */}
+                            {block.type === 'text_instruction' && (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={block.title}
+                                  onChange={(e) =>
+                                    handleUpdateBlockField(block.id, 'title', e.target.value)
+                                  }
+                                  placeholder="Título da seção ou instrução (opcional)..."
+                                  className="w-full px-3 py-1.5 text-xs font-semibold border border-[#E6E1D8] rounded-lg bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                />
+                                <textarea
+                                  rows={3}
+                                  value={block.contentMarkdown || ''}
+                                  onChange={(e) =>
+                                    handleUpdateBlockField(
+                                      block.id,
+                                      'contentMarkdown',
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="Escreva as instruções, contextualização ou texto de apoio..."
+                                  className="w-full p-3 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] leading-relaxed resize-y"
+                                />
+                              </div>
+                            )}
+
+                            {block.type === 'open_question' && (
+                              <div className="space-y-2">
+                                <label className="block text-[11px] font-semibold text-[#2B2426]">
+                                  Enunciado da pergunta:
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={block.prompt || ''}
+                                  onChange={(e) =>
+                                    handleUpdateBlockField(block.id, 'prompt', e.target.value)
+                                  }
+                                  placeholder="Peça que seus estudantes respondam com suas próprias palavras..."
+                                  className="w-full p-3 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] resize-y"
+                                />
+                                <div className="p-3 bg-[#FAF8F5] border border-dashed border-[#E6E1D8] rounded-xl text-[11px] text-[#6F6865] italic text-center">
+                                  ✍️ O estudante responderá digitando um texto aberto nesta área.
+                                </div>
+                              </div>
+                            )}
+
+                            {block.type === 'multiple_choice' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
+                                    Enunciado da questão:
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    value={block.prompt || ''}
+                                    onChange={(e) =>
+                                      handleUpdateBlockField(block.id, 'prompt', e.target.value)
+                                    }
+                                    placeholder="Digite o enunciado da questão de múltipla escolha..."
+                                    className="w-full p-2.5 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] resize-y"
+                                  />
                                 </div>
 
-                                {/* Ações de Reordenação e Edição */}
-                                <div className="flex items-center gap-1">
+                                <div className="space-y-2">
+                                  <span className="block text-[11px] font-semibold text-[#2B2426]">
+                                    Alternativas (marque a correta como gabarito):
+                                  </span>
+
+                                  {(block.options || []).map((opt, optIndex) => (
+                                    <div
+                                      key={opt.id}
+                                      className="flex items-center gap-2 bg-[#FAF8F5] p-2 rounded-xl border border-[#E6E1D8]"
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`radio-${block.id}`}
+                                        checked={opt.isCorrect}
+                                        onChange={() =>
+                                          handleSetOptionCorrect(block.id, opt.id)
+                                        }
+                                        className="accent-[#6C0F37] w-4 h-4 cursor-pointer"
+                                        title="Marcar como alternativa correta"
+                                      />
+                                      <span className="text-xs font-bold text-[#6C0F37] w-5">
+                                        {String.fromCharCode(65 + optIndex)})
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={opt.text}
+                                        onChange={(e) =>
+                                          handleUpdateOptionText(
+                                            block.id,
+                                            opt.id,
+                                            e.target.value
+                                          )
+                                        }
+                                        className="flex-1 px-2.5 py-1 text-xs border border-[#E6E1D8] rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemoveOptionFromBlock(block.id, opt.id)
+                                        }
+                                        className="text-[#6F6865] hover:text-red-600 font-bold px-1.5 text-xs cursor-pointer"
+                                        title="Remover alternativa"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))}
+
                                   <button
                                     type="button"
-                                    disabled={idx === 0}
-                                    onClick={() => moveBlock(idx, 'up')}
-                                    className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5] cursor-pointer"
-                                    title="Mover para cima"
+                                    onClick={() => handleAddOptionToBlock(block.id)}
+                                    className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-white border border-[#6C0F37]/30 hover:bg-[#F3E8EC] rounded-xl transition cursor-pointer"
                                   >
-                                    ▲
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={idx === blocks.length - 1}
-                                    onClick={() => moveBlock(idx, 'down')}
-                                    className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 rounded hover:bg-[#FAF8F5] cursor-pointer"
-                                    title="Mover para baixo"
-                                  >
-                                    ▼
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => duplicateBlock(idx)}
-                                    className="p-1 text-xs text-[#6F6865] hover:text-[#2B2426] rounded hover:bg-[#FAF8F5] cursor-pointer"
-                                    title="Duplicar bloco"
-                                  >
-                                    📋
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingBlockId(
-                                        editingBlockId === block.id ? null : block.id
-                                      );
-                                    }}
-                                    className="px-2.5 py-0.5 text-xs font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] rounded hover:bg-[#F0EBE1] cursor-pointer"
-                                  >
-                                    {editingBlockId === block.id ? 'Recolher' : 'Editar'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeBlock(block.id)}
-                                    className="p-1 text-xs text-red-600 hover:bg-red-50 rounded cursor-pointer"
-                                    title="Excluir bloco"
-                                  >
-                                    ✕
+                                    + Adicionar alternativa
                                   </button>
                                 </div>
                               </div>
+                            )}
 
-                              {/* Edição do Bloco Expandido */}
-                              {editingBlockId === block.id ? (
-                                <div className="space-y-3.5 pt-2 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E6E1D8]">
-                                  {block.kind === 'resource' ? (
-                                    <>
-                                      <div>
-                                        <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                          Título do Material de Apoio
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={block.title}
-                                          onChange={(e) =>
-                                            updateBlock(block.id, { title: e.target.value })
-                                          }
-                                          className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
-                                        />
-                                      </div>
-                                      {block.type === 'text' ? (
-                                        <div className="space-y-1.5">
-                                          <label className="block text-[11px] font-bold text-[#2B2426]">
-                                            Texto Explicativo
-                                          </label>
-                                          <RichTextEditor
-                                            value={block.content_markdown || ''}
-                                            onChange={(val) =>
-                                              updateBlock(block.id, {
-                                                content_markdown: val,
-                                              })
-                                            }
-                                            minHeight="min-h-[140px]"
-                                            enablePageBreak={false}
-                                            enableTables={false}
-                                            enableTasks={false}
-                                            enableImages={false}
-                                          />
-                                        </div>
-                                      ) : (
-                                        <div>
-                                          <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                            URL da Mídia / Arquivo
-                                          </label>
-                                          <input
-                                            type="url"
-                                            placeholder="https://..."
-                                            value={block.url || ''}
-                                            onChange={(e) =>
-                                              updateBlock(block.id, { url: e.target.value })
-                                            }
-                                            className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
-                                          />
-                                        </div>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <>
-                                      {/* REQUISITO 2: VERDADEIRO OU FALSO (Afirmação + ( ) True e ( ) False) */}
-                                      {block.type === 'true_false' ? (
-                                        <div className="space-y-3">
-                                          <div>
-                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                              Afirmação para Julgamento *
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={(block as QuestionBlock).prompt}
-                                              onChange={(e) =>
-                                                updateBlock(block.id, { prompt: e.target.value })
-                                              }
-                                              placeholder="Ex: Paris é a capital da França."
-                                              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] font-medium"
-                                            />
-                                          </div>
-
-                                          <div>
-                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1.5">
-                                              Gabarito da Afirmação (Selecione a resposta correta):
-                                            </label>
-                                            <div className="flex items-center gap-6 p-2.5 bg-white border border-[#E6E1D8] rounded-xl">
-                                              <label className="flex items-center gap-2 text-xs font-bold text-[#2B2426] cursor-pointer">
-                                                <input
-                                                  type="radio"
-                                                  name={`tf-${block.id}`}
-                                                  value="True"
-                                                  checked={
-                                                    (block as QuestionBlock).answer_key === 'True' ||
-                                                    (block as QuestionBlock).answer_key ===
-                                                      'Verdadeiro'
-                                                  }
-                                                  onChange={() =>
-                                                    updateBlock(block.id, { answer_key: 'True' })
-                                                  }
-                                                  className="w-4 h-4 text-[#6C0F37] focus:ring-[#6C0F37] cursor-pointer accent-[#6C0F37]"
-                                                />
-                                                <span
-                                                  className={
-                                                    (block as QuestionBlock).answer_key ===
-                                                      'True' ||
-                                                    (block as QuestionBlock).answer_key ===
-                                                      'Verdadeiro'
-                                                      ? 'text-emerald-700 font-bold'
-                                                      : ''
-                                                  }
-                                                >
-                                                  ( ) True
-                                                </span>
-                                              </label>
-
-                                              <label className="flex items-center gap-2 text-xs font-bold text-[#2B2426] cursor-pointer">
-                                                <input
-                                                  type="radio"
-                                                  name={`tf-${block.id}`}
-                                                  value="False"
-                                                  checked={
-                                                    (block as QuestionBlock).answer_key ===
-                                                      'False' ||
-                                                    (block as QuestionBlock).answer_key === 'Falso'
-                                                  }
-                                                  onChange={() =>
-                                                    updateBlock(block.id, { answer_key: 'False' })
-                                                  }
-                                                  className="w-4 h-4 text-[#6C0F37] focus:ring-[#6C0F37] cursor-pointer accent-[#6C0F37]"
-                                                />
-                                                <span
-                                                  className={
-                                                    (block as QuestionBlock).answer_key ===
-                                                      'False' ||
-                                                    (block as QuestionBlock).answer_key === 'Falso'
-                                                      ? 'text-red-700 font-bold'
-                                                      : ''
-                                                  }
-                                                >
-                                                  ( ) False
-                                                </span>
-                                              </label>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ) : block.type === 'multiple_choice' ||
-                                        block.type === 'multiple_select' ? (
-                                        /* REQUISITO 2: MÚLTIPLA ESCOLHA (Inputs individuais + botão adicionar + radio lateral) */
-                                        <div className="space-y-3">
-                                          <div>
-                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                              Enunciado da Questão *
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={(block as QuestionBlock).prompt}
-                                              onChange={(e) =>
-                                                updateBlock(block.id, { prompt: e.target.value })
-                                              }
-                                              placeholder="Digite o enunciado da questão..."
-                                              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] font-medium"
-                                            />
-                                          </div>
-
-                                          <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                              <label className="block text-[11px] font-bold text-[#2B2426]">
-                                                Alternativas (Marque o gabarito na lateral esquerda):
-                                              </label>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  const current =
-                                                    (block as QuestionBlock).options || [];
-                                                  updateBlock(block.id, {
-                                                    options: [
-                                                      ...current,
-                                                      `Opção ${String.fromCharCode(
-                                                        65 + current.length
-                                                      )}`,
-                                                    ],
-                                                  });
-                                                }}
-                                                className="text-xs font-bold text-[#6C0F37] bg-white border border-[#E6E1D8] px-2.5 py-1 rounded-lg hover:bg-[#FAF8F5] transition cursor-pointer"
-                                              >
-                                                + Adicionar alternativa
-                                              </button>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                              {(
-                                                (block as QuestionBlock).options || [
-                                                  'Opção A',
-                                                  'Opção B',
-                                                ]
-                                              ).map((opt, optIdx) => {
-                                                const isAnswerKey =
-                                                  (block as QuestionBlock).answer_key === opt;
-                                                return (
-                                                  <div
-                                                    key={optIdx}
-                                                    className="flex items-center gap-2"
-                                                  >
-                                                    {/* Radio Button lateral para definir gabarito */}
-                                                    <label
-                                                      className="flex items-center gap-1.5 cursor-pointer shrink-0"
-                                                      title="Marcar esta alternativa como gabarito correto"
-                                                    >
-                                                      <input
-                                                        type="radio"
-                                                        name={`gabarito-${block.id}`}
-                                                        checked={isAnswerKey}
-                                                        onChange={() =>
-                                                          updateBlock(block.id, {
-                                                            answer_key: opt,
-                                                          })
-                                                        }
-                                                        className="w-4 h-4 text-[#6C0F37] focus:ring-[#6C0F37] cursor-pointer accent-[#6C0F37]"
-                                                      />
-                                                      <span
-                                                        className={`text-xs font-bold w-5 ${
-                                                          isAnswerKey
-                                                            ? 'text-[#6C0F37]'
-                                                            : 'text-[#6F6865]'
-                                                        }`}
-                                                      >
-                                                        {String.fromCharCode(65 + optIdx)})
-                                                      </span>
-                                                    </label>
-
-                                                    {/* Input individual de texto da alternativa */}
-                                                    <input
-                                                      type="text"
-                                                      value={opt}
-                                                      onChange={(e) => {
-                                                        const newText = e.target.value;
-                                                        const nextOptions = [
-                                                          ...(
-                                                            (block as QuestionBlock).options || []
-                                                          ),
-                                                        ];
-                                                        nextOptions[optIdx] = newText;
-                                                        const updates: Partial<QuestionBlock> = {
-                                                          options: nextOptions,
-                                                        };
-                                                        if (isAnswerKey) {
-                                                          updates.answer_key = newText;
-                                                        }
-                                                        updateBlock(block.id, updates);
-                                                      }}
-                                                      placeholder={`Alternativa ${String.fromCharCode(
-                                                        65 + optIdx
-                                                      )}`}
-                                                      className={`flex-1 px-3 py-1.5 border rounded-lg text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37] ${
-                                                        isAnswerKey
-                                                          ? 'border-emerald-400 bg-emerald-50/20 ring-1 ring-emerald-300'
-                                                          : 'border-[#E6E1D8]'
-                                                      }`}
-                                                    />
-
-                                                    {/* Badge de Gabarito */}
-                                                    {isAnswerKey && (
-                                                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded shrink-0">
-                                                        ✓ Gabarito
-                                                      </span>
-                                                    )}
-
-                                                    {/* Botão de Excluir Alternativa */}
-                                                    {(
-                                                      (block as QuestionBlock).options || []
-                                                    ).length > 2 && (
-                                                      <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                          const nextOptions = (
-                                                            (block as QuestionBlock).options || []
-                                                          ).filter((_, i) => i !== optIdx);
-                                                          const updates: Partial<QuestionBlock> = {
-                                                            options: nextOptions,
-                                                          };
-                                                          if (isAnswerKey) {
-                                                            updates.answer_key =
-                                                              nextOptions[0] || '';
-                                                          }
-                                                          updateBlock(block.id, updates);
-                                                        }}
-                                                        className="p-1 text-[#6F6865] hover:text-red-600 rounded cursor-pointer"
-                                                        title="Remover alternativa"
-                                                      >
-                                                        🗑️
-                                                      </button>
-                                                    )}
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        /* Outros Formatos de Questão */
-                                        <div className="space-y-3">
-                                          <div>
-                                            <label className="block text-[11px] font-bold text-[#2B2426] mb-1">
-                                              Enunciado da Questão *
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={(block as QuestionBlock).prompt}
-                                              onChange={(e) =>
-                                                updateBlock(block.id, { prompt: e.target.value })
-                                              }
-                                              className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426]"
-                                            />
-                                          </div>
-
-                                          {(block.type === 'short_answer_auto' ||
-                                            block.type === 'fill_blank' ||
-                                            block.type === 'translation' ||
-                                            block.type === 'error_correction') && (
-                                            <div className="space-y-2">
-                                              <div>
-                                                <label className="block text-[11px] font-bold text-[#6C0F37]">
-                                                  Resposta Esperada Principal (Gabarito)
-                                                </label>
-                                                <input
-                                                  type="text"
-                                                  value={
-                                                    (block as QuestionBlock).answer_key || ''
-                                                  }
-                                                  onChange={(e) =>
-                                                    updateBlock(block.id, {
-                                                      answer_key: e.target.value,
-                                                    })
-                                                  }
-                                                  className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="block text-[11px] font-bold text-[#2B2426]">
-                                                  Variantes Aceitas (separadas por vírgula)
-                                                </label>
-                                                <input
-                                                  type="text"
-                                                  placeholder="Ex: can't, cannot, can not"
-                                                  value={(
-                                                    (block as QuestionBlock).accepted_variants ||
-                                                    []
-                                                  ).join(', ')}
-                                                  onChange={(e) =>
-                                                    updateBlock(block.id, {
-                                                      accepted_variants: e.target.value
-                                                        .split(',')
-                                                        .map((s) => s.trim())
-                                                        .filter(Boolean),
-                                                    })
-                                                  }
-                                                  className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                                                />
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {block.type === 'open_production_manual' && (
-                                            <div className="p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl flex items-start gap-2.5">
-                                              <input
-                                                type="checkbox"
-                                                id={`audio-toggle-${block.id}`}
-                                                checked={
-                                                  !!(block as QuestionBlock).allow_audio_submission
-                                                }
-                                                onChange={(e) =>
-                                                  updateBlock(block.id, {
-                                                    allow_audio_submission: e.target.checked,
-                                                  })
-                                                }
-                                                className="accent-[#6C0F37] mt-0.5 cursor-pointer"
-                                              />
-                                              <div>
-                                                <label
-                                                  htmlFor={`audio-toggle-${block.id}`}
-                                                  className="text-xs font-semibold text-[#2B2426] cursor-pointer block"
-                                                >
-                                                  Permitir envio de áudio como resposta complementar (opcional)
-                                                </label>
-                                                <p className="text-[11px] text-[#6F6865] mt-0.5">
-                                                  O estudante poderá gravar áudio se desejar, mas sempre terá disponível a caixa de resposta em texto caso tenha dificuldades técnicas.
-                                                </p>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
+                            {block.type === 'file_upload' && (
+                              <div className="space-y-2">
+                                <label className="block text-[11px] font-semibold text-[#2B2426]">
+                                  Instruções para o envio do arquivo:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={block.prompt || ''}
+                                  onChange={(e) =>
+                                    handleUpdateBlockField(block.id, 'prompt', e.target.value)
+                                  }
+                                  placeholder="Ex: Envie sua resolução em PDF ou imagem legível..."
+                                  className="w-full px-3 py-2 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                />
+                                <div className="p-3 bg-[#FAF8F5] border border-dashed border-[#E6E1D8] rounded-xl text-[11px] text-[#6F6865] text-center flex items-center justify-center gap-2">
+                                  <span>📎</span>
+                                  <span>Os estudantes verão um botão de upload para anexar seus arquivos.</span>
                                 </div>
-                              ) : (
-                                /* Visão Sintética do Bloco */
-                                <div className="text-xs text-[#6F6865]">
-                                  {block.kind === 'resource' ? (
-                                    block.type === 'text' && block.content_markdown ? (
-                                      <div className="space-y-1">
-                                        <p className="font-semibold text-[#2B2426]">
-                                          {block.title}
-                                        </p>
-                                        <RichMarkdownRenderer content={block.content_markdown} />
-                                      </div>
-                                    ) : (
-                                      <p className="truncate">
-                                        {block.title} • {block.url || 'Material complementar'}
-                                      </p>
-                                    )
-                                  ) : (
-                                    <div className="space-y-1">
-                                      <p className="font-medium text-[#2B2426]">
-                                        {(block as QuestionBlock).prompt ||
-                                          'Questão sem enunciado preenchido'}
-                                      </p>
-                                      {(block as QuestionBlock).answer_key && (
-                                        <span className="inline-block text-[10.5px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                          Gabarito: {(block as QuestionBlock).answer_key}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
+                              </div>
+                            )}
+
+                            {block.type === 'media' && (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[11px] font-semibold text-[#2B2426]">
+                                    Tipo de mídia:
+                                  </label>
+                                  <div className="flex gap-2">
+                                    {(['video', 'audio'] as const).map((m) => (
+                                      <button
+                                        key={m}
+                                        type="button"
+                                        onClick={() =>
+                                          handleUpdateBlockField(block.id, 'mediaType', m)
+                                        }
+                                        className={`px-2.5 py-0.5 text-xs rounded-lg border font-medium cursor-pointer ${
+                                          block.mediaType === m
+                                            ? 'bg-[#6C0F37] text-white border-[#6C0F37]'
+                                            : 'bg-white text-[#6F6865] border-[#E6E1D8]'
+                                        }`}
+                                      >
+                                        {m === 'video' ? '🎬 Vídeo' : '🎧 Áudio'}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+
+                                <input
+                                  type="url"
+                                  value={block.mediaUrl || ''}
+                                  onChange={(e) =>
+                                    handleUpdateBlockField(block.id, 'mediaUrl', e.target.value)
+                                  }
+                                  placeholder="https://youtube.com/... ou link direto da mídia"
+                                  className="w-full px-3 py-2 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                />
+                              </div>
+                            )}
+
+                            {block.type === 'external_link' && (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={block.linkTitle || ''}
+                                  onChange={(e) =>
+                                    handleUpdateBlockField(block.id, 'linkTitle', e.target.value)
+                                  }
+                                  placeholder="Título ou texto do link (ex: Artigo complementar)..."
+                                  className="w-full px-3 py-1.5 text-xs font-semibold border border-[#E6E1D8] rounded-xl bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                />
+                                <input
+                                  type="url"
+                                  value={block.linkUrl || ''}
+                                  onChange={(e) =>
+                                    handleUpdateBlockField(block.id, 'linkUrl', e.target.value)
+                                  }
+                                  placeholder="https://exemplo.com/recurso"
+                                  className="w-full px-3 py-2 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Coluna Direita: Painel Fixo "Adicionar Bloco" (4 Colunas) */}
+                  <div className="lg:col-span-4 space-y-3">
+                    <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-4 space-y-2.5 sticky top-2 shadow-2xs">
+                      <div>
+                        <h2 className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider">
+                          Adicionar bloco
+                        </h2>
+                        <p className="text-[11px] text-[#6F6865] mt-0.5">
+                          Clique em uma opção para inserir à atividade:
+                        </p>
                       </div>
-                    )}
+
+                      <div className="space-y-2">
+                        {[
+                          {
+                            type: 'text_instruction' as const,
+                            icon: '📝',
+                            title: 'Texto e instruções',
+                            desc: 'Adicione um texto, orientações ou recursos para seus estudantes.',
+                          },
+                          {
+                            type: 'open_question' as const,
+                            icon: '💬',
+                            title: 'Pergunta aberta',
+                            desc: 'Peça que seus estudantes respondam com suas próprias palavras.',
+                          },
+                          {
+                            type: 'multiple_choice' as const,
+                            icon: '🔘',
+                            title: 'Múltipla escolha',
+                            desc: 'Crie uma pergunta com alternativas de resposta (com gabarito selecionável).',
+                          },
+                          {
+                            type: 'file_upload' as const,
+                            icon: '📎',
+                            title: 'Anexar arquivo',
+                            desc: 'Permita que os estudantes enviem um arquivo como resposta.',
+                          },
+                          {
+                            type: 'media' as const,
+                            icon: '🎬',
+                            title: 'Áudio ou vídeo',
+                            desc: 'Adicione um áudio ou vídeo da sua biblioteca ou do seu computador.',
+                          },
+                          {
+                            type: 'external_link' as const,
+                            icon: '🔗',
+                            title: 'Link externo',
+                            desc: 'Inclua um link para um site, artigo ou recurso externo.',
+                          },
+                        ].map((btn) => (
+                          <button
+                            key={btn.type}
+                            type="button"
+                            onClick={() => handleAddBlock(btn.type)}
+                            className="w-full p-2.5 bg-white border border-[#E6E1D8] hover:border-[#6C0F37] hover:bg-[#F3E8EC]/30 rounded-xl transition text-left cursor-pointer flex items-start gap-2.5 group shadow-2xs"
+                          >
+                            <span className="text-lg shrink-0 mt-0.5">{btn.icon}</span>
+                            <div>
+                              <div className="text-xs font-bold text-[#2B2426] group-hover:text-[#6C0F37] transition-colors">
+                                {btn.title}
+                              </div>
+                              <p className="text-[10px] text-[#6F6865] leading-snug mt-0.5">
+                                {btn.desc}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ======================================================== */}
+              {/* ETAPA 3 — ENTREGA E CORREÇÃO */}
+              {/* ======================================================== */}
+              {activeStep === 3 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-150">
+                  {/* Coluna Esquerda: Para quem enviar & Visibilidade */}
+                  <div className="space-y-4">
+                    {/* Card Para quem enviar */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                      <div>
+                        <h2 className="text-sm font-bold text-[#6C0F37]">
+                          Para quem enviar
+                        </h2>
+                        <p className="text-[11px] text-[#6F6865] mt-0.5">
+                          Defina quem terá acesso e qual o prazo de entrega.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Enviar para (opcional)
+                        </label>
+                        <select
+                          value={
+                            sendToType === 'none'
+                              ? 'none'
+                              : `${sendToType}:${selectedTargetId}`
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'none') {
+                              setSendToType('none');
+                              setSelectedTargetId('');
+                            } else {
+                              const [t, id] = val.split(':');
+                              setSendToType(t as 'class' | 'students');
+                              setSelectedTargetId(id || '');
+                            }
+                          }}
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                        >
+                          <option value="none">Ninguém por enquanto (salvar como modelo)</option>
+                          {classes.length > 0 && (
+                            <optgroup label="Turmas">
+                              {classes.map((c) => (
+                                <option key={c.id} value={`class:${c.id}`}>
+                                  Turma: {c.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {students.length > 0 && (
+                            <optgroup label="Estudantes">
+                              {students.map((s) => (
+                                <option key={s.id} value={`students:${s.id}`}>
+                                  {s.full_name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Prazo de entrega (opcional)
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="date"
+                            disabled={!hasDueDate}
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            className="flex-1 px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs disabled:opacity-50"
+                          />
+                          <label className="flex items-center gap-1.5 text-xs text-[#6F6865] cursor-pointer shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={!hasDueDate}
+                              onChange={(e) => {
+                                setHasDueDate(!e.target.checked);
+                                if (e.target.checked) setDueDate('');
+                              }}
+                              className="accent-[#6C0F37] rounded"
+                            />
+                            <span>Sem prazo</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Visibilidade */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3.5 shadow-2xs">
+                      <div>
+                        <h2 className="text-sm font-bold text-[#6C0F37]">
+                          Visibilidade (opcional)
+                        </h2>
+                        <p className="text-[11px] text-[#6F6865] mt-0.5">
+                          Escolha quando os estudantes poderão visualizar esta atividade.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div
+                          onClick={() => setVisibility('now')}
+                          className={`p-3.5 rounded-xl border-2 transition cursor-pointer ${
+                            visibility === 'now'
+                              ? 'bg-[#F3E8EC]/40 border-[#6C0F37] ring-1 ring-[#6C0F37]'
+                              : 'bg-white border-[#E6E1D8] hover:bg-[#FAF8F5]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#2B2426]">Enviar agora</span>
+                            {visibility === 'now' && (
+                              <span className="text-xs text-[#6C0F37] font-bold">✓</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-[#6F6865] mt-1 leading-snug">
+                            Os estudantes poderão acessar assim que você publicar.
+                          </p>
+                        </div>
+
+                        <div
+                          onClick={() => setVisibility('later')}
+                          className={`p-3.5 rounded-xl border-2 transition cursor-pointer ${
+                            visibility === 'later'
+                              ? 'bg-[#F3E8EC]/40 border-[#6C0F37] ring-1 ring-[#6C0F37]'
+                              : 'bg-white border-[#E6E1D8] hover:bg-[#FAF8F5]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#2B2426]">
+                              Salvar apenas para mim
+                            </span>
+                            {visibility === 'later' && (
+                              <span className="text-xs text-[#6C0F37] font-bold">✓</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-[#6F6865] mt-1 leading-snug">
+                            Você pode enviar depois quando for conveniente.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coluna Direita: Entrega e Correção + Resumo */}
+                  <div className="space-y-4">
+                    {/* Card Entrega e Correção */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                      <div>
+                        <h2 className="text-sm font-bold text-[#6C0F37]">
+                          Entrega e correção (opcional)
+                        </h2>
+                        <p className="text-[11px] text-[#6F6865] mt-0.5">
+                          Configure se os estudantes precisam responder e como será a devolutiva.
+                        </p>
+                      </div>
+
+                      <div className="space-y-3.5">
+                        {/* Toggle 1: Os estudantes enviam uma resposta */}
+                        <div className="flex items-start justify-between gap-3 p-3 bg-[#FAF8F5] rounded-xl border border-[#E6E1D8]">
+                          <div>
+                            <div className="text-xs font-bold text-[#2B2426]">
+                              Os estudantes enviam uma resposta
+                            </div>
+                            <p className="text-[10px] text-[#6F6865] mt-0.5">
+                              Desative para uma atividade de estudo livre (vídeo, leitura ou arquivo sem devolutiva).
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={requiresSubmission}
+                              onChange={(e) => setRequiresSubmission(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#6C0F37]" />
+                          </label>
+                        </div>
+
+                        {/* Toggle 2: Precisa de correção */}
+                        <div
+                          className={`flex items-start justify-between gap-3 p-3 bg-[#FAF8F5] rounded-xl border border-[#E6E1D8] transition ${
+                            !requiresSubmission ? 'opacity-40 pointer-events-none' : ''
+                          }`}
+                        >
+                          <div>
+                            <div className="text-xs font-bold text-[#2B2426]">
+                              Precisa de correção
+                            </div>
+                            <p className="text-[10px] text-[#6F6865] mt-0.5">
+                              As respostas aparecem para você acompanhar e dar devolutiva.
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                            <input
+                              type="checkbox"
+                              disabled={!requiresSubmission}
+                              checked={requiresCorrection}
+                              onChange={(e) => setRequiresCorrection(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#6C0F37]" />
+                          </label>
+                        </div>
+
+                        {/* Toggle 3: Mostrar resultado automaticamente */}
+                        <div
+                          className={`flex items-start justify-between gap-3 p-3 bg-[#FAF8F5] rounded-xl border border-[#E6E1D8] transition ${
+                            !requiresSubmission || !hasMultipleChoiceBlocks
+                              ? 'opacity-40'
+                              : ''
+                          }`}
+                        >
+                          <div>
+                            <div className="text-xs font-bold text-[#2B2426]">
+                              Mostrar resultado automaticamente
+                            </div>
+                            <p className="text-[10px] text-[#6F6865] mt-0.5">
+                              {hasMultipleChoiceBlocks
+                                ? 'Os estudantes veem o gabarito logo após enviarem as respostas.'
+                                : 'Requer questões de múltipla escolha com gabarito na atividade.'}
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                            <input
+                              type="checkbox"
+                              disabled={!requiresSubmission || !hasMultipleChoiceBlocks}
+                              checked={autoShowResults}
+                              onChange={(e) => setAutoShowResults(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#6C0F37]" />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Resumo */}
+                    <div className="bg-[#FAF8F5] border border-[#E6E1D8] rounded-2xl p-5 space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#6C0F37] uppercase tracking-wider">
+                          Resumo da atividade
+                        </span>
+                        <span className="text-xs font-bold text-[#2B2426]">
+                          {title || 'Atividade sem título'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 pt-1 text-xs">
+                        <div className="bg-white p-2.5 rounded-xl border border-[#E6E1D8] flex items-center gap-2">
+                          <span className="text-base">🧩</span>
+                          <div>
+                            <div className="font-bold text-[#2B2426]">
+                              {blocks.length} {blocks.length === 1 ? 'bloco' : 'blocos'}
+                            </div>
+                            <div className="text-[10px] text-[#6F6865]">Estrutura modular</div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-2.5 rounded-xl border border-[#E6E1D8] flex items-center gap-2">
+                          <span className="text-base">👥</span>
+                          <div className="min-w-0">
+                            <div className="font-bold text-[#2B2426] truncate">
+                              {sendToType === 'none' ? 'Sem envio' : 'Destinatário'}
+                            </div>
+                            <div className="text-[10px] text-[#6F6865] truncate">
+                              {getSelectedTargetLabel()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-2.5 rounded-xl border border-[#E6E1D8] flex items-center gap-2">
+                          <span className="text-base">📅</span>
+                          <div>
+                            <div className="font-bold text-[#2B2426]">
+                              {hasDueDate && dueDate ? dueDate : 'Sem prazo'}
+                            </div>
+                            <div className="text-[10px] text-[#6F6865]">Prazo de entrega</div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-2.5 rounded-xl border border-[#E6E1D8] flex items-center gap-2">
+                          <span className="text-base">
+                            {requiresSubmission ? '📝' : '📖'}
+                          </span>
+                          <div>
+                            <div className="font-bold text-[#2B2426]">
+                              {requiresSubmission ? 'Com entrega' : 'Estudo livre'}
+                            </div>
+                            <div className="text-[10px] text-[#6F6865]">
+                              {requiresCorrection ? 'Com correção' : 'Sem correção'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Rodapé do Modal */}
-            <div className="px-6 py-4 border-t border-[#E6E1D8] bg-[#FAF8F5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+            {/* 3. RODAPÉ FIXO COM BOTÕES DE NAVEGAÇÃO DA JORNADA */}
+            <div className="sticky bottom-0 bg-white border-t border-[#E6E1D8] px-6 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+              {/* Botão Voltar ou Cancelar */}
+              {activeStep === 1 ? (
                 <button
                   type="button"
-                  onClick={() => setIsPreviewOpen(true)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#F0EBE1] transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  onClick={handleClose}
+                  disabled={isPending}
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer disabled:opacity-50"
                 >
-                  <span>👁️</span>
-                  <span>Pré-visualizar Atividade</span>
+                  Cancelar
                 </button>
-              </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3) : 1))
+                  }
+                  disabled={isPending}
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>←</span>
+                  <span>Voltar</span>
+                </button>
+              )}
 
-              <div className="flex items-center gap-2.5 self-end sm:self-center">
-                {activeStep === 2 && (
+              {/* Ações da Direita */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Salvar Rascunho */}
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => executeSubmit('draft')}
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
+                >
+                  {isPending ? 'Salvando...' : 'Salvar rascunho'}
+                </button>
+
+                {/* Avançar ou Enviar */}
+                {activeStep === 1 && (
                   <button
                     type="button"
-                    onClick={() => setActiveStep(1)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-[#6F6865] hover:bg-white border border-[#E6E1D8] cursor-pointer"
+                    onClick={() => setActiveStep(2)}
+                    className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer hover:shadow-md active:scale-[0.98]"
                   >
-                    ← Voltar
+                    <span>Continuar para os blocos</span>
+                    <span>→</span>
                   </button>
                 )}
 
-                {activeStep === 1 ? (
+                {activeStep === 2 && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!title.trim()) {
-                        setErrorMsg('Informe o título da atividade.');
-                        return;
-                      }
-                      setErrorMsg('');
-                      setActiveStep(2);
-                    }}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs cursor-pointer"
+                    onClick={() => setActiveStep(3)}
+                    className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer hover:shadow-md active:scale-[0.98]"
                   >
-                    Avançar para Construtor de Blocos →
+                    <span>Continuar para entrega</span>
+                    <span>→</span>
                   </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleSubmit('draft')}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold text-[#2B2426] bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] disabled:opacity-50 cursor-pointer"
-                    >
-                      Salvar como Rascunho
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleSubmit('published')}
-                      className="px-5 py-2 rounded-xl text-xs font-bold text-[#FFFDF7] bg-[#6C0F37] hover:bg-[#57102E] transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      {loading
-                        ? 'Salvando...'
-                        : initialData
-                        ? 'Salvar Alterações'
-                        : 'Salvar no Banco de Atividades'}
-                    </button>
-                  </>
+                )}
+
+                {activeStep === 3 && (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => executeSubmit('publish')}
+                    className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
+                  >
+                    <span>🚀</span>
+                    <span>{isPending ? 'Enviando...' : 'Enviar atividade'}</span>
+                  </button>
                 )}
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Catálogo dos Formatos e Mídias */}
-      <ActivityBlockSelector
-        isOpen={isSelectorOpen}
-        onClose={() => setIsSelectorOpen(false)}
-        onSelectBlock={handleAddBlock}
-      />
-
-      {/* Simulador da Visão do Aluno */}
-      <ActivityPreviewModal
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        title={title}
-        category={category}
-        targetSkills={targetSkills}
-        instructions={instructions}
-        blocks={blocks}
-        correctionType={correctionType}
-      />
     </>
   );
 }

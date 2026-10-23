@@ -197,6 +197,8 @@ export function ActivityCardMenu({
           initialData={activity}
           isOpen={editOpen}
           onClose={() => setEditOpen(false)}
+          students={students}
+          classes={classes}
         />
       )}
 

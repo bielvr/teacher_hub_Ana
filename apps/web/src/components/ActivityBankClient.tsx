@@ -455,6 +455,8 @@ export function ActivityBankClient({
               tracks={tracks}
               triggerText="+ Nova atividade"
               organizationId={organizationId}
+              students={students}
+              classes={classes}
             />
           </div>
         </div>
@@ -707,10 +709,12 @@ export function ActivityBankClient({
               : 'Seu Banco de Atividades está pronto. Clique abaixo para cadastrar seu primeiro modelo reutilizável.'}
           </p>
           <CreateActivityModal
-            tracks={tracks}
-            triggerText="+ Nova atividade"
-            organizationId={organizationId}
-          />
+              tracks={tracks}
+              triggerText="+ Nova atividade"
+              organizationId={organizationId}
+              students={students}
+              classes={classes}
+            />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -726,6 +730,8 @@ export function ActivityBankClient({
           isOpen={Boolean(editingActivity)}
           onClose={() => setEditingActivity(null)}
           organizationId={organizationId}
+          students={students}
+          classes={classes}
         />
       )}
 

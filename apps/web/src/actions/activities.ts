@@ -84,9 +84,7 @@ export async function createActivityAction(formData: FormData) {
   const manualCount = items.filter((q: any) => manualTypes.includes(q.type)).length;
   const autoCount = items.length - manualCount;
 
-  if (!rawTitle) {
-    throw new Error('O título da atividade é obrigatório.');
-  }
+  const effectiveTitle = rawTitle || 'Atividade sem título';
 
   const validTypes: ActivityType[] = [
     'video', 'pdf', 'quiz', 'text', 'audio', 'external_link', 'assignment'
@@ -94,6 +92,16 @@ export async function createActivityAction(formData: FormData) {
   const type: ActivityType = validTypes.includes(rawType as ActivityType)
     ? (rawType as ActivityType)
     : 'quiz';
+
+    const send_to = (formData.get('send_to') as string) || 'none';
+  const target_id = (formData.get('target_id') as string)?.trim() || null;
+  const target_name = (formData.get('target_name') as string)?.trim() || null;
+  const due_date = (formData.get('due_date') as string)?.trim() || null;
+  const visibility = (formData.get('visibility') as string) || 'now';
+  const requires_submission = formData.get('requires_submission') !== 'false';
+  const requires_correction = formData.get('requires_correction') !== 'false';
+  const auto_show_results = formData.get('auto_show_results') === 'true';
+  const instructions = (formData.get('instructions') as string)?.trim() || content_markdown || '';
 
   const metadata: any = {
     category,
@@ -106,6 +114,15 @@ export async function createActivityAction(formData: FormData) {
     blocks,
     items,
     resources,
+    send_to,
+    target_id,
+    target_name,
+    due_date,
+    visibility,
+    requires_submission,
+    requires_correction,
+    auto_show_results,
+    instructions,
     item_count: items.length,
     resource_count: resources.length + (content_url ? 1 : 0),
     auto_count: autoCount,
@@ -114,7 +131,7 @@ export async function createActivityAction(formData: FormData) {
   };
 
   const payload: any = {
-    title: rawTitle,
+    title: effectiveTitle,
     type,
     video_url: type === 'video' ? content_url : null,
     pdf_url: type === 'pdf' ? content_url : null,
@@ -153,9 +170,10 @@ export async function updateActivityAction(formData: FormData) {
   const rawTargetSkills = formData.get('target_skills') as string;
   const rawBlocks = formData.get('blocks') as string;
 
-  if (!activityId || !rawTitle) {
-    throw new Error('ID e título da atividade são obrigatórios.');
+  if (!activityId) {
+    throw new Error('ID da atividade é obrigatório.');
   }
+  const effectiveTitle = rawTitle || 'Atividade sem título';
 
   // Busca atividade existente para preservar metadata anterior
   const { data: existing } = await supabase
@@ -195,7 +213,7 @@ export async function updateActivityAction(formData: FormData) {
   }
 
   const updatePayload: any = {
-    title: rawTitle,
+    title: effectiveTitle,
     lesson_id: rawLessonId || null,
     content_markdown,
     metadata: currentMetadata,
