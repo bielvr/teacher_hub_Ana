@@ -4,486 +4,15 @@ import { useState, useEffect, useRef, useTransition } from 'react';
 import { renderInlineMarkdown } from './PaginatedContent';
 import Link from 'next/link';
 import {
-  createPlanningLessonAction,
   updatePlanningLessonAction,
   sendLessonToMaterialsAction,
   deletePlanningLessonAction,
 } from '../actions/tracks';
 
-export interface ChecklistItem {
-  text: string;
-  done: boolean;
-}
+export * from '../types/planning';
+export { CreatePlanningLessonModal } from './CreatePlanningLessonModal';
 
-export interface PlanningTrackOption {
-  id: string;
-  title: string;
-  modules: {
-    id: string;
-    title: string;
-  }[];
-}
-
-export interface FlatLessonItem {
-  id: string;
-  moduleId: string;
-  title: string;
-  trackTitle: string;
-  trackId: string;
-  moduleTitle: string;
-  orderIndex: number;
-  prepStatus: 'need_prep' | 'in_progress' | 'ready';
-  communicativeGoals?: string;
-  notes?: string;
-  checklist?: ChecklistItem[];
-  vocabulary?: string;
-  grammar?: string;
-  publishedToMaterials?: boolean;
-  materialsCount: number;
-}
-
-interface CreatePlanningLessonModalProps {
-  organizationId: string;
-  tracks: PlanningTrackOption[];
-  triggerText?: string;
-}
-
-const DEFAULT_CHECKLIST: ChecklistItem[] = [
-  { text: 'Definir objetivos e conceitos da aula', done: false },
-  { text: 'Preparar slides / PDF de apresentação da aula', done: false },
-  { text: 'Selecionar atividade prática ou áudio de apoio', done: false },
-];
-
-export function CreatePlanningLessonModal({
-  organizationId,
-  tracks,
-  triggerText = '+ Planejar nova aula',
-}: CreatePlanningLessonModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedTrackId, setSelectedTrackId] = useState(tracks[0]?.id || '__new__');
-  const [newTrackTitle, setNewTrackTitle] = useState('');
-  const [selectedModuleId, setSelectedModuleId] = useState(
-    tracks[0]?.modules?.[0]?.id || '__new__'
-  );
-  const [newModuleTitle, setNewModuleTitle] = useState('');
-  const [lessonTitle, setLessonTitle] = useState('');
-  const [prepStatus, setPrepStatus] = useState<'need_prep' | 'in_progress' | 'ready'>('need_prep');
-  const [objectives, setObjectives] = useState('');
-  const [notes, setNotes] = useState('');
-  const [vocabulary, setVocabulary] = useState('');
-  const [grammar, setGrammar] = useState('');
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
-  const [newCheckItem, setNewCheckItem] = useState('');
-  const [publishImmediately, setPublishImmediately] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [isPending, startTransition] = useTransition();
-
-  const currentTrack = tracks.find((t) => t.id === selectedTrackId);
-  const availableModules = currentTrack?.modules || [];
-
-  useEffect(() => {
-    if (selectedTrackId === '__new__') {
-      setSelectedModuleId('__new__');
-    } else {
-      const mods = tracks.find((t) => t.id === selectedTrackId)?.modules || [];
-      setSelectedModuleId(mods[0]?.id || '__new__');
-    }
-  }, [selectedTrackId, tracks]);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && isOpen) setIsOpen(false);
-    }
-    if (isOpen) document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
-
-  const handleAddChecklistItem = () => {
-    if (!newCheckItem.trim()) return;
-    setChecklist((prev) => [...prev, { text: newCheckItem.trim(), done: false }]);
-    setNewCheckItem('');
-  };
-
-  const handleToggleChecklistItem = (index: number) => {
-    setChecklist((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, done: !item.done } : item))
-    );
-  };
-
-  const handleRemoveChecklistItem = (index: number) => {
-    setChecklist((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setErrorMsg('');
-
-    const formData = new FormData();
-    formData.append('organization_id', organizationId);
-    formData.append('track_id', selectedTrackId);
-    formData.append('new_track_title', newTrackTitle);
-    formData.append('module_id', selectedModuleId);
-    formData.append('new_module_title', newModuleTitle);
-    formData.append('lesson_title', lessonTitle);
-    formData.append('preparation_status', prepStatus);
-    formData.append('communicative_objectives', objectives);
-    formData.append('notes', notes);
-    formData.append('vocabulary', vocabulary);
-    formData.append('grammar', grammar);
-    formData.append('checklist', JSON.stringify(checklist));
-    formData.append(
-      'publish_immediately',
-      prepStatus === 'ready' && publishImmediately ? 'true' : 'false'
-    );
-
-    startTransition(async () => {
-      const res = await createPlanningLessonAction(formData);
-      if (res.success) {
-        setIsOpen(false);
-        setLessonTitle('');
-        setObjectives('');
-        setNotes('');
-        setVocabulary('');
-        setGrammar('');
-        setChecklist(DEFAULT_CHECKLIST);
-        setPrepStatus('need_prep');
-        setPublishImmediately(false);
-      } else {
-        setErrorMsg(res.error || 'Erro ao criar aula.');
-      }
-    });
-  };
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="px-4 py-2.5 bg-[#6C0F37] hover:bg-[#57102E] text-white text-xs font-semibold rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-      >
-        <span>{triggerText}</span>
-      </button>
-
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isPending) setIsOpen(false);
-          }}
-        >
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Cabeçalho */}
-            <div className="px-6 py-4 border-b border-[#E6E1D8] flex items-center justify-between bg-[#FAF8F5]">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-white px-2 py-0.5 rounded border border-[#E6E1D8]">
-                  Rascunho & Planejamento
-                </span>
-                <h2 className="text-lg font-bold text-[#6C0F37] mt-1">
-                  Planejar Nova Aula
-                </h2>
-                <p className="text-xs text-[#6F6865]">
-                  Estruture a ideia da aula, defina objetivos, anotações e checklist antes de disponibilizá-la em Materiais Didáticos.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                disabled={isPending}
-                className="w-8 h-8 rounded-lg text-[#6F6865] hover:text-[#2B2426] hover:bg-white flex items-center justify-center font-bold transition-colors cursor-pointer"
-                aria-label="Fechar"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1">
-              {errorMsg && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
-                  ⚠️ {errorMsg}
-                </div>
-              )}
-
-              {/* Seleção de Nível e Unidade */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                    Nível <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedTrackId}
-                    onChange={(e) => setSelectedTrackId(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  >
-                    {tracks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title}
-                      </option>
-                    ))}
-                    <option value="__new__">+ Criar novo nível...</option>
-                  </select>
-                  {selectedTrackId === '__new__' && (
-                    <input
-                      type="text"
-                      required
-                      value={newTrackTitle}
-                      onChange={(e) => setNewTrackTitle(e.target.value)}
-                      placeholder="Nome do novo nível (ex: Nível 1, Módulo Básico, Ensino Médio...)"
-                      className="mt-2 w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                    Unidade Curricular <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedModuleId}
-                    onChange={(e) => setSelectedModuleId(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  >
-                    {availableModules.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title}
-                      </option>
-                    ))}
-                    <option value="__new__">+ Criar nova unidade...</option>
-                  </select>
-                  {selectedModuleId === '__new__' && (
-                    <input
-                      type="text"
-                      value={newModuleTitle}
-                      onChange={(e) => setNewModuleTitle(e.target.value)}
-                      placeholder="Nome da unidade (ex: Unidade 1 - Introdução)"
-                      className="mt-2 w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Título da Aula */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  Título da Aula <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={lessonTitle}
-                  onChange={(e) => setLessonTitle(e.target.value)}
-                  placeholder="Ex: Aula 1 - Apresentação e Conceitos"
-                  className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-
-              {/* Status de Preparo */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
-                  Status de Preparo
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {[
-                    {
-                      id: 'need_prep' as const,
-                      label: 'Preciso preparar',
-                      desc: 'Ideia / rascunho inicial',
-                      activeClass: 'bg-[#FFF5F5] border-[#DC3545] text-[#DC3545] ring-1 ring-[#DC3545]',
-                      dotClass: 'bg-[#DC3545]',
-                    },
-                    {
-                      id: 'in_progress' as const,
-                      label: 'Em preparação',
-                      desc: 'Estruturando materiais',
-                      activeClass: 'bg-[#FFFDF0] border-[#B78103] text-[#B78103] ring-1 ring-[#B78103]',
-                      dotClass: 'bg-[#B78103]',
-                    },
-                    {
-                      id: 'ready' as const,
-                      label: 'Prontas para usar',
-                      desc: 'Pronta p/ biblioteca',
-                      activeClass: 'bg-[#F0FDF4] border-[#198754] text-[#198754] ring-1 ring-[#198754]',
-                      dotClass: 'bg-[#198754]',
-                    },
-                  ].map((st) => {
-                    const active = prepStatus === st.id;
-                    return (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => setPrepStatus(st.id)}
-                        className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                          active
-                            ? st.activeClass
-                            : 'bg-white border-[#E6E1D8] text-[#2B2426] hover:bg-[#FAF8F5]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 text-xs font-bold">
-                          <span className={`w-2 h-2 rounded-full ${st.dotClass}`} />
-                          <span>{st.label}</span>
-                        </div>
-                        <span className="block text-[10px] text-[#6F6865] mt-0.5">{st.desc}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Objetivos e Anotações de Planejamento */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                    🎯 Objetivos pedagógicos da aula
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={objectives}
-                    onChange={(e) => setObjectives(e.target.value)}
-                    placeholder="O que o aluno deve desenvolver nesta aula..."
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                    📝 Anotações & Roteiro
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Ideias de warm-up, sequência didática, lembretes de preparo..."
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-              </div>
-
-              {/* Conceitos-chave e Conteúdos trabalhados */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    💡 Conceitos-chave (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={vocabulary}
-                    onChange={(e) => setVocabulary(e.target.value)}
-                    placeholder="Ex: Teorema de Pitágoras, Revolução Francesa, Funções..."
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    📚 Conteúdos trabalhados (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={grammar}
-                    onChange={(e) => setGrammar(e.target.value)}
-                    placeholder="Ex: Leitura crítica, fórmulas essenciais, exercícios..."
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-              </div>
-
-              {/* Checklist de Preparo da Aula */}
-              <div className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#6C0F37]">
-                  ☑ Checklist de Preparo
-                </label>
-
-                <div className="space-y-1.5">
-                  {checklist.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between gap-2 bg-white px-3 py-1.5 rounded-lg border border-[#E6E1D8] text-xs"
-                    >
-                      <label className="flex items-center gap-2 cursor-pointer flex-1">
-                        <input
-                          type="checkbox"
-                          checked={item.done}
-                          onChange={() => handleToggleChecklistItem(idx)}
-                          className="accent-[#6C0F37] rounded"
-                        />
-                        <span className={item.done ? 'line-through text-[#6F6865]' : 'text-[#2B2426]'}>
-                          {item.text}
-                        </span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveChecklistItem(idx)}
-                        className="text-[#6F6865] hover:text-red-600 text-xs font-bold px-1 cursor-pointer"
-                        title="Remover item"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newCheckItem}
-                    onChange={(e) => setNewCheckItem(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddChecklistItem();
-                      }
-                    }}
-                    placeholder="Adicionar tarefa ao checklist..."
-                    className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddChecklistItem}
-                    className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-lg transition cursor-pointer"
-                  >
-                    + Adicionar
-                  </button>
-                </div>
-              </div>
-
-              {prepStatus === 'ready' && (
-                <label className="flex items-center gap-2.5 p-3 rounded-xl bg-[#F0FDF4] border border-[#B9F5D0] text-xs text-[#198754] font-semibold cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={publishImmediately}
-                    onChange={(e) => setPublishImmediately(e.target.checked)}
-                    className="accent-[#198754]"
-                  />
-                  <span>
-                    Enviar imediatamente para Materiais Didáticos (disponibilizar na Biblioteca)
-                  </span>
-                </label>
-              )}
-
-              {/* Rodapé */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E6E1D8]">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  disabled={isPending}
-                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 rounded-xl transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-5 py-2 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
-                >
-                  {isPending ? 'Salvando...' : 'Salvar Aula'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
+import type { FlatLessonItem, PlanningTrackOption, ChecklistItem } from '../types/planning';
 
 interface PlanningLessonCardProps {
   lesson: FlatLessonItem;
@@ -636,8 +165,18 @@ export function PlanningLessonCard({
 
         <div>
           {/* Miniatura com número, módulo e menu de ações */}
-          <div className="h-20 bg-gradient-to-br from-[#FAF8F5] to-[#F3E8EC] p-2.5 flex flex-col justify-between border-b border-[#E6E1D8]/70">
-            <div className="flex items-center justify-between gap-1">
+          <div
+            className={`h-20 p-2.5 flex flex-col justify-between border-b border-[#E6E1D8]/70 relative ${
+              lesson.coverImageUrl
+                ? 'bg-cover bg-center text-white'
+                : 'bg-gradient-to-br from-[#FAF8F5] to-[#F3E8EC]'
+            }`}
+            style={lesson.coverImageUrl ? { backgroundImage: `url(${lesson.coverImageUrl})` } : undefined}
+          >
+            {lesson.coverImageUrl && (
+              <div className="absolute inset-0 bg-black/35" />
+            )}
+            <div className="flex items-center justify-between gap-1 relative z-10">
               <span className="text-[10px] font-bold text-[#6C0F37] bg-white px-1.5 py-0.5 rounded shadow-2xs border border-[#E6E1D8]">
                 #{lesson.orderIndex}
               </span>
@@ -655,7 +194,7 @@ export function PlanningLessonCard({
                   <button
                     type="button"
                     onClick={() => setMenuOpen((prev) => !prev)}
-                    className="w-6 h-6 rounded-md bg-white/80 hover:bg-white border border-[#E6E1D8] text-[#6C0F37] text-xs font-bold flex items-center justify-center cursor-pointer"
+                    className="w-6 h-6 rounded-md bg-white/80 hover:bg-white border border-[#E6E1D8] text-[#6C0F37] text-xs font-bold flex items-center justify-center cursor-pointer shadow-2xs"
                     title="Ações da aula"
                   >
                     ⋮
@@ -672,7 +211,7 @@ export function PlanningLessonCard({
                         className="w-full text-left px-3 py-1.5 text-[11px] font-semibold text-[#2B2426] hover:bg-[#FAF8F5] hover:text-[#6C0F37] flex items-center gap-2 cursor-pointer"
                       >
                         <span>✏️</span>
-                        <span>Editar objetivos e checklist</span>
+                        <span>Editar planejamento</span>
                       </button>
 
                       <button
@@ -716,7 +255,11 @@ export function PlanningLessonCard({
               </div>
             </div>
 
-            <span className="text-[11px] font-semibold text-[#6C0F37] line-clamp-1">
+            <span
+              className={`text-[11px] font-semibold line-clamp-1 relative z-10 ${
+                lesson.coverImageUrl ? 'text-white drop-shadow-xs font-bold' : 'text-[#6C0F37]'
+              }`}
+            >
               {lesson.moduleTitle}
             </span>
           </div>

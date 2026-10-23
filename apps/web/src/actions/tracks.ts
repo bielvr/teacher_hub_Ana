@@ -668,23 +668,30 @@ export async function createPlanningLessonAction(
     const new_track_title = (formData.get('new_track_title') as string)?.trim();
     let module_id = (formData.get('module_id') as string)?.trim();
     const new_module_title = (formData.get('new_module_title') as string)?.trim();
-    const lesson_title = (formData.get('lesson_title') as string)?.trim();
+    const rawLessonTitle = (formData.get('lesson_title') as string)?.trim();
+    const lesson_title = rawLessonTitle || 'Planejamento de aula';
 
-    const preparation_status =
-      ((formData.get('preparation_status') as string) as 'need_prep' | 'in_progress' | 'ready') ||
-      'need_prep';
+    const rawPrep = (formData.get('preparation_status') as string) || 'need_prep';
+    const preparation_status: 'need_prep' | 'in_progress' | 'ready' =
+      rawPrep === 'needs_prep' || rawPrep === 'need_prep'
+        ? 'need_prep'
+        : rawPrep === 'in_progress'
+        ? 'in_progress'
+        : 'ready';
+
     const communicative_objectives = (formData.get('communicative_objectives') as string)?.trim() || '';
     const notes = (formData.get('notes') as string)?.trim() || '';
     const checklistRaw = (formData.get('checklist') as string) || '[]';
-    const vocabulary = (formData.get('vocabulary') as string)?.trim() || '';
-    const grammar = (formData.get('grammar') as string)?.trim() || '';
-    const publish_immediately = formData.get('publish_immediately') === 'true';
+    const topicsRaw = (formData.get('topics') as string) || '[]';
+    const timelineRaw = (formData.get('timeline') as string) || '[]';
+    const materialsRaw = (formData.get('materials') as string) || '[]';
+    let cover_image_url = (formData.get('cover_image_url') as string)?.trim() || '';
 
-    if (!lesson_title) {
-      return { success: false, error: 'Informe o título da lesson.' };
-    }
+    const action_type = (formData.get('action_type') as string) || 'draft';
+    const send_to_materials =
+      action_type === 'publish' || formData.get('send_to_materials') === 'true';
 
-    // Se o professor escolheu criar um novo nível
+    // 1. Processamento de Nível (Track) - TOTALMENTE OPCIONAL
     if ((!track_id || track_id === '__new__') && new_track_title && organization_id) {
       const { data: createdTrack, error: trackErr } = await supabase
         .from('tracks')
@@ -698,41 +705,137 @@ export async function createPlanningLessonAction(
         return { success: false, error: trackErr?.message || 'Erro ao criar nível.' };
       }
       track_id = createdTrack.id;
+    } else if (!track_id || track_id === '__new__') {
+      if (organization_id) {
+        const { data: existingTracks } = await supabase
+          .from('tracks')
+          .select('id')
+          .eq('organization_id', organization_id)
+          .order('created_at', { ascending: true })
+          .limit(1);
+        if (existingTracks && existingTracks.length > 0) {
+          track_id = existingTracks[0].id;
+        } else {
+          const { data: defTrack } = await supabase
+            .from('tracks')
+            .insert({
+              organization_id,
+              title: 'Planejamento Geral',
+            })
+            .select('id')
+            .single();
+          if (defTrack) track_id = defTrack.id;
+        }
+      }
     }
 
     if (!track_id) {
-      return { success: false, error: 'Selecione ou crie um nível para a lesson.' };
+      return { success: false, error: 'Organização ou nível não identificado.' };
     }
 
-    // Se o professor escolheu criar uma nova unidade ou o nível ainda não possui unidades
+    // 2. Processamento de Unidade (Module) - TOTALMENTE OPCIONAL
     if (!module_id || module_id === '__new__') {
-      const unitTitle = new_module_title || 'Unidade 1';
-      const { count: modCount } = await supabase
-        .from('modules')
-        .select('*', { count: 'exact', head: true })
-        .eq('track_id', track_id);
+      if (new_module_title) {
+        const { count: modCount } = await supabase
+          .from('modules')
+          .select('*', { count: 'exact', head: true })
+          .eq('track_id', track_id);
 
-      const { data: createdModule, error: modErr } = await supabase
-        .from('modules')
-        .insert({
-          track_id,
-          title: unitTitle,
-          order_index: (modCount || 0) + 1,
-        })
-        .select('id')
-        .single();
+        const { data: createdModule } = await supabase
+          .from('modules')
+          .insert({
+            track_id,
+            title: new_module_title,
+            order_index: (modCount || 0) + 1,
+          })
+          .select('id')
+          .single();
 
-      if (modErr || !createdModule) {
-        return { success: false, error: modErr?.message || 'Erro ao criar unidade.' };
+        if (createdModule) module_id = createdModule.id;
+      } else {
+        const { data: existingMods } = await supabase
+          .from('modules')
+          .select('id')
+          .eq('track_id', track_id)
+          .order('order_index', { ascending: true })
+          .limit(1);
+        if (existingMods && existingMods.length > 0) {
+          module_id = existingMods[0].id;
+        } else {
+          const { data: defModule } = await supabase
+            .from('modules')
+            .insert({
+              track_id,
+              title: 'Unidade 1',
+              order_index: 1,
+            })
+            .select('id')
+            .single();
+          if (defModule) module_id = defModule.id;
+        }
       }
-      module_id = createdModule.id;
     }
 
-    let checklist: Array<{ text: string; done: boolean }> = [];
+    if (!module_id) {
+      return { success: false, error: 'Unidade não identificada.' };
+    }
+
+    // 3. Upload de imagem de capa se enviada via arquivo
+    const coverUpload = formData.get('cover_image_file') as File | null;
+    if (coverUpload && coverUpload.size > 0 && typeof coverUpload.name === 'string') {
+      const cleanFileName = coverUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storagePath = `covers/${module_id}/${Date.now()}-${cleanFileName}`;
+      const uploadedCover = await uploadToStorage(supabase, 'course-materials', storagePath, coverUpload);
+      if (uploadedCover) {
+        cover_image_url = uploadedCover;
+      }
+    }
+
+    // 4. Parser de JSONs opcionais
+    let checklist: any[] = [];
     try {
       checklist = JSON.parse(checklistRaw);
     } catch {
       checklist = [];
+    }
+
+    let topics: any[] = [];
+    try {
+      topics = JSON.parse(topicsRaw);
+    } catch {
+      topics = [];
+    }
+
+    let timeline: any[] = [];
+    try {
+      timeline = JSON.parse(timelineRaw);
+    } catch {
+      timeline = [];
+    }
+
+    let materials: any[] = [];
+    try {
+      materials = JSON.parse(materialsRaw);
+    } catch {
+      materials = [];
+    }
+
+    // 5. Upload de arquivos de materiais caso existam
+    if (Array.isArray(materials)) {
+      for (let i = 0; i < materials.length; i++) {
+        const mat = materials[i];
+        const matFile =
+          (formData.get(`material_file_${mat.id}`) as File | null) ||
+          (formData.get(`material_file_${i}`) as File | null);
+        if (matFile && matFile.size > 0 && typeof matFile.name === 'string') {
+          const cleanName = matFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const matPath = `materials/${module_id}/${Date.now()}-${cleanName}`;
+          const uploadedMatUrl = await uploadToStorage(supabase, 'course-materials', matPath, matFile);
+          if (uploadedMatUrl) {
+            mat.url = uploadedMatUrl;
+          }
+        }
+      }
     }
 
     const status =
@@ -742,17 +845,20 @@ export async function createPlanningLessonAction(
         ? 'in_progress'
         : 'todo';
 
-    const lessonMetadata = {
+    const planningMetadata = {
       communicative_objectives,
       communicative_goals: communicative_objectives,
       notes,
+      topics,
+      timeline,
+      materials,
       checklist,
-      vocabulary,
-      grammar,
       status,
-      preparation_status,
-      published_to_materials: publish_immediately,
-      published_at: publish_immediately ? new Date().toISOString() : null,
+      preparation_status: send_to_materials ? 'ready' : preparation_status,
+      cover_image_url,
+      published_to_materials: send_to_materials,
+      is_planning: true,
+      published_at: send_to_materials ? new Date().toISOString() : null,
     };
 
     const { count: lessonCount } = await supabase
@@ -760,30 +866,100 @@ export async function createPlanningLessonAction(
       .select('*', { count: 'exact', head: true })
       .eq('module_id', module_id);
 
-    const { data: lesson, error: lessonError } = await supabase
+    // 6. Insere aula no Planejamento (permanece SEMPRE existindo)
+    const { data: planningLesson, error: lessonError } = await supabase
       .from('lessons')
       .insert({
         module_id,
         title: lesson_title,
-        description: JSON.stringify(lessonMetadata),
+        description: JSON.stringify(planningMetadata),
         order_index: (lessonCount || 0) + 1,
         release_type: 'immediate',
       })
       .select('id')
       .single();
 
-    if (lessonError || !lesson) {
-      return { success: false, error: lessonError?.message || 'Erro ao criar lesson no planejamento.' };
+    if (lessonError || !planningLesson) {
+      return { success: false, error: lessonError?.message || 'Erro ao criar aula no planejamento.' };
+    }
+
+    // 7. Se "Enviar para Materiais Didáticos" foi selecionado:
+    // Cria uma cópia editável e disponível na biblioteca de Materiais Didáticos (tracks/lessons),
+    // clonando título, objetivos, tópicos/conteúdos, roteiro, capa, anexos e links já preenchidos.
+    // O planejamento original PERMANECE EXISTINDO no banco.
+    if (send_to_materials) {
+      const libraryMetadata = {
+        ...planningMetadata,
+        published_to_materials: true,
+        is_library_copy: true,
+        source_planning_id: planningLesson.id,
+      };
+
+      const { data: libraryCopy, error: copyErr } = await supabase
+        .from('lessons')
+        .insert({
+          module_id,
+          title: lesson_title,
+          description: JSON.stringify(libraryMetadata),
+          order_index: (lessonCount || 0) + 2,
+          release_type: 'immediate',
+        })
+        .select('id')
+        .single();
+
+      if (!copyErr && libraryCopy) {
+        if (Array.isArray(materials) && materials.length > 0) {
+          for (const mat of materials) {
+            let actType: ActivityType = 'pdf';
+            let vUrl: string | null = null;
+            let pUrl: string | null = null;
+            let aUrl: string | null = null;
+            let lUrl: string | null = null;
+
+            if (mat.type === 'video') {
+              actType = 'video';
+              vUrl = mat.url || null;
+            } else if (mat.type === 'audio') {
+              actType = 'audio';
+              aUrl = mat.url || null;
+            } else if (mat.type === 'link') {
+              actType = 'external_link';
+              lUrl = mat.url || null;
+            } else {
+              actType = 'pdf';
+              pUrl = mat.url || null;
+            }
+
+            try {
+              await supabase.from('activities').insert({
+                lesson_id: libraryCopy.id,
+                title: mat.title || lesson_title,
+                type: actType,
+                video_url: vUrl,
+                pdf_url: pUrl,
+                audio_url: aUrl,
+                link_url: lUrl,
+                metadata: {
+                  size: mat.size || null,
+                  original_type: mat.type,
+                },
+              });
+            } catch (actErr) {
+              console.warn('Erro ao inserir atividade clonada:', actErr);
+            }
+          }
+        }
+      }
     }
 
     revalidatePath('/professor');
     revalidatePath('/professor/planning');
     revalidatePath('/professor/tracks');
-    revalidatePath(`/professor/tracks/${track_id}`);
+    if (track_id) revalidatePath(`/professor/tracks/${track_id}`);
 
-    return { success: true, lessonId: lesson.id };
+    return { success: true, lessonId: planningLesson.id };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Erro inesperado ao salvar lesson.' };
+    return { success: false, error: err.message || 'Erro inesperado ao salvar aula.' };
   }
 }
 
@@ -896,17 +1072,17 @@ export async function sendLessonToMaterialsAction(
     const track_id = (formData.get('track_id') as string)?.trim();
 
     if (!lesson_id) {
-      return { success: false, error: 'ID da lesson é obrigatório.' };
+      return { success: false, error: 'ID da aula é obrigatório.' };
     }
 
     const { data: existingLesson, error: fetchErr } = await supabase
       .from('lessons')
-      .select('title, description')
+      .select('id, module_id, title, description, order_index')
       .eq('id', lesson_id)
       .single();
 
     if (fetchErr || !existingLesson) {
-      return { success: false, error: 'Lesson não encontrada.' };
+      return { success: false, error: 'Aula não encontrada.' };
     }
 
     let existingMeta: Record<string, any> = {};
@@ -922,6 +1098,7 @@ export async function sendLessonToMaterialsAction(
       }
     }
 
+    // Atualiza a aula original do Planejamento marcando que foi enviada (mantém-se no banco)
     const updatedMeta = {
       ...existingMeta,
       status: 'done',
@@ -930,7 +1107,7 @@ export async function sendLessonToMaterialsAction(
       published_at: new Date().toISOString(),
     };
 
-    const { error: updateErr } = await supabase
+    await supabase
       .from('lessons')
       .update({
         description: JSON.stringify(updatedMeta),
@@ -938,8 +1115,91 @@ export async function sendLessonToMaterialsAction(
       })
       .eq('id', lesson_id);
 
-    if (updateErr) {
-      return { success: false, error: updateErr.message };
+    // Cria a cópia independente e editável em Materiais Didáticos
+    const { count: modLessonCount } = await supabase
+      .from('lessons')
+      .select('*', { count: 'exact', head: true })
+      .eq('module_id', existingLesson.module_id);
+
+    const copyMeta = {
+      ...existingMeta,
+      status: 'done',
+      preparation_status: 'ready',
+      published_to_materials: true,
+      is_library_copy: true,
+      source_planning_id: lesson_id,
+      published_at: new Date().toISOString(),
+    };
+
+    const { data: libraryCopy } = await supabase
+      .from('lessons')
+      .insert({
+        module_id: existingLesson.module_id,
+        title: existingLesson.title,
+        description: JSON.stringify(copyMeta),
+        order_index: (modLessonCount || 0) + 1,
+        release_type: 'immediate',
+      })
+      .select('id')
+      .single();
+
+    if (libraryCopy) {
+      // Clona atividades existentes ou materiais
+      const { data: existingActs } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('lesson_id', lesson_id);
+
+      if (existingActs && existingActs.length > 0) {
+        for (const act of existingActs) {
+          await supabase.from('activities').insert({
+            lesson_id: libraryCopy.id,
+            title: act.title,
+            type: act.type,
+            video_url: act.video_url,
+            pdf_url: act.pdf_url,
+            audio_url: act.audio_url,
+            link_url: act.link_url,
+            metadata: act.metadata,
+          });
+        }
+      } else if (Array.isArray(existingMeta.materials) && existingMeta.materials.length > 0) {
+        for (const mat of existingMeta.materials) {
+          let actType: ActivityType = 'pdf';
+          let vUrl: string | null = null;
+          let pUrl: string | null = null;
+          let aUrl: string | null = null;
+          let lUrl: string | null = null;
+
+          if (mat.type === 'video') {
+            actType = 'video';
+            vUrl = mat.url || null;
+          } else if (mat.type === 'audio') {
+            actType = 'audio';
+            aUrl = mat.url || null;
+          } else if (mat.type === 'link') {
+            actType = 'external_link';
+            lUrl = mat.url || null;
+          } else {
+            actType = 'pdf';
+            pUrl = mat.url || null;
+          }
+
+          await supabase.from('activities').insert({
+            lesson_id: libraryCopy.id,
+            title: mat.title || existingLesson.title,
+            type: actType,
+            video_url: vUrl,
+            pdf_url: pUrl,
+            audio_url: aUrl,
+            link_url: lUrl,
+            metadata: {
+              size: mat.size || null,
+              original_type: mat.type,
+            },
+          });
+        }
+      }
     }
 
     revalidatePath('/professor');
@@ -949,7 +1209,7 @@ export async function sendLessonToMaterialsAction(
 
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Erro ao disponibilizar lesson em Materiais Didáticos.' };
+    return { success: false, error: err.message || 'Erro ao disponibilizar aula em Materiais Didáticos.' };
   }
 }
 

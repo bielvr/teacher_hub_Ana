@@ -87,7 +87,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
   // 2. Mapeamento plano de lições para cálculo de contadores e filtros de preparação
   const allLessons: FlatLessonItem[] = [];
 
-  tracks.forEach((t) => {
+    tracks.forEach((t) => {
     (t.modules || []).forEach((m: any) => {
       (m.lessons || []).forEach((l: any, idx: number) => {
         let prepStatus: 'need_prep' | 'in_progress' | 'ready' = 'ready';
@@ -98,15 +98,29 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
         let grammar = '';
         let checklist: Array<{ text: string; done: boolean }> = [];
         let publishedToMaterials = false;
+        let topics: any[] = [];
+        let timeline: any[] = [];
+        let materials: any[] = [];
+        let coverImageUrl = '';
 
         try {
           if (l.description && typeof l.description === 'string' && l.description.trim().startsWith('{')) {
             const parsed = JSON.parse(l.description);
+
+            // Ignora cópias da biblioteca para evitar duplicações no grid de planejamento
+            if (parsed.is_library_copy === true) {
+              return;
+            }
+
             communicativeGoals = parsed.communicative_objectives || parsed.communicative_goals || '';
             notes = parsed.notes || '';
             vocabulary = parsed.vocabulary || '';
             grammar = parsed.grammar || '';
             checklist = Array.isArray(parsed.checklist) ? parsed.checklist : [];
+            topics = Array.isArray(parsed.topics) ? parsed.topics : [];
+            timeline = Array.isArray(parsed.timeline) ? parsed.timeline : [];
+            materials = Array.isArray(parsed.materials) ? parsed.materials : [];
+            coverImageUrl = parsed.cover_image_url || '';
             publishedToMaterials = parsed.published_to_materials === true;
 
             if (parsed.preparation_status) {
@@ -149,8 +163,12 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
           checklist,
           vocabulary,
           grammar,
+          topics,
+          timeline,
+          materials,
+          coverImageUrl,
           publishedToMaterials,
-          materialsCount: l.activities?.length || 0,
+          materialsCount: l.activities?.length || materials.length || 0,
         });
       });
     });
