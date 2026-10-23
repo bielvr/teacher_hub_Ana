@@ -60,6 +60,7 @@ export function ActivityBankClient({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
+  const [levelCarouselIndex, setLevelCarouselIndex] = useState(0);
 
   // Mapeamento e contagens de níveis
   const trackStats = useMemo(() => {
@@ -85,6 +86,39 @@ export function ActivityBankClient({
 
     return { tracks: stats, generalCount, totalCount: initialActivities.length };
   }, [tracks, initialActivities]);
+
+  // Lista consolidada de cartões para o carrossel de níveis
+  const allLevelCards = useMemo(() => {
+    return [
+      {
+        id: 'all',
+        title: 'Todos os Níveis',
+        icon: '📚',
+        count: `${trackStats.totalCount} atividades totais`,
+        badge: null,
+      },
+      ...tracks.map((trk) => {
+        const stats = trackStats.tracks[trk.id] || { activityCount: 0, lessonCount: 0 };
+        return {
+          id: trk.id,
+          title: trk.title,
+          icon: '📚',
+          count: `${stats.activityCount} atividades totais`,
+          badge: null,
+        };
+      }),
+      {
+        id: 'general',
+        title: 'Atividades Gerais',
+        icon: '🌐',
+        count: `${trackStats.generalCount} atividades totais`,
+        badge: 'Banco livre',
+      },
+    ];
+  }, [tracks, trackStats]);
+
+  const maxLevelIndex = Math.max(0, allLevelCards.length - 5);
+  const visibleLevelCards = allLevelCards.slice(levelCarouselIndex, levelCarouselIndex + 5);
 
   // Filtra as atividades na memória em tempo real
   const filteredActivities = useMemo(() => {
@@ -518,131 +552,93 @@ export function ActivityBankClient({
         </div>
       </div>
 
-      {/* SEÇÃO PRINCIPAL: CARTÕES DOS NÍVEIS DIDÁTICOS CADASTRADOS */}
+      {/* SEÇÃO PRINCIPAL: CARROSSEL DOS NÍVEIS DIDÁTICOS (5 CARDS VISÍVEIS POR VEZ NO DESKTOP) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-2">
             <span>🎯 Níveis Didáticos Cadastrados</span>
-            <span className="text-[11px] text-[#6F6865] font-normal">
+            <span className="text-[11px] text-[#6F6865] font-normal hidden sm:inline">
               (Selecione um nível para explorar suas aulas e atividades associadas)
             </span>
           </h2>
+
+          {/* Controles de Paginação com Setas Circulares */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#6F6865] font-medium mr-1 hidden sm:inline">
+              {levelCarouselIndex + 1}–{Math.min(levelCarouselIndex + 5, allLevelCards.length)} de {allLevelCards.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => setLevelCarouselIndex((prev) => Math.max(0, prev - 1))}
+              disabled={levelCarouselIndex === 0}
+              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] transition shadow-2xs cursor-pointer"
+              aria-label="Níveis anteriores"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={() => setLevelCarouselIndex((prev) => Math.min(maxLevelIndex, prev + 1))}
+              disabled={levelCarouselIndex >= maxLevelIndex}
+              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] transition shadow-2xs cursor-pointer"
+              aria-label="Próximos níveis"
+            >
+              ›
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Card: Todos os Níveis */}
-          <button
-            type="button"
-            onClick={() => setSelectedTrackId('all')}
-            style={{
-              backgroundColor: selectedTrackId === 'all' ? '#6C0F37' : '#FFFFFF',
-              color: selectedTrackId === 'all' ? '#FFFDF7' : '#2B2426',
-              borderColor: selectedTrackId === 'all' ? '#57102E' : '#E6E1D8',
-            }}
-            className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between"
-          >
-            <div>
-              <span className="text-lg block mb-1">📚</span>
-              <h3
-                style={{ color: selectedTrackId === 'all' ? '#FFFDF7' : '#6C0F37' }}
-                className="text-base font-bold transition-colors"
-              >
-                Todos os Níveis
-              </h3>
-            </div>
-            <div
-              style={{ borderColor: selectedTrackId === 'all' ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8' }}
-              className="mt-3 pt-2 border-t"
-            >
-              <span
-                style={{ color: selectedTrackId === 'all' ? '#FFFDF7' : '#6F6865' }}
-                className="text-xs"
-              >
-                {trackStats.totalCount} atividades totais
-              </span>
-            </div>
-          </button>
-
-          {/* Cards dos Níveis (Tracks) */}
-          {tracks.map((trk) => {
-            const isSelected = selectedTrackId === trk.id;
-            const stats = trackStats.tracks[trk.id] || { activityCount: 0, lessonCount: 0 };
+          {visibleLevelCards.map((card) => {
+            const isSelected = selectedTrackId === card.id;
 
             return (
               <button
-                key={trk.id}
+                key={card.id}
                 type="button"
-                onClick={() => setSelectedTrackId(trk.id)}
-                style={{
-                  backgroundColor: isSelected ? '#6C0F37' : '#FFFFFF',
-                  color: isSelected ? '#FFFDF7' : '#2B2426',
-                  borderColor: isSelected ? '#57102E' : '#E6E1D8',
-                }}
-                className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between"
+                onClick={() => setSelectedTrackId(card.id)}
+                className={`p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between ${
+                  isSelected
+                    ? 'bg-[#6C0F37] text-white border-[#57102E] shadow-sm'
+                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/50'
+                }`}
               >
                 <div>
-                  <span className="text-lg block mb-1">📚</span>
+                  <span className="text-lg block mb-1">{card.icon}</span>
                   <h3
-                    style={{ color: isSelected ? '#FFFDF7' : '#6C0F37' }}
-                    className="text-base font-bold transition-colors"
+                    className={`text-base font-bold transition-colors line-clamp-1 ${
+                      isSelected ? 'text-[#FFFDF7]' : 'text-[#6C0F37]'
+                    }`}
                   >
-                    {trk.title}
+                    {card.title}
                   </h3>
+                  {card.badge && (
+                    <span
+                      className={`text-xs block mt-0.5 ${
+                        isSelected ? 'text-[#FFFDF7]/90' : 'text-[#6F6865]'
+                      }`}
+                    >
+                      {card.badge}
+                    </span>
+                  )}
                 </div>
 
                 <div
-                  style={{ borderColor: isSelected ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8' }}
-                  className="mt-3 pt-2 border-t"
+                  className={`mt-3 pt-2 border-t ${
+                    isSelected ? 'border-white/20' : 'border-[#E6E1D8]'
+                  }`}
                 >
                   <span
-                    style={{ color: isSelected ? '#FFFDF7' : '#6F6865' }}
-                    className="text-xs"
+                    className={`text-xs ${
+                      isSelected ? 'text-[#FFFDF7]' : 'text-[#6F6865]'
+                    }`}
                   >
-                    {stats.activityCount} atividades totais
+                    {card.count}
                   </span>
                 </div>
               </button>
             );
           })}
-
-          {/* Card: Atividades Gerais (Sem nível fixo) */}
-          <button
-            type="button"
-            onClick={() => setSelectedTrackId('general')}
-            style={{
-              backgroundColor: selectedTrackId === 'general' ? '#6C0F37' : '#FFFFFF',
-              color: selectedTrackId === 'general' ? '#FFFDF7' : '#2B2426',
-              borderColor: selectedTrackId === 'general' ? '#57102E' : '#E6E1D8',
-            }}
-            className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between"
-          >
-            <div>
-              <span className="text-lg block mb-1">🌐</span>
-              <h3
-                style={{ color: selectedTrackId === 'general' ? '#FFFDF7' : '#6C0F37' }}
-                className="text-base font-bold transition-colors"
-              >
-                Atividades Gerais
-              </h3>
-              <span
-                style={{ color: selectedTrackId === 'general' ? 'rgba(255, 253, 247, 0.9)' : '#6F6865' }}
-                className="text-xs block mt-0.5"
-              >
-                Banco livre
-              </span>
-            </div>
-            <div
-              style={{ borderColor: selectedTrackId === 'general' ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8' }}
-              className="mt-3 pt-2 border-t"
-            >
-              <span
-                style={{ color: selectedTrackId === 'general' ? '#FFFDF7' : '#6F6865' }}
-                className="text-xs"
-              >
-                {trackStats.generalCount} atividades totais
-              </span>
-            </div>
-          </button>
         </div>
       </div>
 

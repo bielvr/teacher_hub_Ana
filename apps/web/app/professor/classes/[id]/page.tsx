@@ -1,12 +1,9 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '../../../../src/lib/supabase/server';
 import { getClassWithStudents } from '../../../../src/services/classes';
-import { PageHeader } from '../../../../src/components/PageHeader';
-import { Card } from '../../../../src/components/Card';
-import { EmptyState } from '../../../../src/components/EmptyState';
-import { removeStudentAction } from '../../../../src/actions/students';
-import { EnrollStudentModal, AvailableStudentOption } from '../../../../src/components/EnrollStudentModal';
+import { AvailableStudentOption } from '../../../../src/components/EnrollStudentModal';
+import { ClassHubClient } from '../../../../src/components/ClassHubClient';
+import { EditLessonRecordSession } from '../../../../src/components/EditLessonRecordModal';
 
 export default async function ClassDetailsPage({
   params,
@@ -30,7 +27,7 @@ export default async function ClassDetailsPage({
   const effectiveOrgId = orgId || classData.organization_id || '';
   const students = classData.class_students || [];
 
-  // Identifica os IDs já matriculados na turma (tanto member.id quanto profile_id)
+  // Identifica os IDs já matriculados na turma
   const enrolledIds = new Set<string>();
   students.forEach((item: any) => {
     if (item.student_id) enrolledIds.add(item.student_id);
@@ -38,7 +35,7 @@ export default async function ClassDetailsPage({
     if (item.student?.profile_id) enrolledIds.add(item.student.profile_id);
   });
 
-  // Busca alunos ativos da organização ainda não matriculados nesta turma
+  // Busca estudantes ativos da organização ainda não matriculados nesta turma
   let availableStudents: AvailableStudentOption[] = [];
   if (effectiveOrgId) {
     const { data: orgStudents } = await supabase
@@ -61,67 +58,98 @@ export default async function ClassDetailsPage({
       .map((m) => ({
         memberId: m.id,
         profileId: m.profile_id,
-        fullName: m.profiles?.full_name || 'Aluno',
+        fullName: m.profiles?.full_name || 'Estudante',
         email: m.profiles?.email || '',
       }))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
+  // Busca sessões agendadas da turma em group_sessions e live_sessions
+  const [groupSessionsRes, liveSessionsRes, activitiesRes] = await Promise.all([
+    supabase
+      .from('group_sessions')
+      .select(`
+        id,
+        title,
+        scheduled_at,
+        duration_minutes,
+        meet_url,
+        notes,
+        status,
+        class_id
+      `)
+      .eq('organization_id', effectiveOrgId)
+      .eq('class_id', classId)
+      .order('scheduled_at', { ascending: true }),
+    supabase
+      .from('live_sessions')
+      .select(`
+        id,
+        title,
+        scheduled_at,
+        duration_minutes,
+        meet_url,
+        status,
+        class_id
+      `)
+      .eq('organization_id', effectiveOrgId)
+      .eq('class_id', classId)
+      .order('scheduled_at', { ascending: true }),
+    supabase
+      .from('activities')
+      .select('id, title, type, metadata')
+      .eq('organization_id', effectiveOrgId)
+      .limit(6),
+  ]);
+
+  const rawSessions: EditLessonRecordSession[] = [];
+  const seenIds = new Set<string>();
+
+  (groupSessionsRes.data || []).forEach((s: any) => {
+    seenIds.add(s.id);
+    rawSessions.push({
+      id: s.id,
+      source: 'group_session',
+      title: s.title,
+      scheduled_at: s.scheduled_at,
+      duration_minutes: s.duration_minutes || 60,
+      meet_url: s.meet_url,
+      notes: s.notes,
+      status: s.status,
+      class_id: classId,
+      class_name: classData.name,
+    });
+  });
+
+  (liveSessionsRes.data || []).forEach((s: any) => {
+    if (!seenIds.has(s.id)) {
+      seenIds.add(s.id);
+      rawSessions.push({
+        id: s.id,
+        source: 'live_session',
+        title: s.title,
+        scheduled_at: s.scheduled_at,
+        duration_minutes: s.duration_minutes || 60,
+        meet_url: s.meet_url,
+        notes: null,
+        status: s.status,
+        class_id: classId,
+        class_name: classData.name,
+      });
+    }
+  });
+
+  rawSessions.sort(
+    (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm text-zinc-500">
-        <Link href={`/professor/classes?org=${effectiveOrgId}`} className="hover:text-zinc-900">
-          ← Voltar para Turmas
-        </Link>
-      </div>
-
-      <PageHeader
-        title={classData.name}
-        description={`Nível: ${classData.level || 'Geral'} • Total de matriculados: ${students.length}`}
-        action={
-          <EnrollStudentModal
-            classId={classId}
-            classNameTitle={classData.name}
-            availableStudents={availableStudents}
-          />
-        }
-      />
-
-      <Card>
-        <h2 className="text-lg font-bold text-zinc-900 mb-4">Alunos Matriculados</h2>
-
-        {students.length === 0 ? (
-          <EmptyState
-            title="Nenhum aluno nesta turma"
-            description="Vincule alunos cadastrados na sua organização para liberar o acesso aos módulos e aulas."
-          />
-        ) : (
-          <div className="divide-y divide-zinc-100">
-            {students.map((item: any) => {
-              const student = item.student?.profiles;
-              const memberId = item.student?.id || item.student_id;
-
-              return (
-                <div key={memberId} className="py-3 flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold text-sm text-zinc-900">{student?.full_name || 'Aluno'}</p>
-                    <p className="text-xs text-zinc-500">{student?.email || 'Sem e-mail cadastrado'}</p>
-                  </div>
-
-                  <form action={removeStudentAction.bind(null, classId, memberId)}>
-                    <button
-                      type="submit"
-                      className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 rounded hover:bg-red-50 cursor-pointer"
-                    >
-                      Remover da turma
-                    </button>
-                  </form>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-    </div>
+    <ClassHubClient
+      classData={classData}
+      organizationId={effectiveOrgId}
+      availableStudents={availableStudents}
+      sessions={rawSessions}
+      activities={activitiesRes.data || []}
+    />
   );
 }

@@ -47,8 +47,6 @@ export async function subscribeToPlanAction(formData: FormData) {
     description: `Assinatura ${plan.name} - Plataforma Fikra`,
   });
 
-  // O Asaas gera uma fatura inicial; retornamos o link de pagamento do sandbox
-  // Na resposta da subscription ou das faturas, o Asaas disponibiliza invoiceUrl
   return { success: true, subscriptionId: subscription.id };
 }
 
@@ -127,7 +125,6 @@ export async function createExpenseAction(formData: FormData) {
   });
 
   if (error) {
-    // Fallback caso exista restrição legada com valores em português no banco
     const ptFallbackMap: Record<'pending' | 'paid' | 'overdue', string> = {
       pending: 'pendente',
       paid: 'paga',
@@ -149,4 +146,124 @@ export async function createExpenseAction(formData: FormData) {
   revalidatePath('/professor/billing');
   revalidatePath('/professor/billing/expenses');
   revalidatePath('/professor/billing/reports');
-}
+}
+
+export async function updateExpenseStatusAction(
+  expenseId: string,
+  newStatus: 'paid' | 'pending' | 'overdue'
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const updatePayload: any = {
+      status: newStatus,
+      paid_at: newStatus === 'paid' ? new Date().toISOString() : null,
+    };
+
+    const { error } = await supabase
+      .from('expenses')
+      .update(updatePayload)
+      .eq('id', expenseId);
+
+    if (error) {
+      // Fallback para valores legados em português se houver constraint
+      const ptFallback: Record<'paid' | 'pending' | 'overdue', string> = {
+        paid: 'paga',
+        pending: 'pendente',
+        overdue: 'vencida',
+      };
+      await supabase
+        .from('expenses')
+        .update({
+          status: ptFallback[newStatus],
+          paid_at: newStatus === 'paid' ? new Date().toISOString() : null,
+        })
+        .eq('id', expenseId);
+    }
+
+    revalidatePath('/professor/billing');
+    revalidatePath('/professor/billing/expenses');
+    revalidatePath('/professor/billing/reports');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao atualizar status da despesa.' };
+  }
+}
+
+export async function updateExpenseAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const id = formData.get('id') as string;
+    const description = (formData.get('description') as string)?.trim();
+    const category = (formData.get('category') as string)?.trim() || 'Geral';
+    const rawAmount = (formData.get('amount') as string)?.trim();
+    const due_date = formData.get('due_date') as string;
+    const rawStatus = ((formData.get('status') as string) || 'pending').trim().toLowerCase();
+
+    if (!id || !description || !rawAmount || !due_date) {
+      return { success: false, error: 'Campos obrigatórios não preenchidos.' };
+    }
+
+    const amount = parseFloat(rawAmount.replace(',', '.'));
+    const status =
+      rawStatus === 'paga' || rawStatus === 'paid'
+        ? 'paid'
+        : rawStatus === 'vencida' || rawStatus === 'overdue'
+        ? 'overdue'
+        : 'pending';
+
+    const { error } = await supabase
+      .from('expenses')
+      .update({
+        description,
+        category,
+        amount,
+        due_date,
+        status,
+        paid_at: status === 'paid' ? new Date().toISOString() : null,
+      })
+      .eq('id', id);
+
+    if (error) {
+      const ptFallback =
+        status === 'paid' ? 'paga' : status === 'overdue' ? 'vencida' : 'pendente';
+      await supabase
+        .from('expenses')
+        .update({
+          description,
+          category,
+          amount,
+          due_date,
+          status: ptFallback,
+          paid_at: status === 'paid' ? new Date().toISOString() : null,
+        })
+        .eq('id', id);
+    }
+
+    revalidatePath('/professor/billing');
+    revalidatePath('/professor/billing/expenses');
+    revalidatePath('/professor/billing/reports');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao atualizar despesa.' };
+  }
+}
+
+export async function deleteExpenseAction(
+  expenseId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/professor/billing');
+    revalidatePath('/professor/billing/expenses');
+    revalidatePath('/professor/billing/reports');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao excluir despesa.' };
+  }
+}
