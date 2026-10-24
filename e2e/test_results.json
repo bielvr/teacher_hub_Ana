@@ -1,0 +1,129 @@
+{
+  "approved": [
+    {
+      "flow": "Autenticação Professor",
+      "details": "Login realizado com sucesso e redirecionado para /professor"
+    },
+    {
+      "flow": "Planejamento - Layout Modal",
+      "details": "Modal amplo validado (~90vh: 810px) com cabeçalho e rodapé fixos"
+    },
+    {
+      "flow": "Planejamento - Estado Inicial Limpo",
+      "details": "Campos de Nível e Unidade iniciam vazios (\"Selecionar nível\")"
+    },
+    {
+      "flow": "Planejamento - Tópico Customizado",
+      "details": "Tópico customizado livre adicionado sem travas"
+    },
+    {
+      "flow": "Planejamento - Etapa de Roteiro",
+      "details": "Etapa de roteiro estruturada adicionada"
+    },
+    {
+      "flow": "Planejamento - Item de Checklist",
+      "details": "Item de checklist adicionado"
+    },
+    {
+      "flow": "Planejamento - Duplicação para Biblioteca",
+      "details": "Aula experimental persistida no banco (encontradas 2 instâncias - Planejamento preservado e clonado para Biblioteca)"
+    },
+    {
+      "flow": "Materiais - Layout Compacto",
+      "details": "Tela principal exibe cartões horizontais/compactos em grid responsivo sem blocos verticais gigantes"
+    },
+    {
+      "flow": "Materiais - Ausência de Atribuir",
+      "details": "Confirmado: Botão \"Atribuir a aluno/turma\" NÃO existe na tela principal de níveis"
+    },
+    {
+      "flow": "Materiais - Alternância sem Duplicação",
+      "details": "Alternância entre \"Aula pronta\" e \"Material avulso\" ocorre na mesma janela sem duplicar o modal (contagem = 1)"
+    },
+    {
+      "flow": "Materiais - Criação Material Avulso",
+      "details": "Material avulso com link externo e orientações criado com sucesso"
+    },
+    {
+      "flow": "Agenda - Alternância Dinâmica Feriado",
+      "details": "CRITÉRIO CRÍTICO APROVADO: Ao clicar em Feriado a janela NÃO DUPLICA e oculta horário e duração dinamicamente"
+    },
+    {
+      "flow": "Agenda - Feriado Gerado",
+      "details": "Feriado de teste registrado no calendário com sucesso"
+    },
+    {
+      "flow": "Agenda - Aula Regular 45min",
+      "details": "Aula regular individual de 45 min com link https://meet.google.com/test-qa gerada com sucesso"
+    },
+    {
+      "flow": "Caderno - Compartilhado",
+      "details": "Página compartilhada salva com link do YouTube e formatação"
+    },
+    {
+      "flow": "Caderno - Registro Privado",
+      "details": "Registro confidencial do professor salvo com [Privado - Sigilo Professor]"
+    },
+    {
+      "flow": "Atividades - Criação de Atividade",
+      "details": "Atividade interativa de múltipla escolha criada"
+    },
+    {
+      "flow": "Atividades - Atribuição",
+      "details": "Atividade vinculada diretamente a Gabriel Aluno Teste"
+    },
+    {
+      "flow": "Autenticação Estudante",
+      "details": "Sessão do estudante autenticada isoladamente"
+    },
+    {
+      "flow": "Estudante - Trilhas & Materiais",
+      "details": "Página acessada com sucesso sem erros de renderização 404/500"
+    },
+    {
+      "flow": "Estudante - Atividade Atribuída",
+      "details": "Atividade atribuída pelo professor aparece na lista do estudante"
+    },
+    {
+      "flow": "Estudante - Caderno Compartilhado",
+      "details": "Página compartilhada pelo professor visível na aba \"Do Professor\" (Título: true, Link YouTube: true)"
+    },
+    {
+      "flow": "Segurança UI - Sigilo Docente",
+      "details": "AUDITORIA UI APROVADA: O Registro Pedagógico Privado [Privado - Sigilo Professor] NÃO aparece na tela do aluno"
+    },
+    {
+      "flow": "Segurança RLS - Banco Postgres",
+      "details": "AUDITORIA DE SEGURANÇA RLS POSTGRES APROVADA: Consulta REST do estudante retornou ZERO registros privados. A política RLS AS RESTRICTIVE garante isolamento inviolável!"
+    },
+    {
+      "flow": "Estudante - Criação Própria",
+      "details": "Anotação pessoal criada com sucesso na aba \"Meu Caderno\""
+    },
+    {
+      "flow": "Contraprova - Atividades & Correções",
+      "details": "Painel de correções acessado (Reflete submissão de atividade: false)"
+    },
+    {
+      "flow": "Contraprova - Caderno do Aluno",
+      "details": "Professor consegue visualizar com clareza a anotação pessoal criada pela aluna no caderno dela"
+    },
+    {
+      "flow": "Auditoria de Limpeza da Base",
+      "details": "TEARDOWN 100% CONCLUÍDO: Todos os 8 registros criados foram excluídos. NENHUM registro remanescente com prefixo [QA-TEST] no banco."
+    }
+  ],
+  "uxAlerts": [
+    {
+      "flow": "Estudante - Dashboard Próximo Encontro",
+      "details": "Link do Meet não encontrado diretamente no topo do dashboard (verificar status/horário da aula)"
+    },
+    {
+      "flow": "Estudante - Agenda Feriado",
+      "details": "Linha de feriado não localizada na tabela de agenda"
+    }
+  ],
+  "failures": [],
+  "cleanedCount": 8,
+  "details": {}
+}

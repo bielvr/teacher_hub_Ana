@@ -24,6 +24,12 @@ export function StudentDashboardClient({
   const showClasses = !mounted || prefs.studentClasses;
   const isExpanded = mounted && prefs.calendarSize === 'expanded';
 
+  const startMs = nextLive ? new Date(nextLive.scheduled_at).getTime() : 0;
+  const durationMinutes = nextLive?.duration_minutes || 60;
+  const durationMs = durationMinutes * 60 * 1000;
+  const nowMs = Date.now();
+  const isOngoing = nextLive && !isNaN(startMs) && nowMs >= startMs && nowMs <= startMs + durationMs;
+
   return (
     <div className="space-y-8">
       {/* Cabeçalho de Boas-vindas com Identidade Fikra e Botão de Personalização */}
@@ -32,7 +38,7 @@ export function StudentDashboardClient({
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-[#D7CE36]" />
             <span className="text-xs uppercase tracking-wider font-semibold text-[#6F6865]">
-              {orgName} • Portal de Estudos
+              {orgName} • Portal do estudante
             </span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-[#6C0F37]">
@@ -61,12 +67,19 @@ export function StudentDashboardClient({
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] bg-[#6C0F37]/10 px-2.5 py-1 rounded-lg">
-                    Próximo Encontro
+                    Próximo encontro
                   </span>
-                  <span className="text-xs text-[#6F6865] flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Aula
-                  </span>
+                  {isOngoing ? (
+                    <span className="text-xs text-[#6C0F37] bg-[#D7CE36]/30 border border-[#D7CE36]/60 px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      Aula em andamento
+                    </span>
+                  ) : (
+                    <span className="text-xs text-[#6F6865] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      Aula agendada
+                    </span>
+                  )}
                 </div>
 
                 {nextLive ? (
@@ -123,7 +136,9 @@ export function StudentDashboardClient({
               </div>
 
               <div className="mt-6 pt-4 border-t border-[#E6E1D8] flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-xs">
-                <span className="text-[#6F6865]">Duração estimada: 60 minutos</span>
+                <span className="text-[#6F6865]">
+                  Duração: {durationMinutes} minutos
+                </span>
                 <Link
                   href={`/student/calendar?org=${orgId}`}
                   className="font-semibold text-[#6C0F37] hover:underline inline-flex items-center gap-1"
@@ -144,7 +159,7 @@ export function StudentDashboardClient({
             >
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider text-[#6C0F37]">
-                  Minhas Turmas
+                  Minhas turmas
                 </h3>
                 <div className="mt-4 space-y-3">
                   {enrollments && enrollments.length > 0 ? (
@@ -154,7 +169,7 @@ export function StudentDashboardClient({
                         className="p-3.5 rounded-xl border border-[#E6E1D8] bg-[#FFFDF7] hover:border-[#6C0F37]/30 transition-colors"
                       >
                         <div className="font-bold text-xs text-[#2B2426]">
-                          {item.classes?.name || 'Turma Ativa'}
+                          {item.classes?.name || 'Turma ativa'}
                         </div>
                         <div className="text-[11px] text-[#6F6865] mt-1">
                           Nível: {item.classes?.level || 'Geral'}
@@ -174,7 +189,7 @@ export function StudentDashboardClient({
                   href={`/student/tracks?org=${orgId}`}
                   className="w-full block text-center py-2.5 px-4 bg-white border border-[#6C0F37] text-[#6C0F37] hover:bg-[#6C0F37]/5 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
                 >
-                  Acessar Minha Trilha →
+                  Acessar minha trilha →
                 </Link>
               </div>
             </div>
