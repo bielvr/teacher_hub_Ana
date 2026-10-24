@@ -47,18 +47,20 @@ export async function scheduleSessionAction(
       }
     }
 
-    // Validações por tipo de evento
-    if (event_type === 'regular' || event_type === 'replacement') {
-      if (session_type === 'individual' && !student_id) {
-        return {
-          success: false,
-          count: 0,
-          error: 'Selecione um(a) estudante para a aula individual.',
-        };
-      }
-      if (session_type === 'group' && !class_id) {
-        return { success: false, count: 0, error: 'Selecione uma turma para a aula em grupo.' };
-      }
+    // Validação de destinatário para qualquer tipo de evento
+    if (session_type === 'individual' && !student_id) {
+      return {
+        success: false,
+        count: 0,
+        error: 'Selecione um estudante.',
+      };
+    }
+    if (session_type === 'group' && !class_id) {
+      return {
+        success: false,
+        count: 0,
+        error: 'Selecione uma turma.',
+      };
     }
 
     interface SessionInsertRow {

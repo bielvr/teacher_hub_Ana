@@ -146,13 +146,21 @@ export default async function CalendarPage({
             return (
               <Card
                 key={session.id}
-                className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4 border-[#E6E1D8] shadow-xs ${
-                  isHoliday ? 'bg-amber-50/20' : isVacation ? 'bg-teal-50/20' : ''
+                className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4 border shadow-xs ${
+                  isHoliday || isVacation
+                    ? 'bg-stone-50/70 border-stone-200 text-stone-700'
+                    : 'bg-white border-[#E6E1D8]'
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-14 text-center bg-[#FFFDF7] p-2 rounded-xl border border-[#E6E1D8] shrink-0 shadow-2xs">
-                    <span className="block text-[11px] uppercase font-bold text-[#6C0F37]">
+                  <div className={`w-14 text-center p-2 rounded-xl border shrink-0 shadow-2xs ${
+                    isHoliday || isVacation
+                      ? 'bg-stone-100/70 border-stone-200 text-stone-600'
+                      : 'bg-[#FFFDF7] border-[#E6E1D8]'
+                  }`}>
+                    <span className={`block text-[11px] uppercase font-bold ${
+                      isHoliday || isVacation ? 'text-stone-600' : 'text-[#6C0F37]'
+                    }`}>
                       {dateMonth}
                     </span>
                     <span className="block text-xl font-bold text-[#2B2426]">
@@ -174,8 +182,8 @@ export default async function CalendarPage({
 
                       {/* Badges de Tipo Especial */}
                       {isHoliday && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                          <span>📅</span> Feriado (não desconta saldo)
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-stone-700 bg-stone-100 border border-stone-300 px-2 py-0.5 rounded-md">
+                          <span>📅</span> Feriado (não conta como aula)
                         </span>
                       )}
 
@@ -186,8 +194,8 @@ export default async function CalendarPage({
                       )}
 
                       {isVacation && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">
-                          <span>🌴</span> Recesso / Férias
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-stone-700 bg-stone-100 border border-stone-300 px-2 py-0.5 rounded-md">
+                          <span>🌴</span> Férias / Recesso
                         </span>
                       )}
 
@@ -218,7 +226,8 @@ export default async function CalendarPage({
                     </div>
 
                     <p className="text-xs text-[#6F6865] mt-0.5">
-                      {audienceLabel} • {timeFormatted}
+                      {audienceLabel}
+                      {!isHoliday && !isVacation && ` • ${timeFormatted}`}
                       {session.duration_minutes > 0 ? ` (${session.duration_minutes} min)` : ''}
                     </p>
                   </div>
