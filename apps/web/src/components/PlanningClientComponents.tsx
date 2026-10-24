@@ -90,7 +90,7 @@ export function PlanningLessonCard({
       dotClass: 'bg-[#B78103]',
     },
     ready: {
-      label: 'Prontas para usar',
+      label: 'Pronta para usar',
       badgeClass: 'bg-[#F0FDF4] text-[#198754] border-[#B9F5D0]',
       dotClass: 'bg-[#198754]',
     },
@@ -350,7 +350,7 @@ export function PlanningLessonCard({
                   {lesson.trackTitle} • {lesson.moduleTitle}
                 </span>
                 <h3 className="text-base font-bold text-[#6C0F37] mt-1">
-                  Planejamento da Aula
+                  Planejamento de aula
                 </h3>
               </div>
               <button
@@ -365,7 +365,7 @@ export function PlanningLessonCard({
             <form onSubmit={handleUpdatePlanning} className="p-6 overflow-y-auto space-y-4 flex-1">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  Título da Aula
+                  Título da aula
                 </label>
                 <input
                   type="text"
@@ -378,7 +378,7 @@ export function PlanningLessonCard({
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
-                  Status de Preparo
+                  Status de preparação
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -394,7 +394,7 @@ export function PlanningLessonCard({
                     },
                     {
                       id: 'ready' as const,
-                      label: 'Prontas para usar',
+                      label: 'Pronta para usar',
                       activeClass: 'bg-[#F0FDF4] border-[#198754] text-[#198754] font-bold',
                     },
                   ].map((st) => (
@@ -444,7 +444,7 @@ export function PlanningLessonCard({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    💡 Conceitos-chave (Opcional)
+                    💡 Conceitos-chave (opcional)
                   </label>
                   <input
                     type="text"
@@ -457,7 +457,7 @@ export function PlanningLessonCard({
 
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    📚 Conteúdos trabalhados (Opcional)
+                    📚 Conteúdos trabalhados (opcional)
                   </label>
                   <input
                     type="text"
@@ -472,7 +472,7 @@ export function PlanningLessonCard({
               {/* Checklist */}
               <div className="p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#6C0F37]">
-                  ☑ Checklist de Preparo
+                  ☑ Checklist de preparo
                 </label>
                 <div className="space-y-1.5">
                   {checklist.map((item, idx) => (

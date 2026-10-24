@@ -5,7 +5,6 @@ import { PageHeader } from '../../../src/components/PageHeader';
 import { CreateTrackModal } from '../../../src/components/CreateTrackModal';
 import { CreateUnitModal } from '../../../src/components/CreateUnitModal';
 import { TrackCardMenu } from '../../../src/components/TrackCardMenu';
-import { AssignTrackModal } from '../../../src/components/AssignTrackModal';
 import { AddToLibraryModal } from '../../../src/components/CreateLessonModal';
 import { renderInlineMarkdown } from '../../../src/components/PaginatedContent';
 
@@ -65,36 +64,6 @@ export default async function TracksPage({
 
     modules = modulesData || [];
   }
-
-  // 3. Busca turmas ativas da organização para vinculação rápida
-  const { data: classesData } = await supabase
-    .from('classes')
-    .select('id, name, level')
-    .eq('organization_id', activeOrgId)
-    .order('name', { ascending: true });
-
-  const classes = classesData || [];
-
-  // 4. Busca alunos da organização para vinculação rápida
-  const { data: rawMembers } = await supabase
-    .from('organization_members')
-    .select(`
-      id,
-      profile_id,
-      profiles (
-        id,
-        full_name,
-        email
-      )
-    `)
-    .eq('organization_id', activeOrgId)
-    .eq('role', 'student');
-
-  const students = (rawMembers || []).map((m: any) => ({
-    id: m.profiles?.id || m.profile_id,
-    full_name: m.profiles?.full_name || 'Aluno',
-    email: m.profiles?.email || null,
-  }));
 
   // Filtra apenas aulas disponibilizadas no acervo finalizado (exclui rascunhos exclusivos do Planejamento)
   const isLessonInMaterialsLibrary = (lesson: any): boolean => {
@@ -186,20 +155,21 @@ export default async function TracksPage({
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        /* Cartões menores e compactos em grade horizontal/responsiva sem rolagem longa */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {tracksWithStats.map((track) => (
             <div
               key={track.id}
-              className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-[0_2px_8px_rgba(44,30,34,0.06)] hover:border-[#6C0F37]/30 transition-colors flex flex-col justify-between gap-5"
+              className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs hover:border-[#6C0F37]/40 hover:shadow-sm transition-all flex flex-col justify-between gap-4"
             >
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {/* Cabeçalho do Card com Título e Menu 3 Pontinhos */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8]">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-[#F7F4ED] px-2 py-0.5 rounded border border-[#E6E1D8] inline-block">
                       Nível
                     </span>
-                    <h3 className="text-xl font-bold text-[#2B2426] pt-1">
+                    <h3 className="text-base font-bold text-[#2B2426] pt-0.5 truncate" title={track.title}>
                       {track.title}
                     </h3>
                   </div>
@@ -219,7 +189,7 @@ export default async function TracksPage({
                 )}
 
                 {/* Resumo de contadores no padrão: X unidades • Y aulas • Z materiais */}
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F7F4ED] border border-[#E6E1D8] rounded-xl text-xs font-medium text-[#2B2426]">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#F7F4ED] border border-[#E6E1D8] rounded-xl text-[11px] font-medium text-[#2B2426]">
                   <span>{track.unitsCount} unidades</span>
                   <span className="text-[#6F6865]/50">•</span>
                   <span>{track.lessonsCount} aulas</span>
@@ -228,24 +198,14 @@ export default async function TracksPage({
                 </div>
               </div>
 
-              {/* Rodapé do Card com Ações */}
-              <div className="pt-4 border-t border-[#E6E1D8] flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/professor/tracks/${track.id}?org=${activeOrgId}`}
-                    className="px-3.5 py-2 text-xs font-semibold text-[#6C0F37] bg-white border border-[#6C0F37] rounded-xl hover:bg-[#F3E8EC] transition-colors flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>Ver unidades e aulas →</span>
-                  </Link>
-
-                  <AssignTrackModal
-                    track={{ id: track.id, title: track.title }}
-                    organizationId={activeOrgId}
-                    classes={classes}
-                    students={students}
-                    triggerText="Atribuir a aluno/turma"
-                  />
-                </div>
+              {/* Rodapé do Card com Ações Limpas */}
+              <div className="pt-3 border-t border-[#E6E1D8] flex items-center justify-between gap-2">
+                <Link
+                  href={`/professor/tracks/${track.id}?org=${activeOrgId}`}
+                  className="text-xs font-semibold text-[#6C0F37] hover:text-[#57102E] flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <span>Ver unidades e aulas →</span>
+                </Link>
 
                 <CreateUnitModal
                   trackId={track.id}

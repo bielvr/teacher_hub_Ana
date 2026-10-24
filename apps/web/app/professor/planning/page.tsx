@@ -259,7 +259,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
           <div className="text-2xl font-bold text-[#198754]">{countReady}</div>
           <div className="text-xs font-semibold text-[#198754] mt-1 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#198754]"></span>
-            Prontas para usar
+            Pronta para usar
           </div>
         </div>
       </div>
@@ -313,7 +313,7 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
                 <option value="all">Todos os status</option>
                 <option value="need_prep">Preciso preparar</option>
                 <option value="in_progress">Em preparação</option>
-                <option value="ready">Prontas para usar</option>
+                <option value="ready">Pronta para usar</option>
               </select>
               <button
                 type="submit"

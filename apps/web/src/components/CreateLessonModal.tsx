@@ -52,26 +52,13 @@ const RESOURCE_TYPES: { id: ResourceType; label: string; icon: string }[] = [
   { id: 'Apresentação', label: 'Apresentação', icon: '📊' },
 ];
 
-const DEFAULT_TOPICS: TopicItem[] = [
-  {
-    id: 'top-1',
-    name: 'Estruturas e uso',
-    items: ['Conceito central', 'Aplicações práticas'],
-  },
-  {
-    id: 'top-2',
-    name: 'Palavras e expressões',
-    items: ['Termos fundamentais', 'Exemplos'],
-  },
-];
-
 export function CreateLessonModal({
   trackId = '',
   organizationId = '',
   modules = [],
   tracks = [],
   defaultModuleId,
-  triggerText = '+ Nova aula',
+  triggerText = '+ Adicionar à biblioteca',
   className = '',
   variant = 'primary',
 }: CreateLessonModalProps) {
@@ -83,11 +70,10 @@ export function CreateLessonModal({
   // 1. Seletor de Tipo de Entrada: 'ready_lesson' vs 'standalone_material'
   const [entryType, setEntryType] = useState<'ready_lesson' | 'standalone_material'>('ready_lesson');
 
-  // Seleção de nível/unidade
-  const [selectedTrackId, setSelectedTrackId] = useState(trackId || tracks[0]?.id || '');
-  const [selectedModuleId, setSelectedModuleId] = useState(
-    defaultModuleId || modules[0]?.id || tracks[0]?.modules?.[0]?.id || '__new__'
-  );
+  // Seleção de nível/unidade - Início em branco
+  const [selectedTrackId, setSelectedTrackId] = useState(trackId || '');
+  const [newTrackTitle, setNewTrackTitle] = useState('');
+  const [selectedModuleId, setSelectedModuleId] = useState(defaultModuleId || '');
   const [newModuleTitle, setNewModuleTitle] = useState('');
 
   // Sincroniza módulos disponíveis
@@ -98,10 +84,10 @@ export function CreateLessonModal({
   useEffect(() => {
     if (defaultModuleId) {
       setSelectedModuleId(defaultModuleId);
-    } else if (availableModules.length > 0 && selectedModuleId === '__new__') {
-      setSelectedModuleId(availableModules[0].id);
+    } else {
+      setSelectedModuleId('');
     }
-  }, [defaultModuleId, availableModules, selectedModuleId]);
+  }, [selectedTrackId, defaultModuleId]);
 
   // 2. Imagem de Capa (Aula pronta)
   const [coverUrl, setCoverUrl] = useState('');
@@ -115,8 +101,8 @@ export function CreateLessonModal({
   const [lessonTitle, setLessonTitle] = useState('');
   const [objectives, setObjectives] = useState('');
 
-  // 4. Conteúdos Trabalhados (Tópicos Customizáveis - Aula pronta)
-  const [topics, setTopics] = useState<TopicItem[]>(DEFAULT_TOPICS);
+  // 4. Conteúdos Trabalhados (Inicia totalmente vazio - Multi-disciplinar)
+  const [topics, setTopics] = useState<TopicItem[]>([]);
   const [newTopicName, setNewTopicName] = useState('');
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newItemsByTopic, setNewItemsByTopic] = useState<Record<string, string>>({});
@@ -133,7 +119,7 @@ export function CreateLessonModal({
   const [newResourceFile, setNewResourceFile] = useState<File | null>(null);
   const resourceFileInputRef = useRef<HTMLInputElement>(null);
 
-  // 6. Campos de Material Avulso
+  // 6. Campos de Material Avulso (Independente de nível/unidade)
   const [standaloneTitle, setStandaloneTitle] = useState('');
   const [standaloneType, setStandaloneType] = useState<ResourceType>('Documento/PDF');
   const [standaloneSource, setStandaloneSource] = useState<'upload' | 'link'>('upload');
@@ -258,7 +244,7 @@ export function CreateLessonModal({
     }
 
     if (!displayTitle) {
-      displayTitle = newResourceType === 'Link' ? 'Link de Apoio' : 'Recurso da Aula';
+      displayTitle = newResourceType === 'Link' ? 'Link de apoio' : 'Recurso da aula';
     }
 
     const newItem: LessonResourceItem = {
@@ -309,11 +295,12 @@ export function CreateLessonModal({
     formData.append('entry_type', entryType);
     formData.append('action_type', actionType);
     if (organizationId) formData.append('organization_id', organizationId);
-    if (selectedTrackId) formData.append('track_id', selectedTrackId);
-    if (selectedModuleId) formData.append('module_id', selectedModuleId);
-    if (newModuleTitle) formData.append('new_module_title', newModuleTitle);
 
     if (entryType === 'ready_lesson') {
+      if (selectedTrackId) formData.append('track_id', selectedTrackId);
+      if (newTrackTitle) formData.append('new_track_title', newTrackTitle);
+      if (selectedModuleId) formData.append('module_id', selectedModuleId);
+      if (newModuleTitle) formData.append('new_module_title', newModuleTitle);
       formData.append('lesson_title', lessonTitle.trim());
       formData.append('communicative_objectives', objectives.trim());
 
@@ -339,7 +326,7 @@ export function CreateLessonModal({
         formData.append(`resource_file_${resId}`, file);
       });
     } else {
-      // Material Avulso
+      // Material Avulso - Totalmente independente de nível/unidade
       formData.append('title', standaloneTitle.trim());
       formData.append('material_type', standaloneType);
       formData.append('description', standaloneDescription.trim());
@@ -358,8 +345,8 @@ export function CreateLessonModal({
         setSuccessToast(
           actionType === 'publish'
             ? entryType === 'ready_lesson'
-              ? 'Aula pronta salva em Materiais Didáticos!'
-              : 'Material avulso adicionado à biblioteca!'
+              ? 'Aula pronta salva em Materiais didáticos!'
+              : 'Material avulso salvo em Materiais didáticos!'
             : 'Rascunho salvo com sucesso!'
         );
 
@@ -367,13 +354,17 @@ export function CreateLessonModal({
           setIsOpen(false);
           setSuccessToast(null);
           // Reseta estados
+          setSelectedTrackId(trackId || '');
+          setNewTrackTitle('');
+          setSelectedModuleId(defaultModuleId || '');
+          setNewModuleTitle('');
           setLessonTitle('');
           setObjectives('');
           setCoverUrl('');
           setCoverFile(null);
           setResources([]);
           setResourceFilesMap({});
-          setTopics(DEFAULT_TOPICS);
+          setTopics([]);
           setStandaloneTitle('');
           setStandaloneUrl('');
           setStandaloneFile(null);
@@ -423,7 +414,7 @@ export function CreateLessonModal({
             className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Feedback flutuante de sucesso */}
+            {/* Feedback de sucesso flutuante */}
             {successToast && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#198754] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
                 <span>✓</span>
@@ -450,14 +441,13 @@ export function CreateLessonModal({
                 onClick={() => setIsOpen(false)}
                 disabled={isPending}
                 className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer disabled:opacity-50"
-                aria-label="Fechar modal"
-                title="Fechar"
+                aria-label="Fechar"
               >
                 ✕
               </button>
             </div>
 
-            {/* 2. CORPO DO CONTEÚDO COM ROLAGEM INTERNA */}
+            {/* 2. CORPO DO CONTEÚDO COM ROLAGEM EXCLUSIVA */}
             <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
               {errorMsg && (
                 <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
@@ -466,7 +456,7 @@ export function CreateLessonModal({
                 </div>
               )}
 
-              {/* 2.1 SELETOR DE TIPO DE ENTRADA (CARDS EXCLUSIVOS) */}
+              {/* 2.1 OPÇÕES NO TOPO EM CARDS VISUAIS */}
               <div>
                 <span className="block text-xs font-semibold text-[#2B2426] mb-2.5">
                   Selecione o tipo de conteúdo:
@@ -500,7 +490,7 @@ export function CreateLessonModal({
                         )}
                       </div>
                       <p className="text-xs text-[#6F6865] mt-0.5">
-                        Uma aula completa para usar e compartilhar
+                        Uma aula completa com objetivos, conteúdos e materiais para usar e compartilhar.
                       </p>
                     </div>
                   </div>
@@ -533,18 +523,18 @@ export function CreateLessonModal({
                         )}
                       </div>
                       <p className="text-xs text-[#6F6865] mt-0.5">
-                        Um recurso reutilizável, sem precisar de uma unidade
+                        Um recurso reutilizável independente de nível ou unidade.
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* 3. FLUXO AULA PRONTA */}
+              {/* 2.2 FLUXO: AULA PRONTA */}
               {entryType === 'ready_lesson' ? (
                 <div className="space-y-6 animate-in fade-in duration-150">
-                  {/* 3.1 Imagem de Capa (Linha Discreta) */}
-                  <div className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  {/* Capa em linha discreta */}
+                  <div className="p-3.5 bg-white border border-[#E6E1D8] rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
                     <div className="flex items-center gap-3">
                       {coverUrl ? (
                         <div className="relative w-14 h-10 rounded-lg overflow-hidden border border-[#E6E1D8] bg-black/5 shrink-0">
@@ -556,7 +546,7 @@ export function CreateLessonModal({
                           />
                         </div>
                       ) : (
-                        <div className="w-9 h-9 rounded-lg bg-white border border-[#E6E1D8] flex items-center justify-center text-[#6C0F37] text-base shrink-0 shadow-2xs">
+                        <div className="w-9 h-9 rounded-lg bg-[#FAF8F5] border border-[#E6E1D8] flex items-center justify-center text-[#6C0F37] text-base shrink-0">
                           🖼️
                         </div>
                       )}
@@ -611,10 +601,10 @@ export function CreateLessonModal({
                                 accept="image/*"
                                 onChange={handleCoverFileChange}
                                 className="hidden"
-                                id="library-cover-upload-input"
+                                id="library-cover-file-upload-input"
                               />
                               <label
-                                htmlFor="library-cover-upload-input"
+                                htmlFor="library-cover-file-upload-input"
                                 className="w-full block text-center py-2 px-3 border border-dashed border-[#6C0F37]/40 hover:border-[#6C0F37] rounded-lg text-xs font-medium text-[#6C0F37] bg-[#F3E8EC]/40 hover:bg-[#F3E8EC] cursor-pointer transition"
                               >
                                 📁 Selecionar arquivo do computador
@@ -653,46 +643,40 @@ export function CreateLessonModal({
                     </div>
                   </div>
 
-                  {/* 3.2 Dados Básicos & Conteúdos Trabalhados (Grid 2 Colunas) */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Coluna Esquerda: Dados Básicos */}
-                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
-                      <div className="space-y-1">
-                        <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                          <span>📋</span>
-                          <span>Dados básicos da aula</span>
-                        </h2>
-                        <p className="text-[11px] text-[#6F6865]">
-                          Vincule a aula à unidade e defina os objetivos principais.
-                        </p>
+                  {/* Dados Básicos da Aula Pronta - Grade Equilibrada */}
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Nível (opcional) */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Nível (opcional)
+                        </label>
+                        <select
+                          value={selectedTrackId}
+                          onChange={(e) => setSelectedTrackId(e.target.value)}
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                        >
+                          <option value="">Selecionar nível</option>
+                          {tracks.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.title}
+                            </option>
+                          ))}
+                          <option value="__new__">+ Criar novo nível...</option>
+                        </select>
+
+                        {selectedTrackId === '__new__' && (
+                          <input
+                            type="text"
+                            value={newTrackTitle}
+                            onChange={(e) => setNewTrackTitle(e.target.value)}
+                            placeholder="Nome do novo nível..."
+                            className="mt-2 w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                          />
+                        )}
                       </div>
 
-                      {/* Seletor de Nível caso haja múltiplos tracks disponíveis */}
-                      {tracks.length > 0 && !trackId && (
-                        <div>
-                          <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                            Nível (opcional)
-                          </label>
-                          <select
-                            value={selectedTrackId}
-                            onChange={(e) => {
-                              setSelectedTrackId(e.target.value);
-                              const tMods =
-                                tracks.find((t) => t.id === e.target.value)?.modules || [];
-                              setSelectedModuleId(tMods[0]?.id || '__new__');
-                            }}
-                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
-                          >
-                            {tracks.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.title}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Unidade */}
+                      {/* Unidade (opcional) */}
                       <div>
                         <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
                           Unidade (opcional)
@@ -700,8 +684,14 @@ export function CreateLessonModal({
                         <select
                           value={selectedModuleId}
                           onChange={(e) => setSelectedModuleId(e.target.value)}
-                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                          disabled={!selectedTrackId && selectedTrackId !== '__new__'}
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                         >
+                          <option value="">
+                            {!selectedTrackId && selectedTrackId !== '__new__'
+                              ? 'Selecione o nível primeiro'
+                              : 'Selecionar unidade'}
+                          </option>
                           {availableModules.map((m) => (
                             <option key={m.id} value={m.id}>
                               {m.title}
@@ -715,532 +705,489 @@ export function CreateLessonModal({
                             type="text"
                             value={newModuleTitle}
                             onChange={(e) => setNewModuleTitle(e.target.value)}
-                            placeholder="Nome da unidade (ex: Unidade 1 - Introdução)"
+                            placeholder="Nome da unidade..."
                             className="mt-2 w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                           />
                         )}
                       </div>
 
-                      {/* Título */}
+                      {/* Título (opcional) */}
                       <div>
                         <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                          Título (opcional)
+                          Título da aula (opcional)
                         </label>
                         <input
                           type="text"
                           value={lessonTitle}
                           onChange={(e) => setLessonTitle(e.target.value)}
-                          placeholder="Talking about future plans"
-                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
-                        />
-                      </div>
-
-                      {/* Objetivos da Aula */}
-                      <div>
-                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                          Objetivos da aula (opcional)
-                        </label>
-                        <textarea
-                          rows={4}
-                          value={objectives}
-                          onChange={(e) => setObjectives(e.target.value)}
-                          placeholder="Descreva as competências, objetivos pedagógicos ou metas de aprendizagem que os alunos alcançarão nesta aula..."
-                          className="w-full p-3 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                          placeholder="Ex: Introdução aos conceitos fundamentais"
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs placeholder:text-[#6F6865]/60"
                         />
                       </div>
                     </div>
+                  </div>
 
-                    {/* Coluna Direita: Conteúdos Trabalhados (Tópicos Dinâmicos) */}
-                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-3.5 shadow-2xs flex flex-col justify-between">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                            <span>📚</span>
-                            <span>Conteúdos trabalhados (opcional)</span>
-                          </h2>
+                  {/* Objetivos da Aula (opcional) */}
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-2.5">
+                    <div className="text-left">
+                      <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                        <span>🎯</span>
+                        <span>Objetivos da aula</span>
+                      </label>
+                      <p className="text-xs text-[#6F6865] mt-0.5">
+                        Registre, se quiser, o que a aula pretende desenvolver.
+                      </p>
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={objectives}
+                      onChange={(e) => setObjectives(e.target.value)}
+                      placeholder="Ex: Compreender conceitos-chave, aplicar procedimentos em exercícios e discutir soluções..."
+                      className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                    />
+                  </div>
+
+                  {/* Conteúdos Trabalhados (Multi-disciplinar: Inicia vazio, cards discretos) */}
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-left">
+                        <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                          <span>📚</span>
+                          <span>Conteúdos trabalhados</span>
+                        </label>
+                        <p className="text-xs text-[#6F6865] mt-0.5">
+                          Defina tópicos livremente para organizar os conceitos, procedimentos e habilidades da aula.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingTopic(true)}
+                        className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                      >
+                        + Adicionar tópico
+                      </button>
+                    </div>
+
+                    {isAddingTopic && (
+                      <div className="p-3 bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl space-y-2 animate-in fade-in">
+                        <label className="block text-[11px] font-bold text-[#6C0F37] uppercase">
+                          Nome do novo tópico:
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newTopicName}
+                            onChange={(e) => setNewTopicName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddTopic();
+                              }
+                            }}
+                            placeholder="Ex: Conceitos, Habilidades, Procedimentos..."
+                            className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                            autoFocus
+                          />
                           <button
                             type="button"
-                            onClick={() => setIsAddingTopic(true)}
-                            className="px-2.5 py-1 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer"
+                            onClick={handleAddTopic}
+                            className="px-3 py-1.5 bg-[#6C0F37] text-white text-xs font-semibold rounded-lg hover:bg-[#57102E] cursor-pointer"
                           >
-                            + Adicionar tópico
+                            Criar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingTopic(false);
+                              setNewTopicName('');
+                            }}
+                            className="px-2.5 py-1.5 text-xs text-[#6F6865] hover:text-[#2B2426] cursor-pointer"
+                          >
+                            Cancelar
                           </button>
                         </div>
+                      </div>
+                    )}
 
-                        <p className="text-[11px] text-[#6F6865]">
-                          Crie grupos conceituais personalizados (ex: &quot;Estruturas e uso&quot;, &quot;Palavras e expressões&quot;, ou qualquer matéria) e insira itens dentro de cada um.
-                        </p>
+                    {topics.length === 0 ? (
+                      <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
+                        Nenhum tópico adicionado ainda. Clique em &quot;+ Adicionar tópico&quot; acima.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {topics.map((topic) => (
+                          <div
+                            key={topic.id}
+                            className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2.5 flex flex-col justify-between"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                {editingTopicId === topic.id ? (
+                                  <div className="flex items-center gap-1.5 flex-1">
+                                    <input
+                                      type="text"
+                                      value={editingTopicName}
+                                      onChange={(e) => setEditingTopicName(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleSaveTopicName(topic.id);
+                                        }
+                                      }}
+                                      className="px-2 py-0.5 text-xs border border-[#6C0F37] rounded bg-white flex-1 focus:outline-none"
+                                      autoFocus
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveTopicName(topic.id)}
+                                      className="px-2 py-0.5 bg-[#6C0F37] text-white text-[10px] font-bold rounded cursor-pointer"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <span className="text-xs font-bold text-[#6C0F37] truncate">
+                                      {topic.name}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingTopicId(topic.id);
+                                        setEditingTopicName(topic.name);
+                                      }}
+                                      className="text-[10px] text-[#6F6865] hover:text-[#6C0F37] underline cursor-pointer shrink-0"
+                                    >
+                                      Editar
+                                    </button>
+                                  </div>
+                                )}
 
-                        {/* Formulário inline para novo tópico */}
-                        {isAddingTopic && (
-                          <div className="p-3 bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl space-y-2 animate-in fade-in">
-                            <label className="block text-[11px] font-bold text-[#6C0F37] uppercase">
-                              Nome do novo tópico:
-                            </label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={newTopicName}
-                                onChange={(e) => setNewTopicName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleAddTopic();
-                                  }
-                                }}
-                                placeholder="Ex: Vocabulário temático, Fórmulas centrais..."
-                                className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                                autoFocus
-                              />
-                              <button
-                                type="button"
-                                onClick={handleAddTopic}
-                                className="px-3 py-1.5 bg-[#6C0F37] text-white text-xs font-semibold rounded-lg hover:bg-[#57102E] cursor-pointer"
-                              >
-                                Criar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsAddingTopic(false);
-                                  setNewTopicName('');
-                                }}
-                                className="px-2.5 py-1.5 text-xs text-[#6F6865] hover:text-[#2B2426] cursor-pointer"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTopic(topic.id)}
+                                  className="text-xs text-[#6F6865] hover:text-red-600 font-bold px-1 rounded cursor-pointer shrink-0"
+                                >
+                                  ✕
+                                </button>
+                              </div>
 
-                        {/* Lista de tópicos */}
-                        <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-                          {topics.length === 0 ? (
-                            <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
-                              Nenhum tópico adicionado ainda. Clique em &quot;+ Adicionar tópico&quot; acima.
-                            </div>
-                          ) : (
-                            topics.map((topic) => (
-                              <div
-                                key={topic.id}
-                                className="p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2.5"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  {editingTopicId === topic.id ? (
-                                    <div className="flex items-center gap-1.5 flex-1">
-                                      <input
-                                        type="text"
-                                        value={editingTopicName}
-                                        onChange={(e) => setEditingTopicName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleSaveTopicName(topic.id);
-                                          }
-                                        }}
-                                        className="px-2 py-1 text-xs border border-[#6C0F37] rounded bg-white flex-1 focus:outline-none"
-                                        autoFocus
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSaveTopicName(topic.id)}
-                                        className="px-2 py-1 bg-[#6C0F37] text-white text-[10px] font-bold rounded cursor-pointer"
-                                      >
-                                        Salvar
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-bold text-[#6C0F37]">
-                                        {topic.name}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setEditingTopicId(topic.id);
-                                          setEditingTopicName(topic.name);
-                                        }}
-                                        className="text-[10px] text-[#6F6865] hover:text-[#6C0F37] underline cursor-pointer"
-                                      >
-                                        Renomear
-                                      </button>
-                                    </div>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveTopic(topic.id)}
-                                    className="text-xs text-[#6F6865] hover:text-red-600 font-bold px-1.5 py-0.5 rounded cursor-pointer"
-                                    title="Excluir tópico"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-
-                                <div className="flex flex-wrap gap-1.5">
-                                  {topic.items.map((item, idx) => (
+                              <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                                {topic.items.length === 0 ? (
+                                  <span className="text-[11px] text-[#6F6865]/60 italic">
+                                    Sem itens adicionados
+                                  </span>
+                                ) : (
+                                  topic.items.map((item, idx) => (
                                     <span
                                       key={idx}
-                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#E6E1D8] text-[#2B2426] text-xs rounded-lg shadow-2xs"
+                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white border border-[#E6E1D8] text-[#2B2426] text-[11px] rounded-lg shadow-2xs"
                                     >
                                       <span>{item}</span>
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveItemFromTopic(topic.id, idx)}
                                         className="text-[#6F6865] hover:text-red-600 font-bold text-[10px] cursor-pointer"
-                                        title="Remover item"
                                       >
                                         ✕
                                       </button>
                                     </span>
-                                  ))}
-                                </div>
-
-                                <div className="flex gap-1.5 pt-1">
-                                  <input
-                                    type="text"
-                                    value={newItemsByTopic[topic.id] || ''}
-                                    onChange={(e) =>
-                                      setNewItemsByTopic((prev) => ({
-                                        ...prev,
-                                        [topic.id]: e.target.value,
-                                      }))
-                                    }
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        handleAddItemToTopic(topic.id);
-                                      }
-                                    }}
-                                    placeholder="Adicionar item ou tag (Enter)..."
-                                    className="flex-1 px-2.5 py-1 text-xs border border-[#E6E1D8] rounded-lg bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAddItemToTopic(topic.id)}
-                                    className="px-2.5 py-1 text-xs font-semibold bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] text-[#6C0F37] rounded-lg cursor-pointer"
-                                  >
-                                    + Adicionar
-                                  </button>
-                                </div>
+                                  ))
+                                )}
                               </div>
-                            ))
-                          )}
-                        </div>
+                            </div>
+
+                            <div className="flex gap-1.5 pt-2 border-t border-[#E6E1D8]">
+                              <input
+                                type="text"
+                                value={newItemsByTopic[topic.id] || ''}
+                                onChange={(e) =>
+                                  setNewItemsByTopic((prev) => ({
+                                    ...prev,
+                                    [topic.id]: e.target.value,
+                                  }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddItemToTopic(topic.id);
+                                  }
+                                }}
+                                placeholder="+ Item (Enter)..."
+                                className="flex-1 px-2 py-1 text-xs border border-[#E6E1D8] rounded-lg bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleAddItemToTopic(topic.id)}
+                                className="px-2 py-1 text-xs font-semibold bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] text-[#6C0F37] rounded-lg cursor-pointer shrink-0"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* 3.3 Materiais e Recursos (Grid Inferior Amplo - Suporte a múltiplos recursos) */}
-                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                  {/* Materiais e Recursos (Múltiplos) */}
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-left">
+                        <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
                           <span>📎</span>
-                          <span>Materiais e recursos da aula (múltiplos anexos suportados)</span>
-                        </h2>
-                        <p className="text-[11px] text-[#6F6865] mt-0.5">
-                          Adicione apresentações, apostilas em PDF, áudios, vídeos e links para que fiquem juntos na mesma aula.
+                          <span>Materiais e recursos da aula</span>
+                        </label>
+                        <p className="text-xs text-[#6F6865] mt-0.5">
+                          Adicione documentos, PDFs, vídeos, áudios e links complementares.
                         </p>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => setShowAddResource((prev) => !prev)}
-                        className="px-3.5 py-2 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-xl border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                        className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
                       >
                         + Adicionar recurso
                       </button>
                     </div>
 
-                    {/* Mini formulário para adicionar recurso */}
                     {showAddResource && (
-                      <div className="p-4 bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl space-y-3.5 animate-in fade-in">
-                        <div>
-                          <label className="block text-[11px] font-bold text-[#6C0F37] uppercase mb-1.5">
-                            Selecione o tipo do recurso:
-                          </label>
-                          <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
-                            {RESOURCE_TYPES.map((t) => (
-                              <button
-                                key={t.id}
-                                type="button"
-                                onClick={() => setNewResourceType(t.id)}
-                                className={`p-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                                  newResourceType === t.id
-                                    ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-xs'
-                                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:bg-[#F3E8EC]/40'
-                                }`}
-                              >
-                                <span>{t.icon}</span>
-                                <span className="truncate">{t.label}</span>
-                              </button>
-                            ))}
+                      <div className="p-4 bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl space-y-3 animate-in fade-in">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
+                              Tipo de recurso:
+                            </label>
+                            <select
+                              value={newResourceType}
+                              onChange={(e) => setNewResourceType(e.target.value as ResourceType)}
+                              className="w-full px-2.5 py-1.5 text-xs border border-[#E6E1D8] rounded-lg bg-white"
+                            >
+                              {RESOURCE_TYPES.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.icon} {t.label}
+                                </option>
+                              ))}
+                            </select>
                           </div>
-                        </div>
 
-                        <div>
-                          <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                            Título do recurso (opcional)
-                          </label>
-                          <input
-                            type="text"
-                            value={newResourceTitle}
-                            onChange={(e) => setNewResourceTitle(e.target.value)}
-                            placeholder="Ex: Slides de apresentação, Lista de exercícios..."
-                            className="w-full px-3 py-2 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                          />
+                          <div>
+                            <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
+                              Título do recurso:
+                            </label>
+                            <input
+                              type="text"
+                              value={newResourceTitle}
+                              onChange={(e) => setNewResourceTitle(e.target.value)}
+                              placeholder="Ex: Slides da aula, Texto de apoio..."
+                              className="w-full px-2.5 py-1.5 text-xs border border-[#E6E1D8] rounded-lg bg-white"
+                            />
+                          </div>
                         </div>
 
                         {newResourceType === 'Link' ? (
                           <div>
-                            <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                              Link / URL externa
+                            <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
+                              URL do link:
                             </label>
                             <input
                               type="url"
                               value={newResourceUrl}
                               onChange={(e) => setNewResourceUrl(e.target.value)}
-                              placeholder="https://youtube.com/... ou https://drive.google.com/..."
-                              className="w-full px-3 py-2 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                              placeholder="https://..."
+                              className="w-full px-2.5 py-1.5 text-xs border border-[#E6E1D8] rounded-lg bg-white"
                             />
                           </div>
                         ) : (
                           <div>
-                            <label className="block text-xs font-semibold text-[#2B2426] mb-1">
-                              Arquivo (upload) ou Link externo
+                            <label className="block text-[11px] font-semibold text-[#2B2426] mb-1">
+                              Arquivo:
                             </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <input
-                                  ref={resourceFileInputRef}
-                                  type="file"
-                                  onChange={(e) =>
-                                    setNewResourceFile(e.target.files?.[0] || null)
-                                  }
-                                  className="hidden"
-                                  id="modal-multi-resource-file"
-                                />
-                                <label
-                                  htmlFor="modal-multi-resource-file"
-                                  className="w-full block text-center py-2 px-3 border border-dashed border-[#6C0F37]/50 rounded-xl text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#F3E8EC]/40 cursor-pointer transition truncate"
-                                >
-                                  {newResourceFile
-                                    ? `Arquivo: ${newResourceFile.name}`
-                                    : '📁 Selecionar arquivo do dispositivo'}
-                                </label>
-                              </div>
-                              <input
-                                type="url"
-                                value={newResourceUrl}
-                                onChange={(e) => setNewResourceUrl(e.target.value)}
-                                placeholder="ou colar link / URL..."
-                                className="w-full px-3 py-2 text-xs border border-[#E6E1D8] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                              />
-                            </div>
+                            <input
+                              ref={resourceFileInputRef}
+                              type="file"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setNewResourceFile(file);
+                              }}
+                              className="w-full text-xs text-[#2B2426]"
+                            />
                           </div>
                         )}
 
-                        <div className="flex justify-end gap-2 pt-1">
+                        <div className="flex justify-end gap-2 pt-2 border-t border-[#E6E1D8]">
                           <button
                             type="button"
-                            onClick={() => setShowAddResource(false)}
-                            className="px-3.5 py-1.5 text-xs text-[#6F6865] hover:text-[#2B2426] cursor-pointer"
+                            onClick={() => {
+                              setShowAddResource(false);
+                              setNewResourceTitle('');
+                              setNewResourceUrl('');
+                              setNewResourceFile(null);
+                            }}
+                            className="px-3 py-1.5 text-xs text-[#6F6865] hover:text-[#2B2426] cursor-pointer"
                           >
                             Cancelar
                           </button>
                           <button
                             type="button"
                             onClick={handleAddResource}
-                            className="px-4 py-1.5 bg-[#6C0F37] text-white text-xs font-semibold rounded-xl hover:bg-[#57102E] cursor-pointer shadow-2xs"
+                            className="px-3.5 py-1.5 bg-[#6C0F37] text-white text-xs font-semibold rounded-lg hover:bg-[#57102E] cursor-pointer"
                           >
-                            Adicionar recurso
+                            Anexar recurso
                           </button>
                         </div>
                       </div>
                     )}
 
-                    {/* Grid de recursos já adicionados */}
-                    {resources.length === 0 ? (
-                      <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
-                        Nenhum recurso anexado a esta aula ainda. Clique em &quot;+ Adicionar recurso&quot;.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {resources.map((res) => {
-                          const icon =
-                            RESOURCE_TYPES.find((t) => t.id === res.type)?.icon || '📄';
-                          return (
-                            <div
-                              key={res.id}
-                              className="p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl flex items-center justify-between gap-2 shadow-2xs hover:border-[#6C0F37]/40 transition"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <span className="text-xl shrink-0">{icon}</span>
-                                <div className="min-w-0">
-                                  <div className="font-bold text-xs text-[#2B2426] truncate">
-                                    {res.title}
-                                  </div>
-                                  <div className="text-[10px] text-[#6F6865] truncate">
-                                    <span className="font-semibold">{res.type}</span>
-                                    {res.size ? ` • ${res.size}` : ''}
-                                  </div>
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                      {resources.length === 0 ? (
+                        <div className="text-center py-4 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
+                          Nenhum recurso anexado à aula ainda.
+                        </div>
+                      ) : (
+                        resources.map((res) => (
+                          <div
+                            key={res.id}
+                            className="flex items-center justify-between p-2.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl text-xs gap-2"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-base shrink-0">
+                                {RESOURCE_TYPES.find((t) => t.id === res.type)?.icon || '📄'}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="font-semibold text-[#2B2426] truncate">
+                                  {res.title}
+                                </div>
+                                <div className="text-[10px] text-[#6F6865] truncate">
+                                  {res.size ? `${res.size} • ` : ''}
+                                  {res.type === 'Link' ? res.url : res.fileName || 'Arquivo anexo'}
                                 </div>
                               </div>
-
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveResource(res.id)}
-                                className="w-7 h-7 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition cursor-pointer shrink-0"
-                                title="Excluir recurso"
-                              >
-                                🗑️
-                              </button>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveResource(res.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition cursor-pointer"
+                              title="Remover recurso"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
-                /* 4. FLUXO MATERIAL AVULSO (INDEPENDENTE) */
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 space-y-5 shadow-2xs animate-in fade-in duration-150">
-                  <div className="border-b border-[#E6E1D8] pb-3 space-y-1">
-                    <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                      <span>📄</span>
-                      <span>Cadastro de material avulso independente</span>
-                    </h2>
-                    <p className="text-xs text-[#6F6865]">
-                      Guarde um arquivo ou link útil para compartilhar com turmas ou anexar futuramente, sem necessidade de estar vinculado a uma aula ou unidade.
-                    </p>
-                  </div>
+                /* 2.3 FLUXO: MATERIAL AVULSO (TOTALMENTE INDEPENDENTE DE NÍVEL/UNIDADE) */
+                <div className="space-y-6 animate-in fade-in duration-150">
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Título opcional */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Título do material (opcional)
+                        </label>
+                        <input
+                          type="text"
+                          value={standaloneTitle}
+                          onChange={(e) => setStandaloneTitle(e.target.value)}
+                          placeholder="Ex: Tabela de fórmulas essenciais, Guia prático..."
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                        />
+                      </div>
 
-                  {/* Título do recurso */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                      Título do recurso (opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={standaloneTitle}
-                      onChange={(e) => setStandaloneTitle(e.target.value)}
-                      placeholder="Ex: Tabela periódica ilustrada, Guia de conversação, etc."
-                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
-                    />
-                  </div>
-
-                  {/* Seleção do Tipo */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-2">
-                      Tipo de material:
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                      {RESOURCE_TYPES.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setStandaloneType(t.id)}
-                          className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition cursor-pointer ${
-                            standaloneType === t.id
-                              ? 'bg-[#6C0F37] text-white border-[#6C0F37] shadow-xs'
-                              : 'bg-[#FAF8F5] text-[#2B2426] border-[#E6E1D8] hover:bg-[#F3E8EC]/40'
-                          }`}
+                      {/* Tipo de recurso */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Tipo de recurso
+                        </label>
+                        <select
+                          value={standaloneType}
+                          onChange={(e) => setStandaloneType(e.target.value as ResourceType)}
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
                         >
-                          <span className="text-xl">{t.icon}</span>
-                          <span className="truncate">{t.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Origem do Arquivo / Link */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-[#2B2426]">
-                        Arquivo ou Link externo:
-                      </label>
-                      <div className="flex text-xs gap-1.5 bg-[#FAF8F5] p-1 rounded-xl border border-[#E6E1D8]">
-                        <button
-                          type="button"
-                          onClick={() => setStandaloneSource('upload')}
-                          className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
-                            standaloneSource === 'upload'
-                              ? 'bg-[#6C0F37] text-white shadow-2xs'
-                              : 'text-[#6F6865] hover:text-[#2B2426]'
-                          }`}
-                        >
-                          Upload de Arquivo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setStandaloneSource('link')}
-                          className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
-                            standaloneSource === 'link'
-                              ? 'bg-[#6C0F37] text-white shadow-2xs'
-                              : 'text-[#6F6865] hover:text-[#2B2426]'
-                          }`}
-                        >
-                          Link / URL
-                        </button>
+                          {RESOURCE_TYPES.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.icon} {t.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
-                    {standaloneSource === 'upload' ? (
-                      <div>
-                        <input
-                          ref={standaloneFileInputRef}
-                          type="file"
-                          onChange={(e) => setStandaloneFile(e.target.files?.[0] || null)}
-                          className="hidden"
-                          id="standalone-file-input"
-                        />
-                        <label
-                          htmlFor="standalone-file-input"
-                          className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#6C0F37]/40 hover:border-[#6C0F37] bg-[#FAF8F5]/60 hover:bg-[#F3E8EC]/20 rounded-2xl cursor-pointer transition text-center"
-                        >
-                          <span className="text-2xl mb-1">📁</span>
-                          <span className="text-xs font-bold text-[#6C0F37]">
-                            {standaloneFile
-                              ? `Arquivo selecionado: ${standaloneFile.name}`
-                              : 'Clique para selecionar o arquivo no seu computador'}
-                          </span>
-                          <span className="text-[11px] text-[#6F6865] mt-0.5">
-                            Suporta PDF, áudio, vídeo, imagem, documentos e planilhas.
-                          </span>
+                    {/* Origem: Arquivo ou Link */}
+                    <div className="pt-2 border-t border-[#E6E1D8] space-y-3">
+                      <div className="flex items-center gap-4 text-xs font-semibold text-[#2B2426]">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="standalone-source"
+                            checked={standaloneSource === 'upload'}
+                            onChange={() => setStandaloneSource('upload')}
+                            className="accent-[#6C0F37]"
+                          />
+                          <span>Enviar arquivo</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="standalone-source"
+                            checked={standaloneSource === 'link'}
+                            onChange={() => setStandaloneSource('link')}
+                            className="accent-[#6C0F37]"
+                          />
+                          <span>Adicionar link externo</span>
                         </label>
                       </div>
-                    ) : (
-                      <input
-                        type="url"
-                        value={standaloneUrl}
-                        onChange={(e) => setStandaloneUrl(e.target.value)}
-                        placeholder="https://exemplo.com/material-didatico ou link do YouTube/Google Drive"
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+
+                      {standaloneSource === 'upload' ? (
+                        <div>
+                          <input
+                            ref={standaloneFileInputRef}
+                            type="file"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setStandaloneFile(file);
+                            }}
+                            className="w-full text-xs text-[#2B2426] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-[#F3E8EC] file:text-[#6C0F37] hover:file:bg-[#6C0F37] hover:file:text-white file:transition file:cursor-pointer"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <input
+                            type="url"
+                            value={standaloneUrl}
+                            onChange={(e) => setStandaloneUrl(e.target.value)}
+                            placeholder="https://exemplo.com/recurso..."
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Orientações opcionais */}
+                    <div className="pt-2 border-t border-[#E6E1D8]">
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Orientações de uso (opcional)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={standaloneDescription}
+                        onChange={(e) => setStandaloneDescription(e.target.value)}
+                        placeholder="Orientações aos estudantes ou anotações pedagógicas sobre a aplicação deste material..."
+                        className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
                       />
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Descrição ou orientações de uso */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                      Descrição ou orientações de uso (opcional)
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={standaloneDescription}
-                      onChange={(e) => setStandaloneDescription(e.target.value)}
-                      placeholder="Descreva quando e como este material pode ser aproveitado com os alunos..."
-                      className="w-full p-3 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition resize-y"
-                    />
-                  </div>
-
-                  {/* Tags para busca rápida */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                      Tags para busca rápida na biblioteca (opcional)
-                    </label>
-                    <div className="space-y-2">
+                    {/* Tags para organização */}
+                    <div className="pt-2 border-t border-[#E6E1D8] space-y-2">
+                      <label className="block text-xs font-semibold text-[#2B2426]">
+                        Tags para busca rápida (opcional)
+                      </label>
                       <div className="flex gap-2">
                         <input
                           type="text"
@@ -1252,30 +1199,30 @@ export function CreateLessonModal({
                               handleAddStandaloneTag();
                             }
                           }}
-                          placeholder="Adicionar tag (ex: gramática, revisão, warmup)..."
-                          className="flex-1 px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                          placeholder="Digite uma tag (ex: exercicio, gabarito)..."
+                          className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                         />
                         <button
                           type="button"
                           onClick={handleAddStandaloneTag}
-                          className="px-4 py-2 bg-white border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer"
+                          className="px-3.5 py-1.5 bg-[#FAF8F5] border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs"
                         >
-                          + Tag
+                          + Adicionar tag
                         </button>
                       </div>
 
                       {standaloneTags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1.5 pt-1">
                           {standaloneTags.map((tag) => (
                             <span
                               key={tag}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF8F5] border border-[#E6E1D8] text-xs text-[#6C0F37] font-semibold rounded-lg"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs bg-[#F3E8EC] text-[#6C0F37] font-medium border border-[#6C0F37]/20"
                             >
                               <span>#{tag}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveStandaloneTag(tag)}
-                                className="text-[#6F6865] hover:text-red-600 font-bold text-[10px] cursor-pointer"
+                                className="hover:text-red-600 font-bold ml-1 cursor-pointer"
                               >
                                 ✕
                               </button>
@@ -1289,8 +1236,8 @@ export function CreateLessonModal({
               )}
             </div>
 
-            {/* 3. RODAPÉ FIXO COM AÇÕES NA BASE */}
-            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex flex-wrap items-center justify-between gap-3 z-20">
+            {/* 3. RODAPÉ FIXO NA BASE */}
+            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
               {/* Botão Cancelar */}
               <button
                 type="button"
@@ -1301,31 +1248,28 @@ export function CreateLessonModal({
                 Cancelar
               </button>
 
-              {/* Ações da Direita */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                {/* Salvar Rascunho */}
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => executeSubmit('draft')}
-                  className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
-                >
-                  {isPending ? 'Salvando...' : 'Salvar rascunho'}
-                </button>
+              {/* Salvar Rascunho */}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => executeSubmit('draft')}
+                className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
+              >
+                {isPending ? 'Salvando...' : 'Salvar rascunho'}
+              </button>
 
-                {/* Salvar em Materiais Didáticos */}
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => executeSubmit('publish')}
-                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
-                >
-                  <span>💾</span>
-                  <span>
-                    {isPending ? 'Salvando conteúdo...' : 'Salvar em materiais didáticos'}
-                  </span>
-                </button>
-              </div>
+              {/* Salvar em Materiais Didáticos */}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => executeSubmit('publish')}
+                className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
+              >
+                <span>💾</span>
+                <span>
+                  {isPending ? 'Salvando conteúdo...' : 'Salvar em materiais didáticos'}
+                </span>
+              </button>
             </div>
           </div>
         </div>
