@@ -9,6 +9,9 @@ interface StudentDashboardClientProps {
   studentName: string;
   nextLive: any;
   enrollments: any[] | null;
+  pendingActivities?: any[];
+  recentMaterials?: any[];
+  teacherAnnouncements?: any[];
 }
 
 export function StudentDashboardClient({
@@ -17,6 +20,9 @@ export function StudentDashboardClient({
   studentName,
   nextLive,
   enrollments,
+  pendingActivities = [],
+  recentMaterials = [],
+  teacherAnnouncements = [],
 }: StudentDashboardClientProps) {
   const { prefs, mounted } = useDashboardPreferences();
 
@@ -38,7 +44,7 @@ export function StudentDashboardClient({
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-[#D7CE36]" />
             <span className="text-xs uppercase tracking-wider font-semibold text-[#6F6865]">
-              {orgName} • Portal do estudante
+              Fikra • Espaço do Estudante
             </span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-[#6C0F37]">
@@ -54,7 +60,7 @@ export function StudentDashboardClient({
         </div>
       </div>
 
-      {/* Grid de Destaques Dinâmico */}
+      {/* Grid Superior: Próximo Encontro e Minhas Turmas */}
       {(showNextLive || showClasses) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch animate-fadeIn">
           {/* Card 1: Próximo Encontro / Aula ao Vivo */}
@@ -189,13 +195,154 @@ export function StudentDashboardClient({
                   href={`/student/tracks?org=${orgId}`}
                   className="w-full block text-center py-2.5 px-4 bg-white border border-[#6C0F37] text-[#6C0F37] hover:bg-[#6C0F37]/5 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
                 >
-                  Acessar minha trilha →
+                  Acessar materiais de estudo →
                 </Link>
               </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Grid Inferior de 3 Cards Dinâmicos: Atividades Pendentes, Materiais Recentes e Avisos da Docente */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        {/* 1. Atividades Pendentes */}
+        <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-sm p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-[#E6E1D8]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
+                <span>✏️</span> Atividades Pendentes
+              </h3>
+              <span className="text-[10px] font-bold bg-[#FAF8F5] text-[#6C0F37] px-2 py-0.5 rounded-md border border-[#E6E1D8]">
+                {pendingActivities.length} {pendingActivities.length === 1 ? 'pendente' : 'pendentes'}
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {pendingActivities.length > 0 ? (
+                pendingActivities.map((act: any) => (
+                  <div
+                    key={act.id}
+                    className="p-3 rounded-xl border border-[#E6E1D8] bg-[#FFFDF7] hover:border-[#6C0F37]/30 transition-all space-y-1"
+                  >
+                    <div className="text-xs font-bold text-[#2B2426] line-clamp-1">
+                      {act.title}
+                    </div>
+                    <div className="text-[11px] text-[#6F6865] flex items-center justify-between">
+                      <span>{act.metadata?.due_date ? `Prazo: ${new Date(act.metadata.due_date).toLocaleDateString('pt-BR')}` : 'Sem prazo'}</span>
+                      <span className="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                        Pendente
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-[#6F6865] bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl p-4">
+                  🎉 Nenhuma atividade pendente no momento!
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#E6E1D8] mt-4">
+            <Link
+              href={`/student/activities?org=${orgId}`}
+              className="w-full block text-center py-2 px-3 bg-[#6C0F37] hover:bg-[#57102E] text-white rounded-xl text-xs font-bold transition shadow-2xs"
+            >
+              Resolver atividades →
+            </Link>
+          </div>
+        </div>
+
+        {/* 2. Materiais Recentes / Novos */}
+        <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-sm p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-[#E6E1D8]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
+                <span>📚</span> Conteúdos & Materiais Novos
+              </h3>
+              <span className="text-[10px] font-bold bg-[#FAF8F5] text-[#6C0F37] px-2 py-0.5 rounded-md border border-[#E6E1D8]">
+                {recentMaterials.length} recentes
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {recentMaterials.length > 0 ? (
+                recentMaterials.map((mat: any) => (
+                  <div
+                    key={mat.id}
+                    className="p-3 rounded-xl border border-[#E6E1D8] bg-[#FFFDF7] hover:border-[#6C0F37]/30 transition-all space-y-1"
+                  >
+                    <div className="text-xs font-bold text-[#2B2426] line-clamp-1">
+                      {mat.title}
+                    </div>
+                    <div className="text-[11px] text-[#6F6865]">
+                      Disponibilizado em: {new Date(mat.created_at).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-[#6F6865] bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl p-4">
+                  Seus novos materiais didáticos aparecerão aqui.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#E6E1D8] mt-4">
+            <Link
+              href={`/student/tracks?org=${orgId}`}
+              className="w-full block text-center py-2 px-3 bg-white border border-[#6C0F37] text-[#6C0F37] hover:bg-[#6C0F37]/5 rounded-xl text-xs font-bold transition shadow-2xs"
+            >
+              Acessar materiais de estudo →
+            </Link>
+          </div>
+        </div>
+
+        {/* 3. Avisos da Docente */}
+        <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-sm p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-[#E6E1D8]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-1.5">
+                <span>📢</span> Avisos da Docente
+              </h3>
+              <span className="text-[10px] font-bold bg-[#FAF8F5] text-[#6C0F37] px-2 py-0.5 rounded-md border border-[#E6E1D8]">
+                Recentes
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {teacherAnnouncements.length > 0 ? (
+                teacherAnnouncements.map((note: any) => (
+                  <div
+                    key={note.id}
+                    className="p-3 rounded-xl border border-[#E6E1D8] bg-[#FFFDF7] hover:border-[#6C0F37]/30 transition-all space-y-1"
+                  >
+                    <div className="text-xs font-bold text-[#2B2426] line-clamp-1">
+                      {note.title}
+                    </div>
+                    <div className="text-[11px] text-[#6F6865] line-clamp-2">
+                      {note.content}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-[#6F6865] bg-[#FFFDF7] border border-[#E6E1D8] rounded-xl p-4">
+                  Nenhum comunicado recente da docente no momento.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#E6E1D8] mt-4">
+            <Link
+              href={`/student/notes?tab=teacher&org=${orgId}`}
+              className="w-full block text-center py-2 px-3 bg-white border border-[#E6E1D8] text-[#2B2426] hover:bg-[#FAF8F5] rounded-xl text-xs font-bold transition shadow-2xs"
+            >
+              Ver todas anotações da docente →
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

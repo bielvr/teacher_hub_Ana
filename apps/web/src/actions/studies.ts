@@ -515,7 +515,8 @@ export async function submitStudentActivityAction(
   orgId: string,
   answers: Record<string, any>,
   score?: number,
-  total?: number
+  total?: number,
+  explicitStatus?: 'completed' | 'submitted'
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -534,8 +535,8 @@ export async function submitStudentActivityAction(
 
   let submissionId: string | null = existing?.id || null;
 
-  const isPerfectAutoGrade = total !== undefined && total > 0 && score === total;
-  const submissionStatus = isPerfectAutoGrade ? 'completed' : 'submitted';
+  const isAutoGraded = total !== undefined && total > 0;
+  const submissionStatus = explicitStatus || (isAutoGraded ? 'completed' : 'submitted');
 
   if (existing) {
     const preserveTeacherFeedback = existing.teacher_feedback && !existing.teacher_feedback.trim().startsWith('{');

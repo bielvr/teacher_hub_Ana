@@ -172,7 +172,7 @@ export default async function StudentTracksPage({
             Trilhas & Conteúdos de Estudo
           </h1>
           <p className="text-sm text-[#6F6865] mt-1">
-            Acesse os módulos pedagógicos, lições liberadas, vocabulário e materiais de apoio.
+            Acesse seus materiais de estudo, conteúdos liberados e recursos de apoio.
           </p>
         </div>
 
@@ -228,7 +228,7 @@ export default async function StudentTracksPage({
           Trilhas & Conteúdos de Estudo
         </h1>
         <p className="text-sm text-[#6F6865] mt-1">
-          Acesse os módulos pedagógicos, lições liberadas, vocabulário e materiais de apoio.
+          Acesse seus materiais de estudo, conteúdos liberados e recursos de apoio.
         </p>
       </div>
 

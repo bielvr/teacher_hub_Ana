@@ -183,7 +183,6 @@ export default async function StudentHomePage({
   }
 
   // 6. Normalização e Seleção da Próxima Aula Válida
-  // Ignora Feriados e Recessos da caixa de Próximo Encontro (devem ser aulas para assistir)
   const isHolidayOrVacation = (title?: string) => {
     if (!title) return false;
     const t = title.toLowerCase();
@@ -200,7 +199,6 @@ export default async function StudentHomePage({
     const startTime = new Date(s.scheduled_at).getTime();
     if (isNaN(startTime)) return false;
     const durationMs = (s.duration_minutes || 60) * 60 * 1000;
-    // Permite até 30 minutos após o início da aula ou até o seu término real
     return startTime + durationMs >= Date.now();
   });
 
@@ -210,6 +208,126 @@ export default async function StudentHomePage({
 
   const nextLive = validSessions[0] || null;
 
+  // 7. Atividades Pendentes (Buscar até 3 atividades ainda não concluídas nem entregues)
+  let pendingActivities: any[] = [];
+  if (orgId && userId) {
+    try {
+      const { data: allActs } = await supabase
+        .from('activities')
+        .select('id, title, type, metadata, created_at')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const actIds = (allActs || []).map((a) => a.id);
+      let doneSet = new Set<string>();
+
+      if (actIds.length > 0) {
+        const { data: subData } = await supabase
+          .from('activity_submissions')
+          .select('activity_id, status, reviewed_at')
+          .eq('student_id', userId)
+          .in('activity_id', actIds);
+
+        (subData || []).forEach((s) => {
+          if (
+            s.status === 'completed' ||
+            s.status === 'reviewed' ||
+            s.status === 'graded' ||
+            s.status === 'submitted' ||
+            s.status === 'pending_review' ||
+            Boolean(s.reviewed_at)
+          ) {
+            doneSet.add(s.activity_id);
+          }
+        });
+      }
+
+      pendingActivities = (allActs || [])
+        .filter((a) => !doneSet.has(a.id))
+        .slice(0, 3);
+    } catch {
+      // Ignora erro se tabelas indisponíveis
+    }
+  }
+
+  // 8. Materiais Recentes / Novos (Trilhas e Lições liberadas da organização)
+  let recentMaterials: any[] = [];
+  if (orgId) {
+    try {
+      const { data: trackData } = await supabase
+        .from('tracks')
+        .select(`
+          id,
+          title,
+          created_at,
+          modules (
+            id,
+            lessons (
+              id,
+              title,
+              created_at
+            )
+          )
+        `)
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      const allLessons: any[] = [];
+      (trackData || []).forEach((t: any) => {
+        (t.modules || []).forEach((m: any) => {
+          (m.lessons || []).forEach((l: any) => {
+            allLessons.push(l);
+          });
+        });
+      });
+
+      if (allLessons.length > 0) {
+        allLessons.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        recentMaterials = allLessons.slice(0, 3);
+      } else if (trackData && trackData.length > 0) {
+        recentMaterials = trackData.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          created_at: t.created_at,
+        }));
+      }
+    } catch {
+      // Ignora erro se tabela indisponível
+    }
+  }
+
+  // 9. Avisos da Docente (Notas públicas/compartilhadas direcionadas ao estudante ou turma)
+  let teacherAnnouncements: any[] = [];
+  if (orgId && candidateStudentIds.length > 0) {
+    try {
+      const targetIds = Array.from(new Set([...candidateStudentIds, ...enrolledClassIds]));
+      const { data: notes } = await supabase
+        .from('lesson_notes')
+        .select('id, title, content, lesson_date, created_at')
+        .eq('organization_id', orgId)
+        .eq('author_role', 'teacher')
+        .in('student_id', targetIds)
+        .not('title', 'ilike', '[Privado]%')
+        .not('content', 'ilike', '%<!--private-->%')
+        .not('title', 'ilike', '[Chamada]%')
+        .not('title', 'ilike', '[Presença]%')
+        .not('title', 'ilike', '[Contrato]%')
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      teacherAnnouncements = (notes || []).map((n) => ({
+        id: n.id,
+        title: n.title,
+        content: n.content.replace(/<!--private-->/g, '').trim(),
+        date: n.lesson_date || n.created_at,
+      }));
+    } catch {
+      // Ignora se tabela indisponível
+    }
+  }
+
   return (
     <StudentDashboardClient
       orgId={orgId}
@@ -217,6 +335,9 @@ export default async function StudentHomePage({
       studentName={studentName}
       nextLive={nextLive}
       enrollments={enrollments}
+      pendingActivities={pendingActivities}
+      recentMaterials={recentMaterials}
+      teacherAnnouncements={teacherAnnouncements}
     />
   );
 }

@@ -175,7 +175,14 @@ export default async function StudentActivitiesPage({
           submitted_at: s.submitted_at,
         };
 
-        if (s.status === 'completed' || s.status === 'reviewed' || s.status === 'graded') {
+        if (
+          s.status === 'completed' ||
+          s.status === 'reviewed' ||
+          s.status === 'graded' ||
+          s.status === 'submitted' ||
+          s.status === 'pending_review' ||
+          Boolean(s.reviewed_at)
+        ) {
           completedIds.push(s.activity_id);
         }
 

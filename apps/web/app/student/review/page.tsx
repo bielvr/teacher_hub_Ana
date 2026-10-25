@@ -33,7 +33,7 @@ export default async function StudentReviewPage() {
           Quero revisar
         </h1>
         <p className="text-sm text-stone-600 mt-1">
-          Tudo o que você decidiu guardar — lessons, anotações e recursos — reunido em um só lugar.
+          Tudo o que você decidiu guardar — materiais, anotações e conteúdos salvos — reunido em um só lugar.
         </p>
       </div>
 
@@ -52,14 +52,14 @@ export default async function StudentReviewPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-serif font-bold text-stone-900 flex items-center gap-2">
-                  📘 Lessons
+                  📘 Conteúdos e Materiais
                 </h2>
                 <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{lessons.length}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {lessons.map((item) => (
                   <Card key={item.id} className="p-4 border border-stone-200/80 bg-[#fbfbf8]">
-                    <span className="text-[10px] font-bold uppercase text-stone-400">{item.subtitle || 'LESSON'}</span>
+                    <span className="text-[10px] font-bold uppercase text-stone-400">{item.subtitle || 'CONTEÚDO'}</span>
                     <h3 className="font-bold text-sm text-stone-900 mt-1">{item.title}</h3>
                   </Card>
                 ))}

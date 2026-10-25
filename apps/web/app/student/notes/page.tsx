@@ -131,7 +131,7 @@ export default async function StudentNotesPage({
               : 'bg-white border-[#E6E1D8] text-[#6F6865] hover:bg-[#FAF8F5]'
           }`}
         >
-          <span>👨‍🏫 Anotações do Professor</span>
+          <span>📝 Anotações da pessoa docente</span>
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
               activeTab === 'teacher' ? 'bg-white/20 text-white' : 'bg-[#6C0F37]/10 text-[#6C0F37]'

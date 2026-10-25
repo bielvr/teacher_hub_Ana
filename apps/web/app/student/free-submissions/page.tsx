@@ -54,7 +54,7 @@ export default async function StudentFreeSubmissionsPage({
         <Card className="p-8 border-[#E6E1D8] bg-white rounded-2xl">
           <EmptyState
             title="Nenhum texto enviado ainda"
-            description="Compartilhe seus pensamentos, resenhas ou diários em inglês para receber apontamentos pedagógicos do professor."
+            description="Compartilhe seus pensamentos, resenhas ou produções e textos autorais para receber apontamentos pedagógicos do professor."
           />
         </Card>
       ) : (

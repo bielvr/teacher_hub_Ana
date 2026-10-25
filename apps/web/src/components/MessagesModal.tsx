@@ -155,7 +155,7 @@ export function MessagesModal({
             <div className="w-10 h-10 rounded-full bg-[#6C0F37] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
               {isTeacher
                 ? getInitials(activeStudent?.full_name || 'Estudante')
-                : 'FI'}
+                : 'FK'}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -169,7 +169,7 @@ export function MessagesModal({
               <p className="text-[11px] text-[#6F6865]">
                 {isTeacher
                   ? activeStudent?.email || 'Mensagens diretas pedagógicas'
-                  : 'Fikra Idiomas • Tire suas dúvidas e envie perguntas'}
+                  : 'Fikra • Tire suas dúvidas e envie perguntas'}
               </p>
             </div>
           </div>
