@@ -92,7 +92,7 @@ export function ActivityPreviewModal({
   };
 
   const modalContent = (
-    <div className={embedded ? "w-full h-full flex flex-col bg-white overflow-hidden relative" : "w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-zoomIn relative"}>
+    <div className={embedded ? "w-full h-full flex flex-col bg-white overflow-hidden relative" : "w-[94vw] max-w-[1440px] h-[90vh] max-h-[92vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-zoomIn relative"}>
       {/* Cabeçalho Fixo Padrão */}
       <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
         <div className="flex items-center gap-3">

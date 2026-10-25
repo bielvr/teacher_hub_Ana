@@ -81,11 +81,17 @@ export function EditLessonModal({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && isOpen) handleClose();
+      if (event.key === 'Escape' && isOpen && !isPending) handleClose();
     }
-    if (isOpen) document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, isPending]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -126,16 +132,17 @@ export function EditLessonModal({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isPending) handleClose();
           }}
         >
+          {/* CONTAINER OFICIAL PADRONIZADO */}
           <div
-            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            className="w-[94vw] max-w-[1440px] h-[90vh] max-h-[92vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabeçalho Fixo no Topo */}
+            {/* CABEÇALHO FIXO NO TOPO */}
             <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
               <div className="text-left">
                 <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
@@ -145,7 +152,7 @@ export function EditLessonModal({
                   Editar aula
                 </h1>
                 <p className="text-xs text-[#6F6865] mt-0.5 text-left">
-                  Atualize o título, status, objetivos pedagógicos e anexos da aula.
+                  Atualize o título, status pedagógico, objetivos e recursos desta aula.
                 </p>
               </div>
 
@@ -160,13 +167,13 @@ export function EditLessonModal({
               </button>
             </div>
 
-            {/* Formulário com corpo e rodapé */}
+            {/* FORMULÁRIO COM CORPO E RODAPÉ FIXOS */}
             <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <input type="hidden" name="lesson_id" value={lesson.id} />
               <input type="hidden" name="track_id" value={trackId} />
               <input type="hidden" name="activity_type" value={materialType} />
 
-              {/* Corpo com Rolagem Exclusiva */}
+              {/* CORPO DO CONTEÚDO COM SCROLL INTERNO */}
               <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
                 {errorMsg && (
                   <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
@@ -175,234 +182,271 @@ export function EditLessonModal({
                   </div>
                 )}
 
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                      Título da aula <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="lesson_title"
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      required
-                      placeholder="Ex: Conversação sobre planos futuros"
-                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
-                      autoFocus
-                    />
-                  </div>
+                {/* DISTRIBUIÇÃO BALANCEADA EM 2 COLUNAS AMPLAS (SEM VAZIOS) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* COLUNA 1: IDENTIFICAÇÃO E OBJETIVOS PEDAGÓGICOS (7 COLUNAS) */}
+                  <div className="lg:col-span-7 space-y-6">
+                    {/* Dados Básicos */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                      <div>
+                        <h2 className="text-sm font-bold text-[#6C0F37]">
+                          Dados da aula e status
+                        </h2>
+                        <p className="text-xs text-[#6F6865] mt-0.5">
+                          Defina o título e a prontidão didática desta aula.
+                        </p>
+                      </div>
 
-                  {/* Status da Aula e Indicador de Preparação */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                        Status da aula
-                      </label>
-                      <select
-                        name="status"
-                        value={status}
-                        onChange={(e: any) => setStatus(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition cursor-pointer"
-                      >
-                        <option value="todo">A fazer</option>
-                        <option value="in_progress">Em andamento</option>
-                        <option value="done">Concluído</option>
-                      </select>
-                    </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Título da aula <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          name="lesson_title"
+                          type="text"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          required
+                          placeholder="Ex: Conversação sobre planos futuros"
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                          autoFocus
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                        Preparação docente
-                      </label>
-                      <select
-                        name="preparation_status"
-                        value={preparationStatus}
-                        onChange={(e: any) => setPreparationStatus(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition cursor-pointer"
-                      >
-                        <option value="ready">Pronto para uso</option>
-                        <option value="needs_prep">Precisa preparar material</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                            Status da aula
+                          </label>
+                          <select
+                            name="status"
+                            value={status}
+                            onChange={(e: any) => setStatus(e.target.value)}
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition cursor-pointer"
+                          >
+                            <option value="todo">A fazer</option>
+                            <option value="in_progress">Em andamento</option>
+                            <option value="done">Concluído</option>
+                          </select>
+                        </div>
 
-                {/* Objetivos Pedagógicos */}
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                      🎯 Objetivos pedagógicos da aula (opcional)
-                    </label>
-                    <textarea
-                      name="communicative_objectives"
-                      rows={3}
-                      value={communicativeObjectives}
-                      onChange={(e) => setCommunicativeObjectives(e.target.value)}
-                      placeholder="Um objetivo por linha..."
-                      className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                        💡 Conceitos-chave (opcional)
-                      </label>
-                      <textarea
-                        name="vocabulary"
-                        rows={3}
-                        value={vocabulary}
-                        onChange={(e) => setVocabulary(e.target.value)}
-                        placeholder="Um conceito por linha..."
-                        className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                        📚 Conteúdos trabalhados (opcional)
-                      </label>
-                      <textarea
-                        name="grammar"
-                        rows={3}
-                        value={grammar}
-                        onChange={(e) => setGrammar(e.target.value)}
-                        placeholder="Um conteúdo por linha..."
-                        className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Anexos e Imagem de Capa */}
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-[#2B2426]">
-                        📎 Anexo ou material de apoio da aula (opcional)
-                      </label>
-                      <div className="flex text-[11px] gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setMaterialSource('link')}
-                          className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
-                            materialSource === 'link'
-                              ? 'bg-[#6C0F37] text-white font-medium'
-                              : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
-                          }`}
-                        >
-                          Link externo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setMaterialSource('upload')}
-                          className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
-                            materialSource === 'upload'
-                              ? 'bg-[#6C0F37] text-white font-medium'
-                              : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
-                          }`}
-                        >
-                          Enviar arquivo
-                        </button>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                            Preparação docente
+                          </label>
+                          <select
+                            name="preparation_status"
+                            value={preparationStatus}
+                            onChange={(e: any) => setPreparationStatus(e.target.value)}
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition cursor-pointer"
+                          >
+                            <option value="ready">Pronto para uso</option>
+                            <option value="needs_prep">Precisa preparar material</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <select
-                        value={materialType}
-                        onChange={(e) => setMaterialType(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                      >
-                        <option value="Documento/PDF">📄 Documento / PDF</option>
-                        <option value="Vídeo">▶️ Vídeo</option>
-                        <option value="Áudio">🎧 Áudio</option>
-                        <option value="Link">🔗 Link externo</option>
-                        <option value="Apresentação">📊 Apresentação</option>
-                      </select>
+                    {/* Objetivos Pedagógicos */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                      <div>
+                        <h2 className="text-sm font-bold text-[#6C0F37]">
+                          Objetivos e conteúdos
+                        </h2>
+                        <p className="text-xs text-[#6F6865] mt-0.5">
+                          Descreva o planejamento e as metas pedagógicas.
+                        </p>
+                      </div>
 
-                      <input
-                        name="activity_title"
-                        type="text"
-                        value={materialTitle}
-                        onChange={(e) => setMaterialTitle(e.target.value)}
-                        placeholder="Título do anexo (opcional)"
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                      />
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          🎯 Objetivos pedagógicos da aula (opcional)
+                        </label>
+                        <textarea
+                          name="communicative_objectives"
+                          rows={3}
+                          value={communicativeObjectives}
+                          onChange={(e) => setCommunicativeObjectives(e.target.value)}
+                          placeholder="Ex: Praticar tempos verbais futuros, expressar opiniões com segurança..."
+                          className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                            💡 Conceitos-chave (opcional)
+                          </label>
+                          <textarea
+                            name="vocabulary"
+                            rows={3}
+                            value={vocabulary}
+                            onChange={(e) => setVocabulary(e.target.value)}
+                            placeholder="Um conceito por linha..."
+                            className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                            📚 Conteúdos trabalhados (opcional)
+                          </label>
+                          <textarea
+                            name="grammar"
+                            rows={3}
+                            value={grammar}
+                            onChange={(e) => setGrammar(e.target.value)}
+                            placeholder="Um tópico por linha..."
+                            className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                          />
+                        </div>
+                      </div>
                     </div>
-
-                    {materialSource === 'link' ? (
-                      <input
-                        name="content_url"
-                        type="url"
-                        value={materialUrl}
-                        onChange={(e) => setMaterialUrl(e.target.value)}
-                        placeholder="https://drive.google.com/... ou link do anexo"
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                      />
-                    ) : (
-                      <input
-                        name="file_upload"
-                        type="file"
-                        accept=".pdf,.doc,.docx,.ppt,.pptx,.mp3,.mp4,.png,.jpg,.jpeg"
-                        className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#6C0F37] file:text-white hover:file:bg-[#57102E] cursor-pointer"
-                      />
-                    )}
                   </div>
 
-                  {/* Imagem de Capa */}
-                  <div className="pt-4 border-t border-[#E6E1D8] space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-[#2B2426]">
-                        🖼️ Imagem de capa ou miniatura (opcional)
-                      </label>
-                      <div className="flex text-[11px] gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setCoverSource('url')}
-                          className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
-                            coverSource === 'url'
-                              ? 'bg-[#6C0F37] text-white font-medium'
-                              : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
-                          }`}
-                        >
-                          Link externo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCoverSource('file')}
-                          className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
-                            coverSource === 'file'
-                              ? 'bg-[#6C0F37] text-white font-medium'
-                              : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
-                          }`}
-                        >
-                          Enviar arquivo
-                        </button>
+                  {/* COLUNA 2: ANEXOS E IDENTIDADE VISUAL (5 COLUNAS) */}
+                  <div className="lg:col-span-5 space-y-6">
+                    {/* Anexos e Materiais */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E6E1D8]">
+                        <div>
+                          <h2 className="text-sm font-bold text-[#6C0F37]">
+                            Material de apoio da aula
+                          </h2>
+                          <p className="text-xs text-[#6F6865] mt-0.5">
+                            Anexe apresentações, links ou apostilas.
+                          </p>
+                        </div>
+                        <div className="flex text-[11px] gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setMaterialSource('link')}
+                            className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
+                              materialSource === 'link'
+                                ? 'bg-[#6C0F37] text-white font-medium'
+                                : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
+                            }`}
+                          >
+                            Link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMaterialSource('upload')}
+                            className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
+                              materialSource === 'upload'
+                                ? 'bg-[#6C0F37] text-white font-medium'
+                                : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
+                            }`}
+                          >
+                            Upload
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <select
+                            value={materialType}
+                            onChange={(e) => setMaterialType(e.target.value)}
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                          >
+                            <option value="Documento/PDF">📄 Documento / PDF</option>
+                            <option value="Vídeo">▶️ Vídeo</option>
+                            <option value="Áudio">🎧 Áudio</option>
+                            <option value="Link">🔗 Link externo</option>
+                            <option value="Apresentação">📊 Apresentação</option>
+                          </select>
+
+                          <input
+                            name="activity_title"
+                            type="text"
+                            value={materialTitle}
+                            onChange={(e) => setMaterialTitle(e.target.value)}
+                            placeholder="Título do anexo (opcional)"
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                          />
+                        </div>
+
+                        {materialSource === 'link' ? (
+                          <input
+                            name="content_url"
+                            type="url"
+                            value={materialUrl}
+                            onChange={(e) => setMaterialUrl(e.target.value)}
+                            placeholder="https://drive.google.com/... ou link do anexo"
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                          />
+                        ) : (
+                          <input
+                            name="file_upload"
+                            type="file"
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.mp3,.mp4,.png,.jpg,.jpeg"
+                            className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#6C0F37] file:text-white hover:file:bg-[#57102E] cursor-pointer"
+                          />
+                        )}
                       </div>
                     </div>
 
-                    {coverSource === 'url' ? (
-                      <input
-                        name="cover_image_url"
-                        type="url"
-                        value={coverImageUrl}
-                        onChange={(e) => setCoverImageUrl(e.target.value)}
-                        placeholder="https://exemplo.com/capa.jpg"
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                      />
-                    ) : (
-                      <input
-                        name="cover_image_file"
-                        type="file"
-                        accept="image/*"
-                        className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#6C0F37] file:text-white hover:file:bg-[#57102E] cursor-pointer"
-                      />
-                    )}
+                    {/* Imagem de Capa */}
+                    <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E6E1D8]">
+                        <div>
+                          <h2 className="text-sm font-bold text-[#6C0F37]">
+                            Capa ou miniatura
+                          </h2>
+                          <p className="text-xs text-[#6F6865] mt-0.5">
+                            Miniatura visual nos cards da biblioteca.
+                          </p>
+                        </div>
+                        <div className="flex text-[11px] gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setCoverSource('url')}
+                            className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
+                              coverSource === 'url'
+                                ? 'bg-[#6C0F37] text-white font-medium'
+                                : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
+                            }`}
+                          >
+                            Link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCoverSource('file')}
+                            className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
+                              coverSource === 'file'
+                                ? 'bg-[#6C0F37] text-white font-medium'
+                                : 'bg-[#FAF8F5] text-[#6F6865] hover:text-[#2B2426] border border-[#E6E1D8]'
+                            }`}
+                          >
+                            Upload
+                          </button>
+                        </div>
+                      </div>
+
+                      {coverSource === 'url' ? (
+                        <input
+                          name="cover_image_url"
+                          type="url"
+                          value={coverImageUrl}
+                          onChange={(e) => setCoverImageUrl(e.target.value)}
+                          placeholder="https://exemplo.com/capa.jpg"
+                          className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
+                        />
+                      ) : (
+                        <input
+                          name="cover_image_file"
+                          type="file"
+                          accept="image/*"
+                          className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#6C0F37] file:text-white hover:file:bg-[#57102E] cursor-pointer"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Rodapé Fixo na Base */}
+              {/* RODAPÉ FIXO NA BASE */}
               <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
                 <button
                   type="button"
@@ -415,7 +459,7 @@ export function EditLessonModal({
                 <button
                   type="submit"
                   disabled={isPending || !title.trim()}
-                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
+                  className="px-6 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
                 >
                   {isPending ? 'Salvando...' : 'Salvar alterações'}
                 </button>

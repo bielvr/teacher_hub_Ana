@@ -20,17 +20,19 @@ export function CreateTrackModal({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === 'Escape' && isOpen && !loading) {
         setIsOpen(false);
       }
     }
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [isOpen, loading]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -60,26 +62,27 @@ export function CreateTrackModal({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150 overflow-hidden"
           onClick={(e) => {
             if (e.target === e.currentTarget && !loading) setIsOpen(false);
           }}
         >
+          {/* CONTAINER OFICIAL PADRONIZADO */}
           <div
-            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            className="w-[94vw] max-w-[1440px] h-[90vh] max-h-[92vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabeçalho Fixo no Topo */}
+            {/* CABEÇALHO FIXO NO TOPO */}
             <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
               <div className="text-left">
                 <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
                   Materiais didáticos
                 </span>
                 <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
-                  Novo nível
+                  Novo nível pedagógico
                 </h1>
                 <p className="text-xs text-[#6F6865] mt-0.5 text-left">
-                  Defina um nível pedagógico para organizar unidades, aulas e materiais didáticos.
+                  Defina um nível curricular para organizar unidades temáticas, aulas e recursos didáticos.
                 </p>
               </div>
 
@@ -94,10 +97,11 @@ export function CreateTrackModal({
               </button>
             </div>
 
-            {/* Formulário com corpo e rodapé */}
+            {/* FORMULÁRIO COM CORPO E RODAPÉ FIXOS */}
             <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <input type="hidden" name="organization_id" value={organizationId} />
 
+              {/* CORPO DO CONTEÚDO COM SCROLL INTERNO */}
               <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
                 {errorMsg && (
                   <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
@@ -106,36 +110,73 @@ export function CreateTrackModal({
                   </div>
                 )}
 
-                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 space-y-4 shadow-2xs max-w-2xl">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                      Nome do nível <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="title"
-                      type="text"
-                      required
-                      placeholder="Ex: Nível 1, Módulo básico, Ensino fundamental..."
-                      className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
-                      autoFocus
-                    />
+                {/* DISTRIBUIÇÃO BALANCEADA EM 2 COLUNAS AMPLAS (SEM VAZIOS) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* COLUNA 1: DADOS DO NÍVEL (7 COLUNAS) */}
+                  <div className="lg:col-span-7 bg-white border border-[#E6E1D8] rounded-2xl p-6 space-y-5 shadow-2xs">
+                    <div>
+                      <h2 className="text-sm font-bold text-[#6C0F37]">
+                        Identificação do nível
+                      </h2>
+                      <p className="text-xs text-[#6F6865] mt-0.5">
+                        Defina a nomenclatura e a descrição pedagógica do nível ou módulo.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Nome do nível <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        name="title"
+                        type="text"
+                        required
+                        placeholder="Ex: Nível 1 - Básico A1, Módulo Intermediário..."
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                        autoFocus
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Descrição ou objetivos (opcional)
+                      </label>
+                      <textarea
+                        name="description"
+                        rows={5}
+                        placeholder="Resumo pedagógico, público-alvo ou pré-requisitos para este nível..."
+                        className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                      Descrição (opcional)
-                    </label>
-                    <textarea
-                      name="description"
-                      rows={3}
-                      placeholder="Resumo pedagógico ou público-alvo deste nível..."
-                      className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
-                    />
+                  {/* COLUNA 2: ESTRUTURA E DIRETRIZES (5 COLUNAS) */}
+                  <div className="lg:col-span-5 bg-white border border-[#E6E1D8] rounded-2xl p-6 space-y-4 shadow-2xs">
+                    <div>
+                      <h2 className="text-sm font-bold text-[#6C0F37]">
+                        Estrutura pedagógica Fikra
+                      </h2>
+                      <p className="text-xs text-[#6F6865] mt-0.5">
+                        Como níveis se integram ao currículo.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 text-xs text-[#6F6865]">
+                      <div className="p-3.5 rounded-xl border border-[#E6E1D8] bg-[#FAF8F5] space-y-1">
+                        <span className="font-semibold text-[#2B2426] block">Níveis e Unidades</span>
+                        <p>Cada nível funciona como uma macro-etapa curricular contendo múltiplas unidades temáticas.</p>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl border border-[#E6E1D8] bg-[#FAF8F5] space-y-1">
+                        <span className="font-semibold text-[#2B2426] block">Liberação gradual</span>
+                        <p>Você pode controlar quais níveis e trilhas estão liberados para cada estudante ou turma na aba de gerenciamento.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Rodapé Fixo na Base */}
+              {/* RODAPÉ FIXO NA BASE */}
               <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
                 <button
                   type="button"
@@ -148,7 +189,7 @@ export function CreateTrackModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
+                  className="px-6 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] disabled:opacity-50 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
                 >
                   {loading ? 'Salvando...' : 'Criar nível'}
                 </button>

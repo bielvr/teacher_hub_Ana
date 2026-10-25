@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../lib/supabase/server';
+import { SessionStatus } from '../types/database';
 import {
   calculateRecurringSchedule,
   createIsoDateTime,
@@ -18,6 +19,8 @@ export async function scheduleSessionAction(
     const organization_id = formData.get('organization_id') as string;
     const event_type = (formData.get('event_type') as string) || 'regular'; // 'regular' | 'replacement' | 'holiday' | 'vacation'
     const session_type = (formData.get('session_type') as string) || 'individual'; // 'individual' | 'group'
+    const isDraft = (formData.get('status') as string)?.trim() === 'draft';
+    const session_status: SessionStatus = 'scheduled';
     const student_id = (formData.get('student_id') as string)?.trim() || null;
     const class_id = (formData.get('class_id') as string)?.trim() || null;
     const rawTitle = (formData.get('title') as string)?.trim();
@@ -72,7 +75,7 @@ export async function scheduleSessionAction(
       duration_minutes: number;
       meet_url: string | null;
       notes: string | null;
-      status: 'scheduled';
+      status: SessionStatus;
       event_type?: string;
     }
 
@@ -100,7 +103,7 @@ export async function scheduleSessionAction(
         duration_minutes: 0,
         meet_url: null,
         notes,
-        status: 'scheduled',
+        status: session_status,
         event_type: 'holiday',
       });
     } else if (event_type === 'vacation') {
@@ -126,7 +129,7 @@ export async function scheduleSessionAction(
         duration_minutes: 0,
         meet_url: null,
         notes,
-        status: 'scheduled',
+        status: session_status,
         event_type: 'vacation',
       });
     } else if (event_type === 'replacement') {
@@ -156,7 +159,7 @@ export async function scheduleSessionAction(
         duration_minutes,
         meet_url,
         notes,
-        status: 'scheduled',
+        status: session_status,
         event_type: 'replacement',
       });
     } else {
@@ -241,7 +244,7 @@ export async function scheduleSessionAction(
               duration_minutes: 0,
               meet_url: null,
               notes: '[Feriado nacional - Não desconta saldo]',
-              status: 'scheduled',
+              status: session_status,
               event_type: 'holiday',
             });
           } else if (item.isVacation) {
@@ -254,7 +257,7 @@ export async function scheduleSessionAction(
               duration_minutes: 0,
               meet_url: null,
               notes: '[Pausa de férias programada]',
-              status: 'scheduled',
+              status: session_status,
               event_type: 'vacation',
             });
           } else {
@@ -267,7 +270,7 @@ export async function scheduleSessionAction(
               duration_minutes,
               meet_url,
               notes: private_notes,
-              status: 'scheduled',
+              status: session_status,
               event_type: 'regular',
             });
           }
@@ -290,7 +293,7 @@ export async function scheduleSessionAction(
           duration_minutes,
           meet_url,
           notes: private_notes,
-          status: 'scheduled',
+          status: session_status,
           event_type: 'regular',
         });
       }
@@ -305,11 +308,11 @@ export async function scheduleSessionAction(
       const vipRows = rowsToInsert.map((r) => ({
         organization_id: r.organization_id,
         student_id,
-        title: r.title,
+        title: isDraft && !r.title.includes('[Rascunho]') ? `[Rascunho] ${r.title}` : r.title,
         scheduled_at: r.scheduled_at,
         duration_minutes: r.duration_minutes,
         meet_url: r.meet_url,
-        notes: r.notes,
+        notes: isDraft && !(r.notes || '').includes('[Rascunho]') ? `[Rascunho] ${r.notes || ''}`.trim() : r.notes,
         status: r.status,
       }));
 
@@ -365,11 +368,11 @@ export async function scheduleSessionAction(
         const groupRows = rowsToInsert.map((r) => ({
           organization_id: r.organization_id,
           class_id: targetClassId as string,
-          title: r.title,
+          title: isDraft && !r.title.includes('[Rascunho]') ? `[Rascunho] ${r.title}` : r.title,
           scheduled_at: r.scheduled_at,
           duration_minutes: r.duration_minutes,
           meet_url: r.meet_url,
-          notes: r.notes,
+          notes: isDraft && !(r.notes || '').includes('[Rascunho]') ? `[Rascunho] ${r.notes || ''}`.trim() : r.notes,
           status: r.status,
         }));
 

@@ -105,7 +105,7 @@ export function TodayScheduleCard({
                 href={`/professor/calendar?action=new&org=${orgId}`}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-colors shadow-xs"
               >
-                + Agendar aula
+                Gerar aulas
               </Link>
               <Link
                 href={`/professor/calendar?org=${orgId}`}

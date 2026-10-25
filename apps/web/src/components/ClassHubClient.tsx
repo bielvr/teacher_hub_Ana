@@ -117,7 +117,7 @@ export function ClassHubClient({
               initialSessionType="group"
               initialClassId={classData.id}
               initialClassMembers={studentsList}
-              triggerText="+ Gerar aulas"
+              triggerText="Gerar aulas"
             />
           </div>
         }

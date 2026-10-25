@@ -83,69 +83,84 @@ export async function createPaymentRecordAction(formData: FormData) {
   revalidatePath('/professor/billing/reports');
 }
 
-export async function createExpenseAction(formData: FormData) {
-  const supabase = await createClient();
-
-  const organization_id = formData.get('organization_id') as string;
-  const description = (formData.get('description') as string)?.trim();
-  const category = (formData.get('category') as string)?.trim() || 'Geral';
-  const rawAmount = formData.get('amount') as string;
-  const due_date = formData.get('due_date') as string;
-  const recurrence = (formData.get('recurrence') as string) || 'Mensal';
-  const rawStatus = ((formData.get('status') as string) || 'pending').trim().toLowerCase();
-
-  const statusMap: Record<string, 'pending' | 'paid' | 'overdue'> = {
-    pending: 'pending',
-    pendente: 'pending',
-    paid: 'paid',
-    paga: 'paid',
-    pago: 'paid',
-    overdue: 'overdue',
-    vencida: 'overdue',
-    vencido: 'overdue',
-  };
-
-  const status = statusMap[rawStatus] || 'pending';
-
-  if (!organization_id || !description || !rawAmount || !due_date) {
-    throw new Error('Preencha os campos obrigatórios da despesa.');
+export async function createPaymentAction(formData: FormData) {
+  try {
+    await createPaymentRecordAction(formData);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
+}
 
-  const amount = parseFloat(rawAmount.replace(',', '.'));
+export async function createExpenseAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
 
-  const { error } = await supabase.from('expenses').insert({
-    organization_id,
-    description,
-    category,
-    amount,
-    due_date,
-    recurrence,
-    status,
-    paid_at: status === 'paid' ? new Date().toISOString() : null,
-  });
+    const organization_id = formData.get('organization_id') as string;
+    const description = (formData.get('description') as string)?.trim();
+    const category = (formData.get('category') as string)?.trim() || 'Geral';
+    const rawAmount = formData.get('amount') as string;
+    const due_date = formData.get('due_date') as string;
+    const recurrence = (formData.get('recurrence') as string) || 'Mensal';
+    const rawStatus = ((formData.get('status') as string) || 'pending').trim().toLowerCase();
 
-  if (error) {
-    const ptFallbackMap: Record<'pending' | 'paid' | 'overdue', string> = {
-      pending: 'pendente',
-      paid: 'paga',
-      overdue: 'vencida',
+    const statusMap: Record<string, 'pending' | 'paid' | 'overdue'> = {
+      pending: 'pending',
+      pendente: 'pending',
+      paid: 'paid',
+      paga: 'paid',
+      pago: 'paid',
+      overdue: 'overdue',
+      vencida: 'overdue',
+      vencido: 'overdue',
     };
-    const { error: retryErr } = await supabase.from('expenses').insert({
+    const status = statusMap[rawStatus] || 'pending';
+
+    if (!organization_id || !description || !rawAmount || !due_date) {
+      return { success: false, error: 'Preencha os campos obrigatórios da despesa.' };
+    }
+
+    const amount = parseFloat(rawAmount.replace(',', '.'));
+
+    const { error } = await supabase.from('expenses').insert({
       organization_id,
       description,
       category,
       amount,
       due_date,
       recurrence,
-      status: ptFallbackMap[status],
+      status,
       paid_at: status === 'paid' ? new Date().toISOString() : null,
     });
-    if (retryErr) throw new Error(retryErr.message);
-  }
 
-  revalidatePath('/professor/billing');
-  revalidatePath('/professor/billing/expenses');
-  revalidatePath('/professor/billing/reports');
+    if (error) {
+      const ptFallbackMap: Record<'pending' | 'paid' | 'overdue', string> = {
+        pending: 'pendente',
+        paid: 'paga',
+        overdue: 'vencida',
+      };
+      const { error: retryErr } = await supabase.from('expenses').insert({
+        organization_id,
+        description,
+        category,
+        amount,
+        due_date,
+        recurrence,
+        status: ptFallbackMap[status],
+        paid_at: status === 'paid' ? new Date().toISOString() : null,
+      });
+      if (retryErr) return { success: false, error: retryErr.message };
+    }
+
+    revalidatePath('/professor/billing');
+    revalidatePath('/professor/billing/expenses');
+    revalidatePath('/professor/billing/reports');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao registrar despesa.' };
+  }
 }
 
 export async function updateExpenseStatusAction(

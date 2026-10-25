@@ -21,6 +21,7 @@ import {
   deleteSessionAction,
 } from '../actions/calendar';
 import { LessonsHistoryTable } from './LessonsHistoryTable';
+import { ScheduleSessionModal } from './ScheduleSessionModal';
 
 export interface StudentProfileData {
   id: string;
@@ -87,6 +88,7 @@ export interface SubmissionItem {
 interface StudentProfileDetailsClientProps {
   organizationId: string;
   student: StudentProfileData;
+  classes?: Array<{ id: string; name: string }>;
   tracks: TrackItem[];
   initialUnlockedTrackIds: string[];
   attendanceRecords: AttendanceRecord[];
@@ -214,6 +216,7 @@ const SESSION_STATUS_CONFIG: Record<
 export function StudentProfileDetailsClient({
   organizationId,
   student,
+  classes = [],
   tracks,
   initialUnlockedTrackIds,
   attendanceRecords,
@@ -234,7 +237,6 @@ export function StudentProfileDetailsClient({
   // Modais de Cadastro & Aulas
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<StudentSessionItem | null>(null);
   const [isBulkRescheduleModalOpen, setIsBulkRescheduleModalOpen] = useState(false);
 
@@ -420,29 +422,6 @@ export function StudentProfileDetailsClient({
         setFeedbackMsg({ type: 'success', text: 'Aula excluída do cronograma.' });
       } else {
         setFeedbackMsg({ type: 'error', text: res.error || 'Erro ao excluir aula.' });
-      }
-    });
-  };
-
-  // Criar Nova Aula Individual
-  const handleCreateNewSession = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    formData.append('organization_id', organizationId);
-    formData.append('student_id', student.id);
-    formData.append('session_type', 'individual');
-
-    startTransition(async () => {
-      try {
-        const res = await scheduleSessionAction(formData);
-        if (res.success) {
-          setIsNewSessionModalOpen(false);
-          setFeedbackMsg({ type: 'success', text: 'Nova aula agendada com sucesso!' });
-        } else {
-          setFeedbackMsg({ type: 'error', text: res.error || 'Erro ao agendar aula.' });
-        }
-      } catch (err: any) {
-        setFeedbackMsg({ type: 'error', text: err.message || 'Erro ao agendar aula.' });
       }
     });
   };
@@ -895,14 +874,15 @@ export function StudentProfileDetailsClient({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setIsNewSessionModalOpen(true)}
-                  className="px-4 py-2 text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>+</span>
-                  <span>Agendar Nova Aula</span>
-                </button>
+                <ScheduleSessionModal
+                  orgId={organizationId}
+                  classes={classes}
+                  students={[{ id: student.id, name: student.full_name, email: student.email }]}
+                  initialSessionType="individual"
+                  initialStudentId={student.id}
+                  triggerText="Gerar aulas"
+                  triggerClassName="px-4 py-2 text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                />
               </div>
             </div>
 
@@ -1650,122 +1630,6 @@ export function StudentProfileDetailsClient({
         </div>
       )}
 
-      {/* MODAL 4: AGENDAR NOVA AULA / SESSÃO PARA O ESTUDANTE */}
-      {isNewSessionModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsNewSessionModalOpen(false);
-          }}
-        >
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-2xl w-full max-w-lg relative animate-in zoom-in-95">
-            <button
-              type="button"
-              onClick={() => setIsNewSessionModalOpen(false)}
-              className="absolute top-4 right-4 text-[#6F6865] hover:text-[#2B2426] p-1 font-bold text-base cursor-pointer"
-              aria-label="Fechar"
-            >
-              ✕
-            </button>
-
-            <h2 className="text-lg font-bold text-[#6C0F37] mb-1">
-              Agendar Nova Aula Individual (VIP)
-            </h2>
-            <p className="text-xs text-[#6F6865] mb-5">
-              Insira uma nova aula no cronograma de {student.full_name}.
-            </p>
-
-            <form onSubmit={handleCreateNewSession} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#6F6865] uppercase tracking-wider mb-1">
-                  Título da Aula *
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  required
-                  placeholder="Ex: Aula de Conversação & Gramática"
-                  defaultValue={`Aula com ${student.full_name}`}
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#6F6865] uppercase tracking-wider mb-1">
-                    Data *
-                  </label>
-                  <input
-                    type="date"
-                    name="scheduled_date"
-                    required
-                    defaultValue={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#6F6865] uppercase tracking-wider mb-1">
-                    Horário *
-                  </label>
-                  <input
-                    type="time"
-                    name="scheduled_time"
-                    required
-                    defaultValue="14:00"
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#6F6865] uppercase tracking-wider mb-1">
-                    Duração (minutos)
-                  </label>
-                  <input
-                    type="number"
-                    name="duration_minutes"
-                    defaultValue={60}
-                    min={15}
-                    max={240}
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#6F6865] uppercase tracking-wider mb-1">
-                    Link da videochamada
-                  </label>
-                  <input
-                    type="url"
-                    name="meet_url"
-                    placeholder="https://meet.google.com/..."
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E6E1D8]">
-                <button
-                  type="button"
-                  onClick={() => setIsNewSessionModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-5 py-2 text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs cursor-pointer"
-                >
-                  {isPending ? 'Salvando...' : 'Agendar Aula'}
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
-    </div>
   );
 }

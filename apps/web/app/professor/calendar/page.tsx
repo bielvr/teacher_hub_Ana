@@ -16,13 +16,14 @@ import { formatSafeDate, formatSafeTime } from '../../../src/lib/calendar';
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string }>;
+  searchParams: Promise<{ org?: string; action?: string }>;
 }) {
   const supabase = await createClient();
   const resolvedParams = await searchParams;
 
   const memberships = await getUserOrganizations(supabase);
   const activeOrgId = resolvedParams.org || memberships[0]?.organizations?.id;
+  const shouldOpenNew = resolvedParams.action === 'new';
 
   if (!activeOrgId) return null;
 
@@ -84,7 +85,8 @@ export default async function CalendarPage({
             classes={classOptions}
             students={studentOptions}
             existingSessions={sessionList}
-            triggerText="+ Gerar aulas"
+            defaultOpen={shouldOpenNew}
+            triggerText="Gerar aulas"
           />
         </div>
       </div>
@@ -99,7 +101,7 @@ export default async function CalendarPage({
               classes={classOptions}
               students={studentOptions}
               existingSessions={sessionList}
-              triggerText="+ Gerar aulas"
+              triggerText="Gerar aulas"
             />
           }
         />

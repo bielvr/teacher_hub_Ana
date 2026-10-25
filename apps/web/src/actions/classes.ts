@@ -70,6 +70,19 @@ export async function enrollStudentInClassAction(
   }
 }
 
+export async function enrollStudentAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  const classId = formData.get('class_id') as string;
+  const memberId = formData.get('member_id') as string;
+  if (!classId || !memberId) {
+    throw new Error('Turma e aluno são obrigatórios.');
+  }
+  const result = await enrollStudentInClassAction(classId, memberId);
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result;
+}
+
 export async function getOrgClassesAction(organizationId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase

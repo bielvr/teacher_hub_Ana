@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '../../../../src/lib/supabase/server';
 import { getUserOrganizations } from '../../../../src/services/organizations';
+import { getClassesByOrg } from '../../../../src/services/classes';
 import {
   StudentProfileDetailsClient,
   StudentProfileData,
@@ -243,11 +244,18 @@ export default async function StudentProfilePage({
     submitted_at: s.submitted_at,
   }));
 
-  // 8. Total de atividades cadastradas
-  const { count: totalActsCount } = await supabase
-    .from('activities')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', activeOrgId);
+  const [orgClasses, { count: totalActsCount }] = await Promise.all([
+    getClassesByOrg(supabase, activeOrgId),
+    supabase
+      .from('activities')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', activeOrgId),
+  ]);
+
+  const classesOptions = (orgClasses || []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+  }));
 
   // 9. CRONOGRAMA DE AULAS (class_sessions e group_sessions)
   const [individualRes, groupRes] = await Promise.all([
@@ -347,6 +355,7 @@ export default async function StudentProfilePage({
     <StudentProfileDetailsClient
       organizationId={activeOrgId}
       student={studentData}
+      classes={classesOptions}
       tracks={tracks}
       initialUnlockedTrackIds={unlockedTrackIds}
       attendanceRecords={attendanceRecords}
