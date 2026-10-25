@@ -384,8 +384,8 @@ export function ActivityBankClient({
               {renderInlineMarkdown(
                 act.content_markdown
                   .replace(/<!--page-break-->/gi, ' ')
-                  .replace(/(?:^|\n)\s*#{1,3}\s+/g, ' ')
-                  .replace(/(?:^|\n)\s*[-*]\s*[[ xX]?]\s+/g, ' ')
+                  .replace(/(?:^|\r\n)\s*#{1,3}\s+/g, ' ')
+                  .replace(/(?:^|\r\n)\s*[-*]\s*[[ xX]?]\s+/g, ' ')
                   .replace(/\s+/g, ' ')
                   .trim()
               )}
@@ -556,7 +556,7 @@ export function ActivityBankClient({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-2">
-            <span>🎯 Níveis Didáticos Cadastrados</span>
+            <span>🎯 Níveis didáticos cadastrados</span>
             <span className="text-[11px] text-[#6F6865] font-normal hidden sm:inline">
               (Selecione um nível para explorar suas aulas e atividades associadas)
             </span>
@@ -571,23 +571,24 @@ export function ActivityBankClient({
               type="button"
               onClick={() => setLevelCarouselIndex((prev) => Math.max(0, prev - 1))}
               disabled={levelCarouselIndex === 0}
-              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] transition shadow-2xs cursor-pointer"
+              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] hover:border-[#6C0F37]/40 transition shadow-2xs cursor-pointer active:scale-95"
               aria-label="Níveis anteriores"
             >
-              ‹
+              ←
             </button>
             <button
               type="button"
               onClick={() => setLevelCarouselIndex((prev) => Math.min(maxLevelIndex, prev + 1))}
               disabled={levelCarouselIndex >= maxLevelIndex}
-              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] transition shadow-2xs cursor-pointer"
+              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] hover:border-[#6C0F37]/40 transition shadow-2xs cursor-pointer active:scale-95"
               aria-label="Próximos níveis"
             >
-              ›
+              →
             </button>
           </div>
         </div>
 
+        {/* Exatamente 5 quadradinhos/cards visíveis por vez em linha horizontal compacta no desktop */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {visibleLevelCards.map((card) => {
             const isSelected = selectedTrackId === card.id;
@@ -597,25 +598,26 @@ export function ActivityBankClient({
                 key={card.id}
                 type="button"
                 onClick={() => setSelectedTrackId(card.id)}
-                style={
+                className={`p-4 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between shadow-2xs ${
                   isSelected
-                    ? { backgroundColor: '#6C0F37', color: '#FFFDF7', borderColor: '#57102E' }
-                    : { backgroundColor: '#FFFFFF', color: '#2B2426', borderColor: '#E6E1D8' }
-                }
-                className="p-5 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between shadow-2xs hover:border-[#6C0F37]/50"
+                    ? 'bg-[#6C0F37] text-white border-[#57102E] shadow-sm ring-2 ring-[#6C0F37]/20'
+                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/50 hover:bg-[#FAF8F5]'
+                }`}
               >
                 <div>
                   <span className="text-lg block mb-1">{card.icon}</span>
                   <h3
-                    style={{ color: isSelected ? '#FFFDF7' : '#6C0F37' }}
-                    className="text-base font-bold transition-colors line-clamp-1 !text-inherit"
+                    className={`text-sm font-bold transition-colors line-clamp-1 ${
+                      isSelected ? 'text-white' : 'text-[#6C0F37]'
+                    }`}
                   >
                     {card.title}
                   </h3>
                   {card.badge && (
                     <span
-                      style={{ color: isSelected ? 'rgba(255, 253, 247, 0.9)' : '#6F6865' }}
-                      className="text-xs block mt-0.5"
+                      className={`text-[11px] block mt-0.5 ${
+                        isSelected ? 'text-white/80' : 'text-[#6F6865]'
+                      }`}
                     >
                       {card.badge}
                     </span>
@@ -623,14 +625,14 @@ export function ActivityBankClient({
                 </div>
 
                 <div
-                  style={{
-                    borderColor: isSelected ? 'rgba(255, 253, 247, 0.2)' : '#E6E1D8',
-                  }}
-                  className="mt-3 pt-2 border-t"
+                  className={`mt-3 pt-2 border-t ${
+                    isSelected ? 'border-white/20' : 'border-[#E6E1D8]'
+                  }`}
                 >
                   <span
-                    style={{ color: isSelected ? '#FFFDF7' : '#6F6865' }}
-                    className="text-xs block"
+                    className={`text-xs block ${
+                      isSelected ? 'text-white/90 font-medium' : 'text-[#6F6865]'
+                    }`}
                   >
                     {card.count}
                   </span>

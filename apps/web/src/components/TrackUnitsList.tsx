@@ -79,7 +79,18 @@ export function TrackUnitsList({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
       {units.map((unit, uIdx) => {
         const formattedUnitTitle = formatUnitTitle(uIdx, unit.title);
-        const unitLessons = unit.lessons || [];
+        const unitLessons = (unit.lessons || []).filter((l) => {
+          if (!l.description) return true;
+          try {
+            if (typeof l.description === 'string' && l.description.trim().startsWith('{')) {
+              const meta = JSON.parse(l.description);
+              if (meta.is_planning === true && !meta.published_to_materials && !meta.is_library_copy) {
+                return false;
+              }
+            }
+          } catch {}
+          return true;
+        });
         const totalMaterialsInUnit = unitLessons.reduce(
           (acc, l) => acc + (l.activities?.length || 0),
           0

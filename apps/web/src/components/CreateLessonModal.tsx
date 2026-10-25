@@ -515,7 +515,7 @@ export function CreateLessonModal({
                         )}
                       </div>
                       <p className="text-xs text-[#6F6865] mt-0.5">
-                        Estrutura completa com objetivos, conteúdos trabalhados e recursos anexos para ministrar ou disponibilizar.
+                        Uma aula completa para usar e compartilhar.
                       </p>
                     </div>
                   </div>
@@ -548,7 +548,7 @@ export function CreateLessonModal({
                         )}
                       </div>
                       <p className="text-xs text-[#6F6865] mt-0.5">
-                        Recurso independente para consulta direta (PDF, documento, áudio, vídeo, link ou apresentação).
+                        Um recurso reutilizável, sem precisar de uma unidade.
                       </p>
                     </div>
                   </div>

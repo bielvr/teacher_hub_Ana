@@ -16,7 +16,7 @@ export interface ExpenseItem {
   amount: number | string;
   due_date: string;
   recurrence?: string | null;
-  status: 'paid' | 'paga' | 'pending' | 'pendente' | 'overdue' | 'vencida';
+  status: 'paid' | 'paga' | 'pending' | 'pendente' | 'overdue' | 'vencida' | 'cancelled' | 'cancelada';
   paid_at?: string | null;
 }
 
@@ -39,30 +39,55 @@ export function ExpensesManagementClient({
   // Modal de Edição Rápida
   const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
 
-  // Recalcula métricas instantaneamente
-  const { totalExpenses, totalPaid, totalPending } = useMemo(() => {
+  // Recalcula métricas instantaneamente (Total, Pagas, A Vencer, Vencidas)
+  const { totalExpenses, totalPaid, totalPending, totalOverdue, countExpenses, countPaid, countPending, countOverdue } = useMemo(() => {
     let expTotal = 0;
     let paidTotal = 0;
     let pendTotal = 0;
+    let overdueTotal = 0;
+
+    let cExp = 0;
+    let cPaid = 0;
+    let cPend = 0;
+    let cOverdue = 0;
 
     expenses.forEach((e) => {
       const val = Number(e.amount) || 0;
+      const isCancelled = e.status === 'cancelled' || (e.status as any) === 'cancelada';
+      if (isCancelled) return;
+
       expTotal += val;
+      cExp += 1;
+
       if (e.status === 'paid' || e.status === 'paga') {
         paidTotal += val;
+        cPaid += 1;
+      } else if (e.status === 'overdue' || e.status === 'vencida') {
+        overdueTotal += val;
+        cOverdue += 1;
       } else {
         pendTotal += val;
+        cPend += 1;
       }
     });
 
-    return { totalExpenses: expTotal, totalPaid: paidTotal, totalPending: pendTotal };
+    return {
+      totalExpenses: expTotal,
+      totalPaid: paidTotal,
+      totalPending: pendTotal,
+      totalOverdue: overdueTotal,
+      countExpenses: cExp,
+      countPaid: cPaid,
+      countPending: cPend,
+      countOverdue: cOverdue,
+    };
   }, [expenses]);
 
   const formatBRL = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   // Alternar status diretamente pela linha
-  const handleStatusChange = (expenseId: string, newStatus: 'paid' | 'pending' | 'overdue') => {
+  const handleStatusChange = (expenseId: string, newStatus: 'paid' | 'pending' | 'overdue' | 'cancelled') => {
     // Atualização otimista imediata
     setExpenses((prev) =>
       prev.map((e) => (e.id === expenseId ? { ...e, status: newStatus } : e))
@@ -74,11 +99,15 @@ export function ExpensesManagementClient({
         setFeedbackMsg({ type: 'error', text: res.error || 'Erro ao alterar status.' });
         router.refresh();
       } else {
+        const labels: Record<string, string> = {
+          paid: 'Paga',
+          pending: 'Pendente',
+          overdue: 'Em atraso / Vencida',
+          cancelled: 'Cancelada',
+        };
         setFeedbackMsg({
           type: 'success',
-          text: `Status alterado para "${
-            newStatus === 'paid' ? 'Paga' : newStatus === 'pending' ? 'Pendente' : 'Em atraso'
-          }".`,
+          text: `Status alterado para "${labels[newStatus] || newStatus}".`,
         });
         setTimeout(() => setFeedbackMsg(null), 2500);
       }
@@ -92,6 +121,28 @@ export function ExpensesManagementClient({
 
     const formData = new FormData(e.currentTarget);
     formData.set('id', editingExpense.id);
+
+    const desc = formData.get('description') as string;
+    const cat = formData.get('category') as string;
+    const rawVal = formData.get('amount') as string;
+    const due = formData.get('due_date') as string;
+    const stat = (formData.get('status') as any) || 'pending';
+
+    // Atualização otimista imediata
+    setExpenses((prev) =>
+      prev.map((item) =>
+        item.id === editingExpense.id
+          ? {
+              ...item,
+              description: desc,
+              category: cat,
+              amount: parseFloat(rawVal.replace(',', '.')) || item.amount,
+              due_date: due,
+              status: stat,
+            }
+          : item
+      )
+    );
 
     startTransition(async () => {
       const res = await updateExpenseAction(formData);
@@ -145,29 +196,41 @@ export function ExpensesManagementClient({
       )}
 
       {/* MÉTRICAS RECALCULADAS NO TOPO */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total */}
         <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-1">
           <span className="text-xs font-bold uppercase tracking-wider text-[#6C0F37]">
             Total de Despesas
           </span>
           <p className="text-2xl font-bold text-[#2B2426]">{formatBRL(totalExpenses)}</p>
-          <span className="text-[11px] text-[#6F6865]">Contas cadastradas</span>
+          <span className="text-[11px] text-[#6F6865]">{countExpenses} contas registradas</span>
         </div>
 
+        {/* Pagas */}
         <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-1">
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-            Despesas Pagas
+            Pagas
           </span>
-          <p className="text-2xl font-bold text-[#2B2426]">{formatBRL(totalPaid)}</p>
-          <span className="text-[11px] text-[#6F6865]">Contas quitadas</span>
+          <p className="text-2xl font-bold text-emerald-700">{formatBRL(totalPaid)}</p>
+          <span className="text-[11px] text-[#6F6865]">{countPaid} contas quitadas</span>
         </div>
 
+        {/* A Vencer */}
         <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-1">
           <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-            A Pagar / Pendente
+            A Vencer
           </span>
-          <p className="text-2xl font-bold text-[#2B2426]">{formatBRL(totalPending)}</p>
-          <span className="text-[11px] text-[#6F6865]">Previsão de saída</span>
+          <p className="text-2xl font-bold text-amber-700">{formatBRL(totalPending)}</p>
+          <span className="text-[11px] text-[#6F6865]">{countPending} contas a pagar</span>
+        </div>
+
+        {/* Vencidas */}
+        <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-red-700">
+            Vencidas
+          </span>
+          <p className="text-2xl font-bold text-red-600">{formatBRL(totalOverdue)}</p>
+          <span className="text-[11px] text-[#6F6865]">{countOverdue} contas em atraso</span>
         </div>
       </div>
 
@@ -202,9 +265,11 @@ export function ExpensesManagementClient({
               </thead>
               <tbody className="divide-y divide-[#E6E1D8]">
                 {expenses.map((e) => {
-                  const normalizedStatus: 'paid' | 'pending' | 'overdue' =
+                  const normalizedStatus: 'paid' | 'pending' | 'overdue' | 'cancelled' =
                     e.status === 'paid' || e.status === 'paga'
                       ? 'paid'
+                      : e.status === 'cancelled' || (e.status as any) === 'cancelada'
+                      ? 'cancelled'
                       : e.status === 'overdue' || e.status === 'vencida'
                       ? 'overdue'
                       : 'pending';
@@ -232,7 +297,7 @@ export function ExpensesManagementClient({
                           onChange={(evt) =>
                             handleStatusChange(
                               e.id,
-                              evt.target.value as 'paid' | 'pending' | 'overdue'
+                              evt.target.value as 'paid' | 'pending' | 'overdue' | 'cancelled'
                             )
                           }
                           disabled={isPending}
@@ -241,12 +306,15 @@ export function ExpensesManagementClient({
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                               : normalizedStatus === 'overdue'
                               ? 'bg-red-50 text-red-800 border-red-300'
+                              : normalizedStatus === 'cancelled'
+                              ? 'bg-gray-100 text-gray-700 border-gray-300'
                               : 'bg-amber-50 text-amber-800 border-amber-300'
                           }`}
                         >
-                          <option value="paid">✓ Paga</option>
                           <option value="pending">⏳ Pendente</option>
-                          <option value="overdue">⚠️ Em atraso / Vencida</option>
+                          <option value="paid">✓ Paga</option>
+                          <option value="overdue">⚠️ Atrasada / Vencida</option>
+                          <option value="cancelled">✕ Cancelada</option>
                         </select>
                       </td>
 
@@ -348,13 +416,16 @@ export function ExpensesManagementClient({
                         ? 'paid'
                         : editingExpense.status === 'overdue' || editingExpense.status === 'vencida'
                         ? 'overdue'
+                        : editingExpense.status === 'cancelled' || (editingExpense.status as any) === 'cancelada'
+                        ? 'cancelled'
                         : 'pending'
                     }
                     className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                   >
-                    <option value="paid">✓ Paga</option>
                     <option value="pending">⏳ Pendente</option>
-                    <option value="overdue">⚠️ Em atraso / Vencida</option>
+                    <option value="paid">✓ Paga</option>
+                    <option value="overdue">⚠️ Atrasada / Vencida</option>
+                    <option value="cancelled">✕ Cancelada</option>
                   </select>
                 </div>
               </div>

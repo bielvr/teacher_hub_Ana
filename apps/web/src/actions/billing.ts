@@ -165,7 +165,7 @@ export async function createExpenseAction(
 
 export async function updateExpenseStatusAction(
   expenseId: string,
-  newStatus: 'paid' | 'pending' | 'overdue'
+  newStatus: 'paid' | 'pending' | 'overdue' | 'cancelled'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
@@ -182,10 +182,11 @@ export async function updateExpenseStatusAction(
 
     if (error) {
       // Fallback para valores legados em português se houver constraint
-      const ptFallback: Record<'paid' | 'pending' | 'overdue', string> = {
+      const ptFallback: Record<'paid' | 'pending' | 'overdue' | 'cancelled', string> = {
         paid: 'paga',
         pending: 'pendente',
         overdue: 'vencida',
+        cancelled: 'cancelada',
       };
       await supabase
         .from('expenses')
@@ -225,8 +226,10 @@ export async function updateExpenseAction(
     const status =
       rawStatus === 'paga' || rawStatus === 'paid'
         ? 'paid'
-        : rawStatus === 'vencida' || rawStatus === 'overdue'
+        : rawStatus === 'vencida' || rawStatus === 'overdue' || rawStatus === 'atrasada'
         ? 'overdue'
+        : rawStatus === 'cancelada' || rawStatus === 'cancelled'
+        ? 'cancelled'
         : 'pending';
 
     const { error } = await supabase
@@ -243,7 +246,13 @@ export async function updateExpenseAction(
 
     if (error) {
       const ptFallback =
-        status === 'paid' ? 'paga' : status === 'overdue' ? 'vencida' : 'pendente';
+        status === 'paid'
+          ? 'paga'
+          : status === 'overdue'
+          ? 'vencida'
+          : status === 'cancelled'
+          ? 'cancelada'
+          : 'pendente';
       await supabase
         .from('expenses')
         .update({

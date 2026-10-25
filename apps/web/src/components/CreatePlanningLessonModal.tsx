@@ -1256,7 +1256,7 @@ export function CreatePlanningLessonModal({
                   onClick={() => executeSubmit('draft')}
                   className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
                 >
-                  {isPending ? 'Salvando...' : 'Salvar planejamento'}
+                  {isPending ? 'Salvando...' : 'Salvar rascunho'}
                 </button>
 
                 <button

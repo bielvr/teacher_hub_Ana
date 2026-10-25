@@ -23,6 +23,7 @@ interface ActivityInitialData {
   id: string;
   title: string;
   type?: string;
+  description?: string | null;
   content_markdown?: string | null;
   lesson_id?: string | null;
   metadata?: any;
@@ -67,6 +68,7 @@ export type ModularBlockType =
   | 'text_instruction'
   | 'open_question'
   | 'multiple_choice'
+  | 'true_false'
   | 'file_upload'
   | 'media'
   | 'external_link';
@@ -87,6 +89,184 @@ export interface ModularBlock {
 }
 
 const DEFAULT_TAGS = ['Prática', 'Revisão', 'Avaliação', 'Estudo livre'];
+
+function parseInitialBlocks(initialData: ActivityInitialData | null | undefined): ModularBlock[] {
+  if (!initialData) {
+    return [
+      {
+        id: 'block-init-1',
+        type: 'text_instruction',
+        title: 'Introdução e instruções',
+        contentMarkdown: 'Leia atentamente as orientações antes de responder às questões.',
+      },
+    ];
+  }
+
+  // 1. Tenta carregar de metadata.blocks
+  if (initialData.metadata?.blocks && Array.isArray(initialData.metadata.blocks) && initialData.metadata.blocks.length > 0) {
+    return initialData.metadata.blocks.map((b: any, idx: number): ModularBlock => {
+      if (b.type === 'multiple_choice' || b.type === 'multiple_select') {
+        const correctAnswers = b.correct_options || (b.answer_key ? [b.answer_key] : []);
+        const rawOptions = Array.isArray(b.options) ? b.options : [];
+        return {
+          id: b.id || `block-${idx}`,
+          type: 'multiple_choice',
+          title: 'Múltipla escolha',
+          prompt: b.prompt || b.title || '',
+          options: rawOptions.map((optItem: any, oIdx: number) => {
+            const optText = typeof optItem === 'string' ? optItem : optItem.text || `Opção ${String.fromCharCode(65 + oIdx)}`;
+            const isCorrect = typeof optItem === 'object' && optItem.isCorrect !== undefined
+              ? Boolean(optItem.isCorrect)
+              : correctAnswers.includes(optText);
+            return {
+              id: typeof optItem === 'object' && optItem.id ? optItem.id : `opt-${oIdx}-${Date.now()}`,
+              text: optText,
+              isCorrect,
+            };
+          }),
+        };
+      }
+      if (b.type === 'true_false') {
+        const isV = b.answer_key === 'Verdadeiro' || (b.correct_options || []).includes('Verdadeiro');
+        return {
+          id: b.id || `block-${idx}`,
+          type: 'true_false',
+          title: 'Verdadeiro ou Falso',
+          prompt: b.prompt || b.title || '',
+          options: [
+            { id: 'opt-v', text: 'Verdadeiro', isCorrect: isV },
+            { id: 'opt-f', text: 'Falso', isCorrect: !isV },
+          ],
+        };
+      }
+      if (b.kind === 'question') {
+        if (b.type === 'open_production_manual') {
+          return {
+            id: b.id || `block-${idx}`,
+            type: 'file_upload',
+            title: 'Anexar arquivo',
+            prompt: b.prompt || '',
+            fileInstructions: b.instructions || '',
+          };
+        }
+        return {
+          id: b.id || `block-${idx}`,
+          type: 'open_question',
+          title: 'Pergunta aberta',
+          prompt: b.prompt || '',
+        };
+      }
+      if (b.kind === 'resource') {
+        if (b.type === 'video' || b.type === 'audio') {
+          return {
+            id: b.id || `block-${idx}`,
+            type: 'media',
+            title: 'Áudio ou vídeo',
+            mediaType: b.type,
+            mediaUrl: b.url || '',
+          };
+        }
+        if (b.type === 'link') {
+          return {
+            id: b.id || `block-${idx}`,
+            type: 'external_link',
+            title: 'Link externo',
+            linkUrl: b.url || '',
+          };
+        }
+        return {
+          id: b.id || `block-${idx}`,
+          type: 'text_instruction',
+          title: 'Texto e instruções',
+          contentMarkdown: b.content_markdown || '',
+        };
+      }
+      return {
+        id: b.id || `block-${idx}`,
+        type: b.type || 'text_instruction',
+        title: b.title || 'Bloco',
+        contentMarkdown: b.contentMarkdown || b.content_markdown || '',
+        prompt: b.prompt || '',
+        options: b.options || [],
+      };
+    });
+  }
+
+  // 2. Fallback para metadata.items (questões gravadas no formato clássico)
+  if (initialData.metadata?.items && Array.isArray(initialData.metadata.items) && initialData.metadata.items.length > 0) {
+    const parsedItems: ModularBlock[] = initialData.metadata.items.map((it: any, idx: number): ModularBlock => {
+      if (it.type === 'multiple_choice' || it.type === 'multiple_select') {
+        const correctAnswers = it.correct_options || (it.answer_key ? [it.answer_key] : []);
+        const rawOptions = Array.isArray(it.options) ? it.options : [];
+        return {
+          id: it.id || `item-${idx}`,
+          type: 'multiple_choice',
+          title: 'Múltipla escolha',
+          prompt: it.prompt || '',
+          options: rawOptions.map((optItem: any, oIdx: number) => {
+            const optText = typeof optItem === 'string' ? optItem : optItem.text || `Opção ${String.fromCharCode(65 + oIdx)}`;
+            const isCorrect = typeof optItem === 'object' && optItem.isCorrect !== undefined
+              ? Boolean(optItem.isCorrect)
+              : correctAnswers.includes(optText);
+            return {
+              id: typeof optItem === 'object' && optItem.id ? optItem.id : `opt-${oIdx}`,
+              text: optText,
+              isCorrect,
+            };
+          }),
+        };
+      }
+      if (it.type === 'true_false') {
+        const isV = it.answer_key === 'Verdadeiro' || (it.correct_options || []).includes('Verdadeiro');
+        return {
+          id: it.id || `item-${idx}`,
+          type: 'true_false',
+          title: 'Verdadeiro ou Falso',
+          prompt: it.prompt || '',
+          options: [
+            { id: 'opt-v', text: 'Verdadeiro', isCorrect: isV },
+            { id: 'opt-f', text: 'Falso', isCorrect: !isV },
+          ],
+        };
+      }
+      if (it.type === 'open_production_manual') {
+        return {
+          id: it.id || `item-${idx}`,
+          type: 'file_upload',
+          title: 'Anexar arquivo',
+          prompt: it.prompt || '',
+          fileInstructions: it.instructions || '',
+        };
+      }
+      return {
+        id: it.id || `item-${idx}`,
+        type: 'open_question',
+        title: 'Pergunta aberta',
+        prompt: it.prompt || '',
+      };
+    });
+
+    if (initialData.content_markdown || initialData.description) {
+      parsedItems.unshift({
+        id: `block-intro-${Date.now()}`,
+        type: 'text_instruction',
+        title: 'Orientações da atividade',
+        contentMarkdown: initialData.content_markdown || initialData.description || '',
+      });
+    }
+
+    return parsedItems;
+  }
+
+  return [
+    {
+      id: 'block-init-1',
+      type: 'text_instruction',
+      title: 'Introdução e instruções',
+      contentMarkdown: initialData.content_markdown || 'Leia atentamente as orientações antes de responder às questões.',
+    },
+  ];
+}
 
 export function CreateActivityModal({
   tracks = [],
@@ -143,85 +323,41 @@ export function CreateActivityModal({
   const [isTagsOpen, setIsTagsOpen] = useState(false);
 
   // ETAPA 2: Blocos da Atividade
-  const [blocks, setBlocks] = useState<ModularBlock[]>(() => {
-    if (initialData?.metadata?.blocks && Array.isArray(initialData.metadata.blocks)) {
-      return initialData.metadata.blocks.map((b: any, idx: number): ModularBlock => {
-        if (b.type === 'multiple_choice') {
-          return {
-            id: b.id || `block-${idx}`,
-            type: 'multiple_choice',
-            title: b.title || 'Múltipla escolha',
-            prompt: b.prompt || '',
-            options: (b.options || []).map((optText: string, oIdx: number) => ({
-              id: `opt-${oIdx}`,
-              text: optText,
-              isCorrect: (b.correct_options || []).includes(optText) || b.answer_key === optText,
-            })),
-          };
-        }
-        if (b.kind === 'question') {
-          if (b.type === 'open_production_manual') {
-            return {
-              id: b.id || `block-${idx}`,
-              type: 'file_upload',
-              title: b.title || 'Anexar arquivo',
-              prompt: b.prompt || '',
-              fileInstructions: b.instructions || '',
-            };
-          }
-          return {
-            id: b.id || `block-${idx}`,
-            type: 'open_question',
-            title: b.title || 'Pergunta aberta',
-            prompt: b.prompt || '',
-          };
-        }
-        if (b.kind === 'resource') {
-          if (b.type === 'video' || b.type === 'audio') {
-            return {
-              id: b.id || `block-${idx}`,
-              type: 'media',
-              title: b.title || 'Áudio ou vídeo',
-              mediaType: b.type,
-              mediaUrl: b.url || '',
-            };
-          }
-          if (b.type === 'link') {
-            return {
-              id: b.id || `block-${idx}`,
-              type: 'external_link',
-              title: b.title || 'Link externo',
-              linkUrl: b.url || '',
-            };
-          }
-          return {
-            id: b.id || `block-${idx}`,
-            type: 'text_instruction',
-            title: b.title || 'Texto e instruções',
-            contentMarkdown: b.content_markdown || '',
-          };
-        }
-        return {
-          id: b.id || `block-${idx}`,
-          type: b.type || 'text_instruction',
-          title: b.title || 'Bloco',
-          contentMarkdown: b.contentMarkdown || b.content_markdown || '',
-          prompt: b.prompt || '',
-          options: b.options || [],
-        };
-      });
-    }
+  const [blocks, setBlocks] = useState<ModularBlock[]>(() => parseInitialBlocks(initialData));
 
-    // Default: 1 bloco de instrução inicial para começar com conforto
-    return [
-      {
-        id: 'block-init-1',
-        type: 'text_instruction',
-        title: 'Introdução e instruções',
-        contentMarkdown: 'Leia atentamente as orientações antes de responder às questões.',
-      },
-    ];
-  });
+  // Sincroniza campos quando initialData ou isOpen alternar
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setTitle(initialData.title || '');
+        setSendToType(initialData.metadata?.send_to || 'none');
+        setSelectedTargetId(initialData.metadata?.target_id || '');
+        setHasDueDate(Boolean(initialData.metadata?.due_date));
+        setDueDate(initialData.metadata?.due_date || '');
+        setInstructions(initialData.metadata?.instructions || initialData.content_markdown || '');
+        setTags(initialData.metadata?.tags && Array.isArray(initialData.metadata.tags) ? initialData.metadata.tags : ['Prática', 'Revisão']);
+        setBlocks(parseInitialBlocks(initialData));
+        setVisibility(initialData.metadata?.visibility === 'later' ? 'later' : 'now');
+        setRequiresSubmission(initialData.metadata?.requires_submission !== undefined ? Boolean(initialData.metadata.requires_submission) : true);
+        setRequiresCorrection(initialData.metadata?.requires_correction !== undefined ? Boolean(initialData.metadata.requires_correction) : !initialData.metadata?.no_correction_needed);
+        setAutoShowResults(initialData.metadata?.auto_show_results !== undefined ? Boolean(initialData.metadata.auto_show_results) : false);
+      } else {
+        setTitle('');
+        setSendToType('none');
+        setSelectedTargetId('');
+        setHasDueDate(false);
+        setDueDate('');
+        setInstructions('');
+        setTags(['Prática', 'Revisão']);
+        setBlocks(parseInitialBlocks(null));
+        setVisibility('now');
+        setRequiresSubmission(true);
+        setRequiresCorrection(true);
+        setAutoShowResults(false);
+      }
+      setActiveStep(1);
+    }
+  }, [isOpen, initialData]);
 
   // ETAPA 3: Entrega e Correção
   const [visibility, setVisibility] = useState<'now' | 'later'>(
@@ -343,6 +479,18 @@ export function CreateActivityModal({
             { id: 'opt-1', text: 'Alternativa A', isCorrect: true },
             { id: 'opt-2', text: 'Alternativa B', isCorrect: false },
             { id: 'opt-3', text: 'Alternativa C', isCorrect: false },
+          ],
+        };
+        break;
+      case 'true_false':
+        newBlock = {
+          id: newId,
+          type: 'true_false',
+          title: 'Verdadeiro ou Falso',
+          prompt: '',
+          options: [
+            { id: 'opt-v', text: 'Verdadeiro', isCorrect: true },
+            { id: 'opt-f', text: 'Falso', isCorrect: false },
           ],
         };
         break;
@@ -495,6 +643,18 @@ export function CreateActivityModal({
           answer_key: correctOpt,
         } as QuestionBlock;
       }
+      if (b.type === 'true_false') {
+        const correctOpt = (b.options || []).find((o) => o.isCorrect)?.text || 'Verdadeiro';
+        return {
+          id: b.id,
+          kind: 'question',
+          type: 'true_false',
+          prompt: b.prompt || b.title,
+          options: ['Verdadeiro', 'Falso'],
+          correct_options: [correctOpt],
+          answer_key: correctOpt,
+        } as QuestionBlock;
+      }
       if (b.type === 'open_question') {
         return {
           id: b.id,
@@ -586,7 +746,7 @@ export function CreateActivityModal({
     return found ? `Estudante: ${found.full_name}` : 'Estudantes selecionados';
   };
 
-  const hasMultipleChoiceBlocks = blocks.some((b) => b.type === 'multiple_choice');
+  const hasMultipleChoiceBlocks = blocks.some((b) => b.type === 'multiple_choice' || b.type === 'true_false');
 
   return (
     <>
@@ -1029,8 +1189,9 @@ export function CreateActivityModal({
                                 </span>
                                 <span className="text-xs font-bold text-[#2B2426]">
                                   {block.type === 'text_instruction' && '📝 Texto e instruções'}
-                                  {block.type === 'open_question' && '💬 Pergunta aberta'}
-                                  {block.type === 'multiple_choice' && '🔘 Múltipla escolha'}
+                                  {block.type === 'open_question' && `💬 Questão ${index + 1} (Resposta aberta)`}
+                                  {block.type === 'multiple_choice' && `🔘 Questão ${index + 1} (Múltipla escolha)`}
+                                  {block.type === 'true_false' && `⚖️ Questão ${index + 1} (Verdadeiro ou Falso)`}
                                   {block.type === 'file_upload' && '📎 Anexar arquivo'}
                                   {block.type === 'media' && '🎬 Áudio ou vídeo'}
                                   {block.type === 'external_link' && '🔗 Link externo'}
@@ -1309,6 +1470,12 @@ export function CreateActivityModal({
                             icon: '🔘',
                             title: 'Múltipla escolha',
                             desc: 'Crie uma pergunta com alternativas de resposta (com gabarito selecionável).',
+                          },
+                          {
+                            type: 'true_false' as const,
+                            icon: '⚖️',
+                            title: 'Verdadeiro ou Falso',
+                            desc: 'Afirmação com gabarito imediato de Verdadeiro (V) ou Falso (F).',
                           },
                           {
                             type: 'file_upload' as const,

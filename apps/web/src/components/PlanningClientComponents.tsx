@@ -714,7 +714,7 @@ export function PlanningLessonCard({
                   disabled={isPending}
                   className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
                 >
-                  {isPending ? 'Salvando...' : 'Salvar planejamento'}
+                  {isPending ? 'Salvando...' : 'Salvar rascunho'}
                 </button>
               </div>
             </div>
