@@ -12,7 +12,7 @@ import {
 export * from '../types/planning';
 export { CreatePlanningLessonModal } from './CreatePlanningLessonModal';
 
-import type { FlatLessonItem, PlanningTrackOption, ChecklistItem } from '../types/planning';
+import type { FlatLessonItem, PlanningTrackOption, ChecklistItem, TopicItem } from '../types/planning';
 
 interface PlanningLessonCardProps {
   lesson: FlatLessonItem;
@@ -47,10 +47,20 @@ export function PlanningLessonCard({
   );
   const [objectives, setObjectives] = useState(lesson.communicativeGoals || '');
   const [notes, setNotes] = useState(lesson.notes || '');
-  const [vocabulary, setVocabulary] = useState(lesson.vocabulary || '');
-  const [grammar, setGrammar] = useState(lesson.grammar || '');
+  const [topics, setTopics] = useState<TopicItem[]>(() => {
+    if (Array.isArray(lesson.topics)) {
+      return lesson.topics.map((t: any) => ({
+        id: t.id || `top-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        title: t.title || t.name || '',
+        description: t.description || (Array.isArray(t.items) ? t.items.join(', ') : ''),
+        name: t.title || t.name || '',
+      }));
+    }
+    return [];
+  });
   const [checklist, setChecklist] = useState<ChecklistItem[]>(lesson.checklist || []);
   const [newCheckItem, setNewCheckItem] = useState('');
+  const editContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTitle(lesson.title);
@@ -63,10 +73,46 @@ export function PlanningLessonCard({
     );
     setObjectives(lesson.communicativeGoals || '');
     setNotes(lesson.notes || '');
-    setVocabulary(lesson.vocabulary || '');
-    setGrammar(lesson.grammar || '');
+    if (Array.isArray(lesson.topics)) {
+      setTopics(
+        lesson.topics.map((t: any) => ({
+          id: t.id || `top-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          title: t.title || t.name || '',
+          description: t.description || (Array.isArray(t.items) ? t.items.join(', ') : ''),
+          name: t.title || t.name || '',
+        }))
+      );
+    } else {
+      setTopics([]);
+    }
     setChecklist(lesson.checklist || []);
   }, [lesson]);
+
+  useEffect(() => {
+    if (editOpen && editContentRef.current) {
+      editContentRef.current.scrollTop = 0;
+    }
+  }, [editOpen]);
+
+  const handleAddTopic = () => {
+    const newTopic: TopicItem = {
+      id: `top-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: '',
+      description: '',
+      name: '',
+    };
+    setTopics((prev) => [...prev, newTopic]);
+  };
+
+  const handleUpdateTopic = (id: string, field: 'title' | 'description', value: string) => {
+    setTopics((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, [field]: value, name: field === 'title' ? value : t.title } : t))
+    );
+  };
+
+  const handleRemoveTopic = (id: string) => {
+    setTopics((prev) => prev.filter((t) => t.id !== id));
+  };
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -91,8 +137,8 @@ export function PlanningLessonCard({
     },
     ready: {
       label: 'Pronta para usar',
-      badgeClass: 'bg-[#F0FDF4] text-[#198754] border-[#B9F5D0]',
-      dotClass: 'bg-[#198754]',
+      badgeClass: 'bg-[#F3E8EC] text-[#6C0F37] border-[#6C0F37]/30',
+      dotClass: 'bg-[#6C0F37]',
     },
   }[normalizedLessonStatus] || {
     label: 'Em preparação',
@@ -139,8 +185,7 @@ export function PlanningLessonCard({
     formData.append('preparation_status', prepStatus);
     formData.append('communicative_objectives', objectives);
     formData.append('notes', notes);
-    formData.append('vocabulary', vocabulary);
-    formData.append('grammar', grammar);
+    formData.append('topics', JSON.stringify(topics));
     formData.append('checklist', JSON.stringify(checklist));
 
     startTransition(async () => {
@@ -158,7 +203,7 @@ export function PlanningLessonCard({
     <>
       <div className="bg-white border border-[#E6E1D8] rounded-xl overflow-hidden shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between relative">
         {toastMsg && (
-          <div className="absolute inset-x-2 top-2 z-20 bg-[#198754] text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-md text-center animate-in fade-in">
+          <div className="absolute inset-x-2 top-2 z-20 bg-[#6C0F37] text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-md text-center animate-in fade-in">
             ✓ {toastMsg}
           </div>
         )}
@@ -218,7 +263,7 @@ export function PlanningLessonCard({
                         type="button"
                         disabled={isPending}
                         onClick={handleSendToMaterials}
-                        className="w-full text-left px-3 py-1.5 text-[11px] font-bold text-[#198754] hover:bg-[#F0FDF4] flex items-center gap-2 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 text-[11px] font-bold text-[#6C0F37] hover:bg-[#F3E8EC] flex items-center gap-2 cursor-pointer"
                       >
                         <span>📤</span>
                         <span>Enviar para Materiais Didáticos</span>
@@ -310,7 +355,7 @@ export function PlanningLessonCard({
               onClick={handleSendToMaterials}
               className={`w-full py-1.5 px-2 text-center text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs ${
                 lesson.publishedToMaterials
-                  ? 'bg-[#F0FDF4] text-[#198754] border border-[#B9F5D0] hover:bg-[#DCFCE7]'
+                  ? 'bg-[#FAF8F5] text-[#6C0F37] border border-[#E6E1D8] hover:bg-[#F3E8EC]'
                   : 'bg-[#6C0F37] text-white hover:bg-[#57102E]'
               }`}
             >
@@ -338,237 +383,341 @@ export function PlanningLessonCard({
       {/* Modal de Edição de Planejamento da Aula */}
       {editOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isPending) setEditOpen(false);
           }}
         >
-          <div className="bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-[#E6E1D8] flex items-center justify-between bg-[#FAF8F5]">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] bg-white px-2 py-0.5 rounded border border-[#E6E1D8]">
-                  {lesson.trackTitle} • {lesson.moduleTitle}
-                </span>
-                <h3 className="text-base font-bold text-[#6C0F37] mt-1">
-                  Planejamento de aula
-                </h3>
+          <div
+            className="w-[92vw] max-w-[1520px] h-[92vh] max-h-[92vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho estritamente fixo */}
+            <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
+              <div className="text-left space-y-0.5">
+                <h1 className="text-2xl font-bold text-[#6C0F37]">
+                  Criar planejamento de aula
+                </h1>
+                <p className="text-xs text-[#6F6865]">
+                  Planeje sua aula e, quando estiver pronta, envie-a para Materiais Didáticos.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditOpen(false)}
-                className="w-8 h-8 rounded-lg text-[#6F6865] hover:text-[#2B2426] hover:bg-white flex items-center justify-center font-bold cursor-pointer"
+                className="w-9 h-9 rounded-xl text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5] border border-transparent hover:border-[#E6E1D8] flex items-center justify-center font-semibold text-lg transition-colors cursor-pointer"
+                aria-label="Fechar"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleUpdatePlanning} className="p-6 overflow-y-auto space-y-4 flex-1">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  Título da aula
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-sm text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1.5">
-                  Status de preparação
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    {
-                      id: 'need_prep' as const,
-                      label: 'Preciso preparar',
-                      activeClass: 'bg-[#FFF5F5] border-[#DC3545] text-[#DC3545] font-bold',
-                    },
-                    {
-                      id: 'in_progress' as const,
-                      label: 'Em preparação',
-                      activeClass: 'bg-[#FFFDF0] border-[#B78103] text-[#B78103] font-bold',
-                    },
-                    {
-                      id: 'ready' as const,
-                      label: 'Pronta para usar',
-                      activeClass: 'bg-[#F0FDF4] border-[#198754] text-[#198754] font-bold',
-                    },
-                  ].map((st) => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => setPrepStatus(st.id)}
-                      className={`py-2 px-2.5 rounded-xl border text-xs transition cursor-pointer ${
-                        prepStatus === st.id
-                          ? st.activeClass
-                          : 'bg-white border-[#E6E1D8] text-[#6F6865]'
-                      }`}
-                    >
-                      {st.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  🎯 Objetivos pedagógicos da aula
-                </label>
-                <textarea
-                  rows={2}
-                  value={objectives}
-                  onChange={(e) => setObjectives(e.target.value)}
-                  placeholder="Metas de aprendizagem desta aula..."
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2B2426] mb-1">
-                  📝 Anotações & Rascunho do Professor
-                </label>
-                <textarea
-                  rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Anotações livres, sequência da aula, referências..."
-                  className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                />
-              </div>
-
-              {/* Conceitos-chave e Conteúdos trabalhados */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    💡 Conceitos-chave (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={vocabulary}
-                    onChange={(e) => setVocabulary(e.target.value)}
-                    placeholder="Ex: Teorema de Pitágoras, Revolução Francesa, Funções..."
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1">
-                    📚 Conteúdos trabalhados (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={grammar}
-                    onChange={(e) => setGrammar(e.target.value)}
-                    placeholder="Ex: Leitura crítica, fórmulas essenciais, exercícios..."
-                    className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-                  />
-                </div>
-              </div>
-
-              {/* Checklist */}
-              <div className="p-3 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#6C0F37]">
-                  ☑ Checklist de preparo
-                </label>
-                <div className="space-y-1.5">
-                  {checklist.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-[#E6E1D8] text-xs"
-                    >
-                      <label className="flex items-center gap-2 cursor-pointer flex-1">
-                        <input
-                          type="checkbox"
-                          checked={item.done}
-                          onChange={() =>
-                            setChecklist((prev) =>
-                              prev.map((c, i) => (i === idx ? { ...c, done: !c.done } : c))
-                            )
-                          }
-                          className="accent-[#6C0F37]"
-                        />
-                        <span className={item.done ? 'line-through text-[#6F6865]' : 'text-[#2B2426]'}>
-                          {item.text}
-                        </span>
+            {/* Contêiner com rolagem única */}
+            <div
+              ref={editContentRef}
+              className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth"
+            >
+              <form id="edit-planning-form" onSubmit={handleUpdatePlanning} className="space-y-6">
+                {/* Dados Básicos */}
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                        Título da aula
                       </label>
+                      <input
+                        type="text"
+                        required
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Ex: Introdução aos conceitos fundamentais"
+                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="block text-xs font-semibold text-[#6F6865] mb-2">
+                        Status de preparação:
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {[
+                          {
+                            id: 'need_prep' as const,
+                            label: 'Preciso preparar',
+                            dotClass: 'bg-[#DC3545]',
+                            activeClass:
+                              'bg-[#FFF5F5] border-[#DC3545] text-[#DC3545] ring-2 ring-[#DC3545]/20 font-bold',
+                            inactiveClass:
+                              'bg-white border-[#E6E1D8] text-[#6F6865] hover:bg-[#FFF5F5]/60 hover:text-[#DC3545]',
+                          },
+                          {
+                            id: 'in_progress' as const,
+                            label: 'Em preparação',
+                            dotClass: 'bg-[#B78103]',
+                            activeClass:
+                              'bg-[#FFFDF0] border-[#D7CE36] text-[#6C0F37] ring-2 ring-[#D7CE36]/30 font-bold',
+                            inactiveClass:
+                              'bg-white border-[#E6E1D8] text-[#6F6865] hover:bg-[#FFFDF0]/60 hover:text-[#6C0F37]',
+                          },
+                          {
+                            id: 'ready' as const,
+                            label: 'Pronta para usar',
+                            dotClass: 'bg-[#6C0F37]',
+                            activeClass:
+                              'bg-[#F3E8EC] border-[#6C0F37] text-[#6C0F37] ring-2 ring-[#6C0F37]/25 font-bold',
+                            inactiveClass:
+                              'bg-white border-[#E6E1D8] text-[#6F6865] hover:bg-[#F3E8EC]/50 hover:text-[#6C0F37]',
+                          },
+                        ].map((pill) => {
+                          const isSelected = prepStatus === pill.id;
+                          return (
+                            <button
+                              key={pill.id}
+                              type="button"
+                              onClick={() => setPrepStatus(pill.id)}
+                              className={`px-3.5 py-1.5 rounded-full border text-xs transition-all flex items-center gap-2 cursor-pointer shadow-2xs ${
+                                isSelected ? pill.activeClass : pill.inactiveClass
+                              }`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${pill.dotClass}`} />
+                              <span>{pill.label}</span>
+                              {isSelected && <span className="text-[10px]">✓</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Objetivos da Aula & Anotações */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-2.5">
+                    <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                      <span>🎯</span>
+                      <span>Objetivos da aula</span>
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={objectives}
+                      onChange={(e) => setObjectives(e.target.value)}
+                      placeholder="Metas de aprendizagem desta aula..."
+                      className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                    />
+                  </div>
+
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-2.5">
+                    <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                      <span>📝</span>
+                      <span>Anotações</span>
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Anotações livres, sequência da aula, referências..."
+                      className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                    />
+                  </div>
+                </div>
+
+                {/* Conteúdos Trabalhados (Tópicos Customizáveis) */}
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-left">
+                      <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                        <span>📚</span>
+                        <span>Conteúdos trabalhados</span>
+                      </label>
+                      <p className="text-xs text-[#6F6865] mt-0.5">
+                        Defina tópicos livremente para organizar os conceitos e temas da aula.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddTopic}
+                      className="px-3.5 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                    >
+                      + Adicionar tópico
+                    </button>
+                  </div>
+
+                  {topics.length === 0 ? (
+                    <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
+                      Nenhum tópico adicionado ainda.{' '}
                       <button
                         type="button"
-                        onClick={() => setChecklist((prev) => prev.filter((_, i) => i !== idx))}
-                        className="text-[#6F6865] hover:text-red-600 text-xs font-bold px-1 cursor-pointer"
+                        onClick={handleAddTopic}
+                        className="text-[#6C0F37] font-semibold underline cursor-pointer"
                       >
-                        ✕
-                      </button>
+                        Clique para adicionar um tópico
+                      </button>.
                     </div>
-                  ))}
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {topics.map((topic, tIdx) => (
+                        <div
+                          key={topic.id}
+                          className="p-4 bg-white border border-[#E6E1D8] rounded-xl shadow-2xs space-y-3 relative transition-all hover:border-[#6C0F37]/30"
+                        >
+                          <div className="flex items-center justify-between gap-2 border-b border-[#E6E1D8]/60 pb-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
+                              Tópico #{tIdx + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTopic(topic.id)}
+                              className="text-xs text-[#6F6865] hover:text-red-600 transition p-1 rounded cursor-pointer"
+                              title="Remover tópico"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-xs font-semibold text-[#2B2426] mb-1">
+                                Título do tópico
+                              </label>
+                              <input
+                                type="text"
+                                value={topic.title}
+                                onChange={(e) => handleUpdateTopic(topic.id, 'title', e.target.value)}
+                                placeholder="Título do tópico..."
+                                className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-[#2B2426] mb-1">
+                                Descrição
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={topic.description}
+                                onChange={(e) => handleUpdateTopic(topic.id, 'description', e.target.value)}
+                                placeholder="Descrição do conteúdo..."
+                                className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] resize-y"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newCheckItem}
-                    onChange={(e) => setNewCheckItem(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newCheckItem.trim()) {
-                        e.preventDefault();
-                        setChecklist((prev) => [
-                          ...prev,
-                          { text: newCheckItem.trim(), done: false },
-                        ]);
-                        setNewCheckItem('');
-                      }
-                    }}
-                    placeholder="Novo item do checklist..."
-                    className="flex-1 px-2.5 py-1 border border-[#E6E1D8] rounded-lg text-xs bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!newCheckItem.trim()) return;
-                      setChecklist((prev) => [
-                        ...prev,
-                        { text: newCheckItem.trim(), done: false },
-                      ]);
-                      setNewCheckItem('');
-                    }}
-                    className="px-2.5 py-1 bg-white border border-[#E6E1D8] text-[#6C0F37] text-xs font-semibold rounded-lg cursor-pointer"
-                  >
-                    + Item
-                  </button>
-                </div>
-              </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#E6E1D8]">
+                {/* Checklist Arejado */}
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                      <span>☑️</span>
+                      <span>Checklist de preparo</span>
+                    </label>
+                  </div>
+
+                  {checklist.length === 0 ? (
+                    <div className="text-center py-4 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/50 text-xs text-[#6F6865]">
+                      Nenhuma tarefa na checklist. Adicione tarefas abaixo.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-[#E6E1D8]/60">
+                      {checklist.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="py-2.5 flex items-center justify-between gap-3 px-2 rounded-lg hover:bg-[#FAF8F5]/60 transition-colors"
+                        >
+                          <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={item.done}
+                              onChange={() =>
+                                setChecklist((prev) =>
+                                  prev.map((c, i) => (i === idx ? { ...c, done: !c.done } : c))
+                                )
+                              }
+                              className="accent-[#6C0F37] w-4 h-4 rounded cursor-pointer shrink-0"
+                            />
+                            <span
+                              className={`text-xs select-none ${
+                                item.done ? 'line-through text-[#6F6865]/70' : 'text-[#2B2426] font-medium'
+                              }`}
+                            >
+                              {item.text}
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setChecklist((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-[#6F6865] hover:text-red-600 text-xs font-bold px-1.5 py-0.5 rounded cursor-pointer shrink-0"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2 border-t border-[#E6E1D8]">
+                    <input
+                      type="text"
+                      value={newCheckItem}
+                      onChange={(e) => setNewCheckItem(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newCheckItem.trim()) {
+                          e.preventDefault();
+                          setChecklist((prev) => [...prev, { text: newCheckItem.trim(), done: false }]);
+                          setNewCheckItem('');
+                        }
+                      }}
+                      placeholder="Adicionar tarefa ao checklist (pressione Enter)..."
+                      className="flex-1 px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newCheckItem.trim()) return;
+                        setChecklist((prev) => [...prev, { text: newCheckItem.trim(), done: false }]);
+                        setNewCheckItem('');
+                      }}
+                      className="px-4 py-2 bg-[#FAF8F5] border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs shrink-0"
+                    >
+                      + Adicionar
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Rodapé estritamente fixo */}
+            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex items-center justify-between gap-3 z-20">
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="px-4 py-2.5 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] bg-[#FAF8F5] hover:bg-[#E6E1D8]/50 border border-[#E6E1D8] rounded-xl transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+
+              <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   disabled={isPending}
                   onClick={handleSendToMaterials}
-                  className="px-3.5 py-2 text-xs font-bold text-[#198754] bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#B9F5D0] rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
                 >
-                  <span>📤</span>
                   <span>Enviar para Materiais Didáticos</span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-[#6F6865] hover:bg-[#FAF8F5] rounded-xl cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="px-5 py-2 text-xs font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl shadow-xs cursor-pointer"
-                  >
-                    {isPending ? 'Salvando...' : 'Salvar Planejamento'}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  form="edit-planning-form"
+                  disabled={isPending}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
+                >
+                  {isPending ? 'Salvando...' : 'Salvar planejamento'}
+                </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

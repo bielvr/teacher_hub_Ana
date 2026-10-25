@@ -64,8 +64,8 @@ export default async function ClassDetailsPage({
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
-  // Busca sessões agendadas da turma em group_sessions e live_sessions
-  const [groupSessionsRes, liveSessionsRes, activitiesRes] = await Promise.all([
+  // Busca sessões agendadas da turma em group_sessions e live_sessions, além das turmas da organização
+  const [groupSessionsRes, liveSessionsRes, activitiesRes, orgClassesRes] = await Promise.all([
     supabase
       .from('group_sessions')
       .select(`
@@ -100,6 +100,11 @@ export default async function ClassDetailsPage({
       .select('id, title, type, metadata')
       .eq('organization_id', effectiveOrgId)
       .limit(6),
+    supabase
+      .from('classes')
+      .select('id, name')
+      .eq('organization_id', effectiveOrgId)
+      .order('name', { ascending: true }),
   ]);
 
   const rawSessions: EditLessonRecordSession[] = [];
@@ -150,6 +155,7 @@ export default async function ClassDetailsPage({
       availableStudents={availableStudents}
       sessions={rawSessions}
       activities={activitiesRes.data || []}
+      orgClasses={orgClassesRes.data || []}
     />
   );
 }

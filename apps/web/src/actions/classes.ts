@@ -145,3 +145,53 @@ export async function assignTrackToClassOrStudentAction(formData: FormData) {
     return { success: false, error: err.message || 'Erro ao atribuir nível.' };
   }
 }
+
+export interface ClassMemberItem {
+  id: string;
+  name: string;
+  email?: string | null;
+  avatar_url?: string | null;
+}
+
+export async function getClassMembersAction(classId: string): Promise<{
+  success: boolean;
+  error?: string;
+  members: ClassMemberItem[];
+}> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('class_students')
+      .select(`
+        student_id,
+        student:student_id (
+          id,
+          profile_id,
+          profiles (
+            id,
+            full_name,
+            email,
+            avatar_url
+          )
+        )
+      `)
+      .eq('class_id', classId);
+
+    if (error) throw error;
+
+    const members: ClassMemberItem[] = (data || []).map((cs: any) => ({
+      id: cs.student?.id || cs.student_id,
+      name: cs.student?.profiles?.full_name || 'Estudante',
+      email: cs.student?.profiles?.email || null,
+      avatar_url: cs.student?.profiles?.avatar_url || null,
+    }));
+
+    return { success: true, members };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Erro ao carregar estudantes da turma.',
+      members: [],
+    };
+  }
+}

@@ -1016,6 +1016,16 @@ export async function updatePlanningLessonAction(
       // mantém existente
     }
 
+    let topics: any[] = existingMeta.topics || [];
+    const topicsRaw = (formData.get('topics') as string) || '';
+    if (topicsRaw) {
+      try {
+        topics = JSON.parse(topicsRaw);
+      } catch {
+        // mantém existente
+      }
+    }
+
     const status =
       preparation_status === 'ready'
         ? 'done'
@@ -1028,6 +1038,7 @@ export async function updatePlanningLessonAction(
       communicative_objectives,
       communicative_goals: communicative_objectives,
       notes,
+      topics,
       checklist,
       vocabulary,
       grammar,

@@ -21,6 +21,7 @@ interface ClassHubClientProps {
   availableStudents: AvailableStudentOption[];
   sessions: EditLessonRecordSession[];
   activities?: any[];
+  orgClasses?: { id: string; name: string }[];
 }
 
 type ClassTab = 'overview' | 'schedule' | 'content' | 'students' | 'notes';
@@ -31,6 +32,7 @@ export function ClassHubClient({
   availableStudents = [],
   sessions = [],
   activities = [],
+  orgClasses = [],
 }: ClassHubClientProps) {
   const [activeTab, setActiveTab] = useState<ClassTab>('overview');
 
@@ -102,8 +104,19 @@ export function ClassHubClient({
             />
             <ScheduleSessionModal
               orgId={organizationId}
-              classes={[{ id: classData.id, name: classData.name }]}
-              students={[]}
+              classes={
+                orgClasses && orgClasses.length > 0
+                  ? orgClasses
+                  : [{ id: classData.id, name: classData.name }]
+              }
+              students={availableStudents.map((s) => ({
+                id: s.memberId,
+                name: s.fullName,
+                email: s.email,
+              }))}
+              initialSessionType="group"
+              initialClassId={classData.id}
+              initialClassMembers={studentsList}
               triggerText="+ Gerar aulas"
             />
           </div>

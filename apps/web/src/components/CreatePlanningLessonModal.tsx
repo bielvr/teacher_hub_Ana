@@ -54,6 +54,9 @@ export function CreatePlanningLessonModal({
   const [errorMsg, setErrorMsg] = useState('');
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
+  // Ref do contêiner de rolagem único para garantir scrollTop = 0 ao abrir
+  const contentContainerRef = useRef<HTMLDivElement>(null);
+
   // 1. Imagem de Capa (opcional)
   const [coverUrl, setCoverUrl] = useState('');
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -70,24 +73,20 @@ export function CreatePlanningLessonModal({
   const [lessonType, setLessonType] = useState('');
   const [lessonTitle, setLessonTitle] = useState('');
 
-  // 3. Status de Preparação
+  // 3. Status de Preparação (sem tons de verde - paleta oficial Fikra)
   const [prepStatus, setPrepStatus] = useState<'need_prep' | 'in_progress' | 'ready'>('in_progress');
 
-  // 4. Objetivos Pedagógicos
+  // 4. Objetivos da Aula & Anotações
   const [objectives, setObjectives] = useState('');
+  const [notes, setNotes] = useState('');
 
-  // 5. Conteúdos Trabalhados (Inicia totalmente vazio - Multi-disciplinar)
+  // 5. Conteúdos Trabalhados (Tópicos customizáveis dinâmicos com Título e Descrição)
   const [topics, setTopics] = useState<TopicItem[]>([]);
-  const [newTopicName, setNewTopicName] = useState('');
-  const [isAddingTopic, setIsAddingTopic] = useState(false);
-  const [newItemsByTopic, setNewItemsByTopic] = useState<Record<string, string>>({});
-  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
-  const [editingTopicName, setEditingTopicName] = useState('');
 
-  // 6. Roteiro da Aula (Inicia vazio - botão + etapa e link sugestões)
+  // 6. Roteiro da Aula (opcional)
   const [timeline, setTimeline] = useState<TimelineStep[]>([]);
 
-  // 7. Materiais e Recursos
+  // 7. Materiais e Recursos (opcional)
   const [materials, setMaterials] = useState<MaterialResourceItem[]>([]);
   const [materialFilesMap, setMaterialFilesMap] = useState<Record<string, File>>({});
   const [showAddMaterial, setShowAddMaterial] = useState(false);
@@ -97,7 +96,7 @@ export function CreatePlanningLessonModal({
   const [materialSelectedFile, setMaterialSelectedFile] = useState<File | null>(null);
   const materialFileInputRef = useRef<HTMLInputElement>(null);
 
-  // 8. Checklist de Preparo (Inicia vazia - botão + item e link sugestões)
+  // 8. Checklist de Preparo (Arejado e sem caixas pesadas)
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
 
@@ -108,6 +107,15 @@ export function CreatePlanningLessonModal({
   useEffect(() => {
     setSelectedModuleId('');
   }, [selectedTrackId]);
+
+  // Ao abrir o modal, garante que a rolagem inicie sempre no topo (scrollTop = 0)
+  useEffect(() => {
+    if (isOpen) {
+      if (contentContainerRef.current) {
+        contentContainerRef.current.scrollTop = 0;
+      }
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -154,50 +162,25 @@ export function CreatePlanningLessonModal({
     if (coverFileInputRef.current) coverFileInputRef.current.value = '';
   };
 
-  // Funções de Tópicos
+  // Funções de Tópicos Customizáveis (Título do tópico + Descrição)
   const handleAddTopic = () => {
-    if (!newTopicName.trim()) return;
     const newTopic: TopicItem = {
-      id: `top-${Date.now()}`,
-      name: newTopicName.trim(),
-      items: [],
+      id: `top-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: '',
+      description: '',
+      name: '',
     };
     setTopics((prev) => [...prev, newTopic]);
-    setNewTopicName('');
-    setIsAddingTopic(false);
+  };
+
+  const handleUpdateTopic = (id: string, field: 'title' | 'description', value: string) => {
+    setTopics((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, [field]: value, name: field === 'title' ? value : t.title } : t))
+    );
   };
 
   const handleRemoveTopic = (id: string) => {
     setTopics((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const handleSaveTopicName = (id: string) => {
-    if (!editingTopicName.trim()) {
-      setEditingTopicId(null);
-      return;
-    }
-    setTopics((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, name: editingTopicName.trim() } : t))
-    );
-    setEditingTopicId(null);
-    setEditingTopicName('');
-  };
-
-  const handleAddItemToTopic = (topicId: string) => {
-    const text = (newItemsByTopic[topicId] || '').trim();
-    if (!text) return;
-    setTopics((prev) =>
-      prev.map((t) => (t.id === topicId ? { ...t, items: [...t.items, text] } : t))
-    );
-    setNewItemsByTopic((prev) => ({ ...prev, [topicId]: '' }));
-  };
-
-  const handleRemoveItemFromTopic = (topicId: string, itemIdx: number) => {
-    setTopics((prev) =>
-      prev.map((t) =>
-        t.id === topicId ? { ...t, items: t.items.filter((_, idx) => idx !== itemIdx) } : t
-      )
-    );
   };
 
   // Funções do Roteiro (Timeline)
@@ -294,7 +277,7 @@ export function CreatePlanningLessonModal({
     });
   };
 
-  // Funções de Checklist
+  // Funções de Checklist Arejado
   const handleToggleChecklistItem = (index: number) => {
     setChecklist((prev) =>
       prev.map((item, i) => (i === index ? { ...item, done: !item.done } : item))
@@ -329,6 +312,7 @@ export function CreatePlanningLessonModal({
     formData.append('lesson_type', lessonType.trim());
     formData.append('preparation_status', prepStatus);
     formData.append('communicative_objectives', objectives.trim());
+    formData.append('notes', notes.trim());
     formData.append('action_type', actionType);
     formData.append('send_to_materials', actionType === 'publish' ? 'true' : 'false');
 
@@ -362,7 +346,7 @@ export function CreatePlanningLessonModal({
         setSuccessToast(
           actionType === 'publish'
             ? 'Aula enviada com sucesso para Materiais didáticos!'
-            : 'Rascunho de planejamento salvo com sucesso!'
+            : 'Planejamento salvo com sucesso!'
         );
         setTimeout(() => {
           setIsOpen(false);
@@ -375,6 +359,7 @@ export function CreatePlanningLessonModal({
           setLessonType('');
           setLessonTitle('');
           setObjectives('');
+          setNotes('');
           setCoverUrl('');
           setCoverFile(null);
           setMaterials([]);
@@ -410,28 +395,25 @@ export function CreatePlanningLessonModal({
           }}
         >
           <div
-            className="w-[94vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
+            className="w-[92vw] max-w-[1520px] h-[92vh] max-h-[92vh] flex flex-col bg-white border border-[#E6E1D8] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Feedback de sucesso flutuante */}
+            {/* Feedback flutuante institucional Fikra */}
             {successToast && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#198754] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#6C0F37] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
                 <span>✓</span>
                 <span>{successToast}</span>
               </div>
             )}
 
-            {/* 1. CABEÇALHO FIXO NO TOPO */}
+            {/* 1. CABEÇALHO ESTRITAMENTE FIXO NO TOPO */}
             <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
-              <div className="text-left">
-                <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
-                  Planejamento
-                </span>
-                <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
-                  Planejamento de aula
+              <div className="text-left space-y-0.5">
+                <h1 className="text-2xl font-bold text-[#6C0F37]">
+                  Criar planejamento de aula
                 </h1>
-                <p className="text-xs text-[#6F6865] mt-0.5 text-left">
-                  Estruture os objetivos, conteúdos e materiais para conduzir a aula.
+                <p className="text-xs text-[#6F6865]">
+                  Planeje sua aula e, quando estiver pronta, envie-a para Materiais Didáticos.
                 </p>
               </div>
 
@@ -446,8 +428,11 @@ export function CreatePlanningLessonModal({
               </button>
             </div>
 
-            {/* 2. CORPO DO CONTEÚDO COM ROLAGEM EXCLUSIVA */}
-            <div className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth">
+            {/* 2. ROLAGEM ÚNICA RESTRITA AO CONTÊINER INTERNO (SEM SCROLLS CONCORRENTES) */}
+            <div
+              ref={contentContainerRef}
+              className="flex-1 overflow-y-auto p-6 bg-[#FAF8F5] space-y-6 scroll-smooth"
+            >
               {errorMsg && (
                 <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
                   <span>⚠️</span>
@@ -455,7 +440,7 @@ export function CreatePlanningLessonModal({
                 </div>
               )}
 
-              {/* 2.1 IMAGEM DE CAPA (LINHA DISCRETA) */}
+              {/* 2.1 IMAGEM DE CAPA (LINHA DISCRETA E COMPACTA) */}
               <div className="p-3.5 bg-white border border-[#E6E1D8] rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
                 <div className="flex items-center gap-3">
                   {coverUrl ? (
@@ -565,10 +550,10 @@ export function CreatePlanningLessonModal({
                 </div>
               </div>
 
-              {/* 2.2 DADOS BÁSICOS EM LINHA ÚNICA / GRADE HORIZONTAL EQUILIBRADA */}
+              {/* 2.2 DADOS BÁSICOS EM GRADE HORIZONTAL EQUILIBRADA (OPCIONALIDADE ESTRITA) */}
               <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Nível (opcional) - Início em branco com placeholder */}
+                  {/* Nível (opcional) */}
                   <div>
                     <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
                       Nível (opcional)
@@ -598,7 +583,7 @@ export function CreatePlanningLessonModal({
                     )}
                   </div>
 
-                  {/* Unidade (opcional) - Início em branco com placeholder */}
+                  {/* Unidade (opcional) - Desabilitada se nível não selecionado */}
                   <div>
                     <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
                       Unidade (opcional)
@@ -669,7 +654,7 @@ export function CreatePlanningLessonModal({
                   </div>
                 </div>
 
-                {/* Status de Preparação - Pílulas Visuais Lado a Lado */}
+                {/* Status de Preparação - Pílulas com paleta oficial Fikra (sem tons de verde) */}
                 <div className="pt-3 border-t border-[#E6E1D8]">
                   <span className="block text-xs font-semibold text-[#6F6865] mb-2">
                     Status de preparação:
@@ -688,20 +673,20 @@ export function CreatePlanningLessonModal({
                       {
                         id: 'in_progress' as const,
                         label: 'Em preparação',
+                        dotClass: 'bg-[#B78103]',
+                        activeClass:
+                          'bg-[#FFFDF0] border-[#D7CE36] text-[#6C0F37] ring-2 ring-[#D7CE36]/30 font-bold',
+                        inactiveClass:
+                          'bg-white border-[#E6E1D8] text-[#6F6865] hover:bg-[#FFFDF0]/60 hover:text-[#6C0F37]',
+                      },
+                      {
+                        id: 'ready' as const,
+                        label: 'Pronta para usar',
                         dotClass: 'bg-[#6C0F37]',
                         activeClass:
                           'bg-[#F3E8EC] border-[#6C0F37] text-[#6C0F37] ring-2 ring-[#6C0F37]/25 font-bold',
                         inactiveClass:
                           'bg-white border-[#E6E1D8] text-[#6F6865] hover:bg-[#F3E8EC]/50 hover:text-[#6C0F37]',
-                      },
-                      {
-                        id: 'ready' as const,
-                        label: 'Pronta para usar',
-                        dotClass: 'bg-[#198754]',
-                        activeClass:
-                          'bg-[#F0FDF4] border-[#198754] text-[#198754] ring-2 ring-[#198754]/20 font-bold',
-                        inactiveClass:
-                          'bg-white border-[#E6E1D8] text-[#6F6865] hover:bg-[#F0FDF4]/60 hover:text-[#198754]',
                       },
                     ].map((pill) => {
                       const isSelected = prepStatus === pill.id;
@@ -724,27 +709,48 @@ export function CreatePlanningLessonModal({
                 </div>
               </div>
 
-              {/* 2.3 OBJETIVOS DA AULA (BLOCO SIMPLES) */}
-              <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-2.5">
-                <div className="text-left">
-                  <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                    <span>🎯</span>
-                    <span>Objetivos da aula</span>
-                  </label>
-                  <p className="text-xs text-[#6F6865] mt-0.5">
-                    Registre, se quiser, o que a aula pretende desenvolver.
-                  </p>
+              {/* 2.3 OBJETIVOS DA AULA & ANOTAÇÕES (CAMPOS LIVRES E RENOMEADOS) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-2.5">
+                  <div className="text-left">
+                    <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                      <span>🎯</span>
+                      <span>Objetivos da aula</span>
+                    </label>
+                    <p className="text-xs text-[#6F6865] mt-0.5">
+                      Registre as metas que a aula pretende desenvolver.
+                    </p>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={objectives}
+                    onChange={(e) => setObjectives(e.target.value)}
+                    placeholder="Metas de aprendizagem e competências a serem desenvolvidas..."
+                    className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                  />
                 </div>
-                <textarea
-                  rows={3}
-                  value={objectives}
-                  onChange={(e) => setObjectives(e.target.value)}
-                  placeholder="Ex: Compreender conceitos-chave, aplicar procedimentos em exercícios e discutir soluções..."
-                  className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
-                />
+
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-2.5">
+                  <div className="text-left">
+                    <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                      <span>📝</span>
+                      <span>Anotações</span>
+                    </label>
+                    <p className="text-xs text-[#6F6865] mt-0.5">
+                      Rascunhos, lembretes particulares e orientações do professor.
+                    </p>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Anotações livres sobre a dinâmica da aula, referências ou observações..."
+                    className="w-full p-3.5 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition leading-relaxed resize-y"
+                  />
+                </div>
               </div>
 
-              {/* 2.4 CONTEÚDOS TRABALHADOS (MULTI-DISCIPLINAR: INICIA VAZIO, CARDS DISCRETOS) */}
+              {/* 2.4 CONTEÚDOS TRABALHADOS (TÓPICOS CUSTOMIZÁVEIS: TÍTULO DO TÓPICO + DESCRIÇÃO) */}
               <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-left">
@@ -753,182 +759,77 @@ export function CreatePlanningLessonModal({
                       <span>Conteúdos trabalhados</span>
                     </label>
                     <p className="text-xs text-[#6F6865] mt-0.5">
-                      Defina tópicos livremente para organizar os conceitos, procedimentos e habilidades da aula.
+                      Crie tópicos personalizados dinâmicos para organizar os conteúdos, procedimentos e temas da aula.
                     </p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => setIsAddingTopic(true)}
-                    className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                    onClick={handleAddTopic}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
                   >
                     + Adicionar tópico
                   </button>
                 </div>
 
-                {/* Formulário para novo tópico */}
-                {isAddingTopic && (
-                  <div className="p-3 bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl space-y-2 animate-in fade-in">
-                    <label className="block text-[11px] font-bold text-[#6C0F37] uppercase">
-                      Nome do novo tópico:
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newTopicName}
-                        onChange={(e) => setNewTopicName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddTopic();
-                          }
-                        }}
-                        placeholder="Ex: Conceitos fundamentais, Fórmulas, Procedimentos..."
-                        className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddTopic}
-                        className="px-3 py-1.5 bg-[#6C0F37] text-white text-xs font-semibold rounded-lg hover:bg-[#57102E] cursor-pointer"
-                      >
-                        Criar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAddingTopic(false);
-                          setNewTopicName('');
-                        }}
-                        className="px-2.5 py-1.5 text-xs text-[#6F6865] hover:text-[#2B2426] cursor-pointer"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Exibição dos Tópicos em Cards Discretos e Compactos */}
                 {topics.length === 0 ? (
                   <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
-                    Nenhum tópico adicionado ainda. Clique em &quot;+ Adicionar tópico&quot; acima para começar.
+                    Nenhum tópico adicionado ainda.{' '}
+                    <button
+                      type="button"
+                      onClick={handleAddTopic}
+                      className="text-[#6C0F37] font-semibold underline cursor-pointer"
+                    >
+                      Clique em &quot;+ Adicionar tópico&quot;
+                    </button>{' '}
+                    para criar um card livre com título e descrição.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {topics.map((topic) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {topics.map((topic, tIdx) => (
                       <div
                         key={topic.id}
-                        className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2.5 flex flex-col justify-between"
+                        className="p-4 bg-white border border-[#E6E1D8] rounded-xl shadow-2xs space-y-3 relative group transition-all hover:border-[#6C0F37]/30"
                       >
-                        <div className="space-y-2">
-                          {/* Topo do Card: Nome e Ações */}
-                          <div className="flex items-center justify-between gap-2">
-                            {editingTopicId === topic.id ? (
-                              <div className="flex items-center gap-1.5 flex-1">
-                                <input
-                                  type="text"
-                                  value={editingTopicName}
-                                  onChange={(e) => setEditingTopicName(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleSaveTopicName(topic.id);
-                                    }
-                                  }}
-                                  className="px-2 py-0.5 text-xs border border-[#6C0F37] rounded bg-white flex-1 focus:outline-none"
-                                  autoFocus
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveTopicName(topic.id)}
-                                  className="px-2 py-0.5 bg-[#6C0F37] text-white text-[10px] font-bold rounded cursor-pointer"
-                                >
-                                  OK
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <span className="text-xs font-bold text-[#6C0F37] truncate">
-                                  {topic.name}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingTopicId(topic.id);
-                                    setEditingTopicName(topic.name);
-                                  }}
-                                  className="text-[10px] text-[#6F6865] hover:text-[#6C0F37] underline cursor-pointer shrink-0"
-                                  title="Renomear tópico"
-                                >
-                                  Editar
-                                </button>
-                              </div>
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveTopic(topic.id)}
-                              className="text-xs text-[#6F6865] hover:text-red-600 font-bold px-1 rounded cursor-pointer shrink-0"
-                              title="Excluir tópico"
-                            >
-                              ✕
-                            </button>
-                          </div>
-
-                          {/* Lista de Itens do Tópico em Tags/Pílulas */}
-                          <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                            {topic.items.length === 0 ? (
-                              <span className="text-[11px] text-[#6F6865]/60 italic">
-                                Sem itens adicionados
-                              </span>
-                            ) : (
-                              topic.items.map((item, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white border border-[#E6E1D8] text-[#2B2426] text-[11px] rounded-lg shadow-2xs"
-                                >
-                                  <span>{item}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveItemFromTopic(topic.id, idx)}
-                                    className="text-[#6F6865] hover:text-red-600 font-bold text-[10px] cursor-pointer"
-                                    title="Remover item"
-                                  >
-                                    ✕
-                                  </button>
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Input Inline para Adicionar Item ao Tópico */}
-                        <div className="flex gap-1.5 pt-2 border-t border-[#E6E1D8]">
-                          <input
-                            type="text"
-                            value={newItemsByTopic[topic.id] || ''}
-                            onChange={(e) =>
-                              setNewItemsByTopic((prev) => ({
-                                ...prev,
-                                [topic.id]: e.target.value,
-                              }))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleAddItemToTopic(topic.id);
-                              }
-                            }}
-                            placeholder="+ Item (Enter)..."
-                            className="flex-1 px-2 py-1 text-xs border border-[#E6E1D8] rounded-lg bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                          />
+                        <div className="flex items-center justify-between gap-2 border-b border-[#E6E1D8]/60 pb-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C0F37]">
+                            Tópico #{tIdx + 1}
+                          </span>
                           <button
                             type="button"
-                            onClick={() => handleAddItemToTopic(topic.id)}
-                            className="px-2 py-1 text-xs font-semibold bg-white border border-[#E6E1D8] hover:bg-[#FAF8F5] text-[#6C0F37] rounded-lg cursor-pointer shrink-0"
+                            onClick={() => handleRemoveTopic(topic.id)}
+                            className="text-xs text-[#6F6865] hover:text-red-600 transition p-1 rounded cursor-pointer"
+                            title="Remover este tópico"
                           >
-                            +
+                            ✕
                           </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#2B2426] mb-1">
+                              Título do tópico
+                            </label>
+                            <input
+                              type="text"
+                              value={topic.title}
+                              onChange={(e) => handleUpdateTopic(topic.id, 'title', e.target.value)}
+                              placeholder="Ex: Teorema de Pitágoras, Vocabulário essencial..."
+                              className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#2B2426] mb-1">
+                              Descrição
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={topic.description}
+                              onChange={(e) => handleUpdateTopic(topic.id, 'description', e.target.value)}
+                              placeholder="Breve explicação dos pontos ou procedimentos a serem abordados..."
+                              className="w-full px-3 py-1.5 border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6C0F37] resize-y"
+                            />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -936,7 +837,7 @@ export function CreatePlanningLessonModal({
                 )}
               </div>
 
-              {/* 2.5 ROTEIRO DA AULA (OPCIONAL: INICIA VAZIO, COM BOTÃO + ETAPA E LINK SUGESTÕES) */}
+              {/* 2.5 ROTEIRO DA AULA (OPCIONAL: SEM ROLAGEM DUPLA) */}
               <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-left">
@@ -956,7 +857,7 @@ export function CreatePlanningLessonModal({
                         onClick={handleLoadTimelineSuggestions}
                         className="text-xs text-[#6C0F37] hover:underline font-medium cursor-pointer"
                       >
-                        Adicionar sugestões
+                        Carregar sugestões
                       </button>
                     )}
                     <button
@@ -978,18 +879,18 @@ export function CreatePlanningLessonModal({
                       className="text-[#6C0F37] font-semibold underline cursor-pointer"
                     >
                       Clique para adicionar uma etapa
-                    </button>
-                    {' '}ou{' '}
+                    </button>{' '}
+                    ou{' '}
                     <button
                       type="button"
                       onClick={handleLoadTimelineSuggestions}
                       className="text-[#6C0F37] font-semibold underline cursor-pointer"
                     >
-                      carregar sugestões padrão
+                      carregue sugestões padrão
                     </button>.
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                  <div className="space-y-3">
                     {timeline.map((step, index) => (
                       <div
                         key={step.id}
@@ -1011,7 +912,6 @@ export function CreatePlanningLessonModal({
                             />
                           </div>
 
-                          {/* Duração em minutos */}
                           <div className="flex items-center gap-1 shrink-0">
                             <input
                               type="number"
@@ -1031,7 +931,6 @@ export function CreatePlanningLessonModal({
                             <span className="text-xs font-medium text-[#6F6865]">min</span>
                           </div>
 
-                          {/* Ações: subir, descer, excluir */}
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
@@ -1062,7 +961,6 @@ export function CreatePlanningLessonModal({
                           </div>
                         </div>
 
-                        {/* Descrição / Orientações pedagógicas da etapa */}
                         <textarea
                           rows={2}
                           value={step.description || ''}
@@ -1078,7 +976,7 @@ export function CreatePlanningLessonModal({
                 )}
               </div>
 
-              {/* 2.6 MATERIAIS E RECURSOS (OPCIONAL) */}
+              {/* 2.6 MATERIAIS E RECURSOS (OPCIONAL: SEM ROLAGEM DUPLA) */}
               <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-left">
@@ -1100,7 +998,6 @@ export function CreatePlanningLessonModal({
                   </button>
                 </div>
 
-                {/* Formulário para Anexar Material */}
                 {showAddMaterial && (
                   <div className="p-4 bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl space-y-3 animate-in fade-in">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1193,8 +1090,7 @@ export function CreatePlanningLessonModal({
                   </div>
                 )}
 
-                {/* Lista de Materiais e Recursos */}
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {materials.length === 0 ? (
                     <div className="text-center py-4 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
                       Nenhum material ou link anexado ainda.
@@ -1240,7 +1136,7 @@ export function CreatePlanningLessonModal({
                 </div>
               </div>
 
-              {/* 2.7 CHECKLIST DE PREPARO (OPCIONAL: INICIA VAZIA, COM BOTÃO + ITEM E LINK SUGESTÕES) */}
+              {/* 2.7 CHECKLIST AREJADO (LINHAS LEVES, SEM CAIXAS PESADAS, SEM TONS DE VERDE) */}
               <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-left">
@@ -1249,7 +1145,7 @@ export function CreatePlanningLessonModal({
                       <span>Checklist de preparo</span>
                     </label>
                     <p className="text-xs text-[#6F6865] mt-0.5">
-                      Itens de verificação rápida para garantir que tudo está pronto antes da aula.
+                      Itens de verificação rápida para orientar o preparo antes da aula.
                     </p>
                   </div>
 
@@ -1257,37 +1153,33 @@ export function CreatePlanningLessonModal({
                     <button
                       type="button"
                       onClick={handleLoadChecklistSuggestions}
-                      className="text-xs text-[#6C0F37] hover:underline font-medium cursor-pointer"
+                      className="text-xs text-[#6C0F37] hover:underline font-semibold cursor-pointer"
                     >
-                      Adicionar sugestões
+                      + Carregar sugestões padrão
                     </button>
                   )}
                 </div>
 
                 {checklist.length === 0 ? (
-                  <div className="text-center py-4 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
-                    Nenhum item na checklist.{' '}
+                  <div className="text-center py-5 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/50 text-xs text-[#6F6865]">
+                    Nenhuma tarefa na checklist.{' '}
                     <button
                       type="button"
                       onClick={handleLoadChecklistSuggestions}
                       className="text-[#6C0F37] font-semibold underline cursor-pointer"
                     >
-                      Adicionar sugestões
+                      Carregar sugestões
                     </button>{' '}
-                    ou crie seus próprios itens abaixo.
+                    ou digite uma nova tarefa abaixo.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="divide-y divide-[#E6E1D8]/60">
                     {checklist.map((item, idx) => (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition ${
-                          item.done
-                            ? 'bg-[#F0FDF4] border-[#B9F5D0] text-[#198754]'
-                            : 'bg-[#FAF8F5] border-[#E6E1D8] text-[#2B2426]'
-                        }`}
+                        className="py-2.5 flex items-center justify-between gap-3 group transition-colors hover:bg-[#FAF8F5]/60 px-2 rounded-lg"
                       >
-                        <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                        <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
                           <input
                             type="checkbox"
                             checked={item.done}
@@ -1295,8 +1187,10 @@ export function CreatePlanningLessonModal({
                             className="accent-[#6C0F37] w-4 h-4 rounded cursor-pointer shrink-0"
                           />
                           <span
-                            className={`text-xs select-none truncate ${
-                              item.done ? 'line-through text-[#6F6865]' : 'font-medium'
+                            className={`text-xs select-none transition-all ${
+                              item.done
+                                ? 'line-through text-[#6F6865]/70'
+                                : 'text-[#2B2426] font-medium'
                             }`}
                           >
                             {item.text}
@@ -1306,8 +1200,8 @@ export function CreatePlanningLessonModal({
                         <button
                           type="button"
                           onClick={() => handleRemoveChecklistItem(idx)}
-                          className="text-[#6F6865] hover:text-red-600 text-xs font-bold px-1 cursor-pointer shrink-0"
-                          title="Remover item"
+                          className="text-[#6F6865] hover:text-red-600 text-xs font-bold px-1.5 py-0.5 rounded opacity-60 group-hover:opacity-100 transition cursor-pointer shrink-0"
+                          title="Remover tarefa"
                         >
                           ✕
                         </button>
@@ -1316,8 +1210,8 @@ export function CreatePlanningLessonModal({
                   </div>
                 )}
 
-                {/* Input para adicionar item */}
-                <div className="flex gap-2 pt-1 border-t border-[#E6E1D8]">
+                {/* Input arejado para nova tarefa */}
+                <div className="flex gap-2 pt-2 border-t border-[#E6E1D8]">
                   <input
                     type="text"
                     value={newCheckItem}
@@ -1328,13 +1222,13 @@ export function CreatePlanningLessonModal({
                         handleAddChecklistItem();
                       }
                     }}
-                    placeholder="Adicionar tarefa ao checklist (Enter)..."
-                    className="flex-1 px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                    placeholder="Adicionar tarefa ao checklist (pressione Enter)..."
+                    className="flex-1 px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
                   />
                   <button
                     type="button"
                     onClick={handleAddChecklistItem}
-                    className="px-3.5 py-1.5 bg-[#FAF8F5] border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs"
+                    className="px-4 py-2 bg-[#FAF8F5] border border-[#E6E1D8] hover:bg-[#F3E8EC] text-[#6C0F37] text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs shrink-0"
                   >
                     + Adicionar
                   </button>
@@ -1342,9 +1236,9 @@ export function CreatePlanningLessonModal({
               </div>
             </div>
 
-            {/* 3. RODAPÉ FIXO NA BASE */}
-            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex justify-end gap-3 z-20">
-              {/* Botão Cancelar */}
+            {/* 3. RODAPÉ FIXO NA BASE COM IDENTIDADE OFICIAL DA FIKRA */}
+            <div className="shrink-0 border-t border-[#E6E1D8] p-4 bg-white flex items-center justify-between gap-3 z-20">
+              {/* À esquerda: Cancelar (neutro) */}
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
@@ -1354,28 +1248,29 @@ export function CreatePlanningLessonModal({
                 Cancelar
               </button>
 
-              {/* Salvar Rascunho */}
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => executeSubmit('draft')}
-                className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
-              >
-                {isPending ? 'Salvando...' : 'Salvar rascunho'}
-              </button>
+              {/* À direita: Salvar planejamento (secundário) e Enviar para Materiais Didáticos (destaque primário) */}
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => executeSubmit('draft')}
+                  className="px-4 py-2.5 text-xs font-semibold text-[#6C0F37] bg-white hover:bg-[#FAF8F5] border border-[#6C0F37]/30 rounded-xl transition shadow-2xs cursor-pointer disabled:opacity-50"
+                >
+                  {isPending ? 'Salvando...' : 'Salvar planejamento'}
+                </button>
 
-              {/* Enviar para Materiais Didáticos */}
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => executeSubmit('publish')}
-                className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
-              >
-                <span>📤</span>
-                <span>
-                  {isPending ? 'Processando envio...' : 'Enviar para materiais didáticos'}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => executeSubmit('publish')}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md active:scale-[0.98]"
+                >
+                  <span>📤</span>
+                  <span>
+                    {isPending ? 'Processando envio...' : 'Enviar para Materiais Didáticos'}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

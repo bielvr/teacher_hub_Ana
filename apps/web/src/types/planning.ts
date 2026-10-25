@@ -1,7 +1,9 @@
 export interface TopicItem {
   id: string;
-  name: string;
-  items: string[];
+  title: string;
+  description: string;
+  name?: string;
+  items?: string[];
 }
 
 export interface TimelineStep {

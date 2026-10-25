@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { scheduleSessionAction } from '../actions/calendar';
+import { getClassMembersAction, ClassMemberItem } from '../actions/classes';
 import {
   calculateRecurringSchedule,
   RecurringDateItem,
@@ -24,12 +25,18 @@ export interface StudentOption {
   default_meet_url?: string | null;
 }
 
+export type ClassMemberSummary = ClassMemberItem;
+
 interface ScheduleSessionModalProps {
   orgId: string;
   classes: ClassOption[];
   students?: StudentOption[];
   existingSessions?: any[];
   triggerText?: string;
+  initialSessionType?: 'individual' | 'group';
+  initialClassId?: string;
+  initialClassMembers?: ClassMemberSummary[];
+  lockClass?: boolean;
 }
 
 export type EventType = 'regular' | 'replacement' | 'holiday' | 'vacation';
@@ -50,6 +57,10 @@ export function ScheduleSessionModal({
   students = [],
   existingSessions = [],
   triggerText = '+ Gerar aulas',
+  initialSessionType,
+  initialClassId,
+  initialClassMembers = [],
+  lockClass = false,
 }: ScheduleSessionModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -61,10 +72,53 @@ export function ScheduleSessionModal({
   // 1. Tipo de Evento (4 opções)
   const [eventType, setEventType] = useState<EventType>('regular');
 
-  // 2. Destinatário: Inicia VAZIO (sem pré-seleção)
-  const [sessionType, setSessionType] = useState<'individual' | 'group'>('individual');
+  // 2. Destinatário: Pré-hidratado quando fornecido (Zero Delay)
+  const [sessionType, setSessionType] = useState<'individual' | 'group'>(
+    initialSessionType || (initialClassId ? 'group' : 'individual')
+  );
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedClassId, setSelectedClassId] = useState<string>(initialClassId || '');
+  const [classMembers, setClassMembers] = useState<ClassMemberSummary[]>(
+    initialClassMembers || []
+  );
+  const [isPendingMembers, startTransitionMembers] = useTransition();
+
+  useEffect(() => {
+    if (initialClassId) {
+      setSelectedClassId(initialClassId);
+      setSessionType('group');
+    }
+    if (initialClassMembers && initialClassMembers.length > 0) {
+      setClassMembers(initialClassMembers);
+    }
+  }, [initialClassId, initialClassMembers]);
+
+  const handleClassChange = (newClassId: string) => {
+    setSelectedClassId(newClassId);
+    if (!newClassId) {
+      setClassMembers([]);
+      return;
+    }
+    if (newClassId === initialClassId && initialClassMembers && initialClassMembers.length > 0) {
+      setClassMembers(initialClassMembers);
+      return;
+    }
+    startTransitionMembers(async () => {
+      const res = await getClassMembersAction(newClassId);
+      if (res.success) {
+        setClassMembers(res.members);
+      } else {
+        setClassMembers([]);
+      }
+    });
+  };
+
+  const getInitials = (name: string) => {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'E';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   // 3. Título e Campos Básicos (Aulas / Reposições)
   const [title, setTitle] = useState('');
@@ -283,9 +337,11 @@ export function ScheduleSessionModal({
         setIsOpen(false);
         setSuccessToast(null);
         setLoading(false);
-        // Reseta destinatário para o padrão vazio
+        // Reseta destinatário
         setSelectedStudentId('');
-        setSelectedClassId('');
+        setSelectedClassId(initialClassId || '');
+        setSessionType(initialSessionType || (initialClassId ? 'group' : 'individual'));
+        setClassMembers(initialClassMembers || []);
         setTitle('');
         setPrivateNotes('');
         setMeetUrl('');
@@ -307,6 +363,13 @@ export function ScheduleSessionModal({
           setIsOpen(true);
           setErrorMessage(null);
           setSuccessToast(null);
+          if (initialClassId) {
+            setSelectedClassId(initialClassId);
+            setSessionType('group');
+            if (initialClassMembers && initialClassMembers.length > 0) {
+              setClassMembers(initialClassMembers);
+            }
+          }
         }}
         className="px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5 hover:shadow-md active:scale-[0.98]"
       >
@@ -525,33 +588,98 @@ export function ScheduleSessionModal({
                         ))}
                       </select>
                       {students.length === 0 && (
-                        <p className="text-[11px] text-amber-700 mt-1">
-                          Nenhum estudante cadastrado nesta organização.
+                        <p className="text-[11px] text-[#6F6865] italic mt-1">
+                          Nenhum estudante disponível para agendamento individual.
                         </p>
                       )}
                     </div>
                   ) : (
-                    <div className="pt-1">
-                      <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
-                        Selecione a turma <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={selectedClassId}
-                        onChange={(e) => setSelectedClassId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
-                        required
-                      >
-                        <option value="">Selecionar turma...</option>
-                        {classes.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                      {classes.length === 0 && (
-                        <p className="text-[11px] text-amber-700 mt-1">
-                          Nenhuma turma cadastrada nesta organização.
-                        </p>
+                    <div className="pt-1 space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#2B2426] mb-1.5">
+                          Selecione a turma <span className="text-red-500">*</span>
+                        </label>
+                        {lockClass && selectedClassId ? (
+                          <div className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-[#FAF8F5] flex items-center justify-between font-bold">
+                            <span>{classes.find((c) => c.id === selectedClassId)?.name || 'Turma Selecionada'}</span>
+                            <span className="text-[10px] font-bold text-[#6C0F37] bg-white px-2 py-0.5 rounded border border-[#E6E1D8]">
+                              Turma atual
+                            </span>
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedClassId}
+                            onChange={(e) => handleClassChange(e.target.value)}
+                            className="w-full px-3.5 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] bg-white focus:outline-none focus:ring-2 focus:ring-[#6C0F37] cursor-pointer"
+                            required
+                          >
+                            <option value="">Selecionar turma...</option>
+                            {classes.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {classes.length === 0 && !selectedClassId && (
+                          <p className="text-[11px] text-amber-700 mt-1">
+                            Nenhuma turma cadastrada nesta organização.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Exibição dos estudantes vinculados à turma (Refino visual e Zero Delay) */}
+                      {selectedClassId && (
+                        <div className="pt-2 border-t border-[#E6E1D8]/60 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-[#2B2426]">
+                              Integrantes vinculados:
+                            </span>
+                            {!isPendingMembers && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F3E8EC] text-[#6C0F37] border border-[#6C0F37]/30">
+                                <span>✓</span>
+                                <span>
+                                  {classMembers.length}{' '}
+                                  {classMembers.length === 1
+                                    ? 'estudante vinculado'
+                                    : 'estudantes vinculados'}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Skeletons sutis (#F7F4ED) durante transição */}
+                          {isPendingMembers ? (
+                            <div className="flex flex-wrap gap-2 animate-pulse pt-1">
+                              {[1, 2, 3, 4].map((n) => (
+                                <div
+                                  key={n}
+                                  className="h-7 w-28 rounded-lg bg-[#F7F4ED] border border-[#E6E1D8]"
+                                />
+                              ))}
+                            </div>
+                          ) : classMembers.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {classMembers.map((member) => (
+                                <span
+                                  key={member.id}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF8F5] border border-[#E6E1D8] rounded-lg text-xs text-[#2B2426] shadow-2xs hover:border-[#6C0F37]/30 transition"
+                                >
+                                  <span className="w-5 h-5 rounded-full bg-[#6C0F37] text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                    {getInitials(member.name)}
+                                  </span>
+                                  <span className="font-medium truncate max-w-[150px]">
+                                    {member.name}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-[#6F6865] italic pt-1">
+                              Nenhum estudante matriculado nesta turma ainda.
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
