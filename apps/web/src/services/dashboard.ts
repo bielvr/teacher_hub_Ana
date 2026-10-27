@@ -78,6 +78,7 @@ export async function getDashboardData(
         scheduled_at,
         duration_minutes,
         meet_url,
+        google_event_id,
         status,
         classes (
           id,
@@ -102,11 +103,6 @@ export async function getDashboardData(
   }
 
   const todaySessions: TodaySession[] = rawSessions.map((s) => {
-    const isGoogle = !!(
-      s.meet_url?.includes('meet.google.com') ||
-      s.title?.toLowerCase().includes('google')
-    );
-
     return {
       id: s.id,
       title: s.title,
@@ -117,7 +113,7 @@ export async function getDashboardData(
       class_name: s.classes?.name || 'Atendimento individual',
       class_level: s.classes?.level || null,
       lesson_title: s.lessons?.title || null,
-      is_google_synced: isGoogle,
+      is_google_synced: Boolean(s.google_event_id),
     };
   });
 
@@ -138,6 +134,7 @@ export async function getDashboardData(
           scheduled_at,
           duration_minutes,
           meet_url,
+          google_event_id,
           status,
           classes (
             id,
@@ -157,11 +154,6 @@ export async function getDashboardData(
 
       if (!upcomingError && upcomingData) {
         upcomingSessions = upcomingData.map((s) => {
-          const isGoogle = !!(
-            s.meet_url?.includes('meet.google.com') ||
-            s.title?.toLowerCase().includes('google')
-          );
-
           return {
             id: s.id,
             title: s.title,
@@ -172,7 +164,7 @@ export async function getDashboardData(
             class_name: s.classes?.name || 'Atendimento individual',
             class_level: s.classes?.level || null,
             lesson_title: s.lessons?.title || null,
-            is_google_synced: isGoogle,
+            is_google_synced: Boolean(s.google_event_id),
           };
         });
       }

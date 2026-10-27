@@ -581,6 +581,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes: number;
           meet_url: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status: SessionStatus;
           created_at: string;
@@ -594,6 +595,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
@@ -607,6 +609,7 @@ export interface Database {
           scheduled_at?: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
@@ -646,6 +649,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes: number;
           meet_url: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status: SessionStatus;
           created_at: string;
@@ -659,6 +663,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
@@ -672,6 +677,7 @@ export interface Database {
           scheduled_at?: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
@@ -711,6 +717,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes: number;
           meet_url: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status: SessionStatus;
           created_at: string;
@@ -724,6 +731,7 @@ export interface Database {
           scheduled_at: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
@@ -737,6 +745,7 @@ export interface Database {
           scheduled_at?: string;
           duration_minutes?: number;
           meet_url?: string | null;
+          google_event_id?: string | null;
           notes?: string | null;
           status?: SessionStatus;
           created_at?: string;
@@ -815,6 +824,57 @@ export interface Database {
           {
             foreignKeyName: 'session_attendance_student_id_fkey';
             columns: ['student_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      user_calendar_integrations: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: string;
+          account_email: string | null;
+          access_token: string;
+          refresh_token: string | null;
+          expires_at: string | null;
+          calendar_id: string | null;
+          scope: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider?: string;
+          account_email?: string | null;
+          access_token: string;
+          refresh_token?: string | null;
+          expires_at?: string | null;
+          calendar_id?: string | null;
+          scope?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          provider?: string;
+          account_email?: string | null;
+          access_token?: string;
+          refresh_token?: string | null;
+          expires_at?: string | null;
+          calendar_id?: string | null;
+          scope?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_calendar_integrations_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];

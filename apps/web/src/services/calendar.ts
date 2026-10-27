@@ -11,6 +11,7 @@ export interface UnifiedSessionItem {
   status: SessionStatus;
   class_id?: string | null;
   student_id?: string | null;
+  google_event_id?: string | null;
   classes?: {
     id: string;
     name: string;
@@ -46,6 +47,7 @@ export async function getLiveSessionsCalendar(
         scheduled_at,
         duration_minutes,
         meet_url,
+        google_event_id,
         status,
         class_id,
         classes (
@@ -74,6 +76,7 @@ export async function getLiveSessionsCalendar(
             scheduled_at: item.scheduled_at,
             duration_minutes: item.duration_minutes,
             meet_url: item.meet_url,
+            google_event_id: item.google_event_id || null,
             status: item.status,
             class_id: item.class_id,
             classes: item.classes || null,
@@ -96,6 +99,7 @@ export async function getLiveSessionsCalendar(
         scheduled_at,
         duration_minutes,
         meet_url,
+        google_event_id,
         status,
         student_id,
         profiles (
@@ -124,6 +128,7 @@ export async function getLiveSessionsCalendar(
             scheduled_at: item.scheduled_at,
             duration_minutes: item.duration_minutes,
             meet_url: item.meet_url,
+            google_event_id: item.google_event_id || null,
             status: item.status,
             student_id: item.student_id,
             student: item.profiles || null,
@@ -146,6 +151,7 @@ export async function getLiveSessionsCalendar(
         scheduled_at,
         duration_minutes,
         meet_url,
+        google_event_id,
         status,
         class_id,
         classes (
@@ -175,6 +181,7 @@ export async function getLiveSessionsCalendar(
             scheduled_at: item.scheduled_at,
             duration_minutes: item.duration_minutes,
             meet_url: item.meet_url,
+            google_event_id: item.google_event_id || null,
             status: item.status,
             class_id: item.class_id,
             classes: item.classes || null,

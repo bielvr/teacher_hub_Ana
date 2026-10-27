@@ -37,7 +37,8 @@ export default async function CalendarPage({
   const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
 
   // Busca eventos do calendário, turmas e estudantes da organização
-  const [sessions, classes, studentsResult] = await Promise.all([
+  const [{ data: { user } }, sessions, classes, studentsResult] = await Promise.all([
+    supabase.auth.getUser(),
     getLiveSessionsCalendar(supabase, activeOrgId, startDate, endDate),
     getClassesByOrg(supabase, activeOrgId),
     supabase
@@ -54,6 +55,19 @@ export default async function CalendarPage({
       .eq('organization_id', activeOrgId)
       .eq('role', 'student'),
   ]);
+
+  // Busca se o usuário possui integração ativa com Google Calendar
+  let googleIntegration: { id: string; account_email: string | null } | null = null;
+  if (user) {
+    const { data: integ } = await supabase
+      .from('user_calendar_integrations')
+      .select('id, account_email')
+      .eq('user_id', user.id)
+      .eq('provider', 'google_calendar')
+      .maybeSingle();
+
+    googleIntegration = integ;
+  }
 
   const classOptions = classes.map((c: any) => ({
     id: c.id,
@@ -78,8 +92,14 @@ export default async function CalendarPage({
           description="Gerencie os encontros ao vivo, horários das turmas e links de transmissão."
         />
         <div className="flex flex-wrap items-center gap-3">
-          {/* Conexão com Google Agenda restrita apenas a Owner */}
-          {isOwner && <SyncCalendarHeaderButton sessions={sessionList} />}
+          {/* Conexão com Google Agenda */}
+          {isOwner && (
+            <SyncCalendarHeaderButton
+              sessions={sessionList}
+              initialConnected={Boolean(googleIntegration)}
+              accountEmail={googleIntegration?.account_email}
+            />
+          )}
           <ScheduleSessionModal
             orgId={activeOrgId}
             classes={classOptions}

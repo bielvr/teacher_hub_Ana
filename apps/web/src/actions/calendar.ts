@@ -9,6 +9,11 @@ import {
   CustomHoliday,
   VacationRange,
 } from '../lib/calendar';
+import {
+  getValidAccessTokenForUser,
+  createGoogleCalendarEvent,
+  revokeGoogleCalendarToken,
+} from '../services/googleCalendar';
 
 export async function scheduleSessionAction(
   formData: FormData
@@ -303,6 +308,47 @@ export async function scheduleSessionAction(
       return { success: false, count: 0, error: 'Nenhuma aula a cadastrar.' };
     }
 
+    // Se o usuário possuir integração com Google Agenda, sincroniza os eventos no Google Calendar
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user && rowsToInsert.length <= 40) {
+        const googleAuth = await getValidAccessTokenForUser(supabase, user.id);
+        if (googleAuth) {
+          for (const row of rowsToInsert) {
+            if (row.event_type !== 'holiday' && row.event_type !== 'vacation') {
+              try {
+                const gEvent = await createGoogleCalendarEvent(
+                  googleAuth.accessToken,
+                  {
+                    title: row.title,
+                    scheduledAt: row.scheduled_at,
+                    durationMinutes: row.duration_minutes,
+                    description: row.notes || undefined,
+                    meetUrl: row.meet_url || undefined,
+                  },
+                  googleAuth.calendarId
+                );
+
+                if (gEvent?.id) {
+                  (row as any).google_event_id = gEvent.id;
+                  if (!row.meet_url && gEvent.hangoutLink) {
+                    row.meet_url = gEvent.hangoutLink;
+                  }
+                }
+              } catch (gErr) {
+                console.error('Falha ao sincronizar aula com Google Calendar:', gErr);
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignora erro de sincronização para não bloquear o cadastro
+    }
+
     // Persistência no Supabase
     if (session_type === 'individual' && student_id) {
       const vipRows = rowsToInsert.map((r) => ({
@@ -312,6 +358,7 @@ export async function scheduleSessionAction(
         scheduled_at: r.scheduled_at,
         duration_minutes: r.duration_minutes,
         meet_url: r.meet_url,
+        google_event_id: (r as any).google_event_id || null,
         notes: isDraft && !(r.notes || '').includes('[Rascunho]') ? `[Rascunho] ${r.notes || ''}`.trim() : r.notes,
         status: r.status,
       }));
@@ -341,6 +388,7 @@ export async function scheduleSessionAction(
               scheduled_at: r.scheduled_at,
               duration_minutes: r.duration_minutes,
               meet_url: r.meet_url,
+              google_event_id: r.google_event_id || null,
               status: r.status,
             }));
 
@@ -372,6 +420,7 @@ export async function scheduleSessionAction(
           scheduled_at: r.scheduled_at,
           duration_minutes: r.duration_minutes,
           meet_url: r.meet_url,
+          google_event_id: (r as any).google_event_id || null,
           notes: isDraft && !(r.notes || '').includes('[Rascunho]') ? `[Rascunho] ${r.notes || ''}`.trim() : r.notes,
           status: r.status,
         }));
@@ -646,5 +695,54 @@ export async function bulkDeleteSessionsAction(
     return { success: true, count: sessionIds.length };
   } catch (err: any) {
     return { success: false, count: 0, error: err.message || 'Erro ao excluir aulas em lote.' };
+  }
+}
+
+export async function disconnectGoogleCalendarAction(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: 'Acesso não autorizado.' };
+    }
+
+    // Busca o token para revogação limpa no Google se possível
+    const { data: integration } = await supabase
+      .from('user_calendar_integrations')
+      .select('access_token, refresh_token')
+      .eq('user_id', user.id)
+      .eq('provider', 'google_calendar')
+      .maybeSingle();
+
+    if (integration?.access_token) {
+      try {
+        await revokeGoogleCalendarToken(integration.access_token);
+      } catch {
+        // Ignora falha de rede na revogação remota
+      }
+    }
+
+    const { error: deleteError } = await supabase
+      .from('user_calendar_integrations')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('provider', 'google_calendar');
+
+    if (deleteError) {
+      return { success: false, error: deleteError.message };
+    }
+
+    revalidatePath('/professor/calendar');
+    revalidatePath('/student/calendar');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro inesperado ao desconectar.' };
   }
 }
