@@ -70,14 +70,14 @@ export function ActionRadarCard({ orgId, items }: ActionRadarCardProps) {
       {/* Feed de Pendências Prioritárias */}
       <div className="p-5 sm:p-6 flex-1 space-y-3.5">
         {items.length === 0 ? (
-          /* Estado Vazio */
-          <div className="py-12 px-4 text-center rounded-2xl border-2 border-dashed border-[#E6E1D8] bg-[#FFFDF7]/60 space-y-3">
-            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          /* Estado Vazio Compacto */
+          <div className="py-5 px-4 text-center rounded-xl border border-dashed border-[#E6E1D8] bg-[#FFFDF7]/60 space-y-2">
+            <div className="w-9 h-9 mx-auto rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <div className="max-w-xs mx-auto space-y-1">
+            <div className="max-w-xs mx-auto space-y-0.5">
               <h3 className="text-sm font-bold text-[#2B2426]">Tudo em dia!</h3>
               <p className="text-xs text-[#6F6865]">
                 Nenhuma pendência urgente no momento. Todas as correções, anotações e conteúdos estão regularizados.

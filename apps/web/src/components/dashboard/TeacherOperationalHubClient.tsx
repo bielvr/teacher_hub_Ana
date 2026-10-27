@@ -95,6 +95,7 @@ export function TeacherOperationalHubClient({
           <TodayScheduleCard
             orgId={activeOrgId}
             sessions={data.todaySessions}
+            upcomingSessions={data.upcomingSessions}
             sessionsRemaining={data.sessionsRemaining}
             sessionsCompleted={data.sessionsCompleted}
           />

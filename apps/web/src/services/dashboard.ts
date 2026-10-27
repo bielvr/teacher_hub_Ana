@@ -29,6 +29,7 @@ export interface ActionItem {
 export interface DashboardData {
   teacherName: string;
   todaySessions: TodaySession[];
+  upcomingSessions?: TodaySession[];
   sessionsRemaining: number;
   sessionsCompleted: number;
   actionItems: ActionItem[];
@@ -124,6 +125,61 @@ export async function getDashboardData(
     (s) => s.status === 'finished' || new Date(s.scheduled_at).getTime() + (s.duration_minutes * 60000) < now.getTime()
   ).length;
   const sessionsRemaining = Math.max(0, todaySessions.length - sessionsCompleted);
+
+  // 3B. Se não houver aulas hoje, busca os próximos encontros agendados nos dias subsequentes
+  let upcomingSessions: TodaySession[] = [];
+  if (todaySessions.length === 0) {
+    try {
+      const { data: upcomingData, error: upcomingError } = await supabase
+        .from('live_sessions')
+        .select(`
+          id,
+          title,
+          scheduled_at,
+          duration_minutes,
+          meet_url,
+          status,
+          classes (
+            id,
+            name,
+            level
+          ),
+          lessons (
+            id,
+            title
+          )
+        `)
+        .eq('organization_id', activeOrgId)
+        .gt('scheduled_at', endOfDay)
+        .neq('status', 'cancelled')
+        .order('scheduled_at', { ascending: true })
+        .limit(4);
+
+      if (!upcomingError && upcomingData) {
+        upcomingSessions = upcomingData.map((s) => {
+          const isGoogle = !!(
+            s.meet_url?.includes('meet.google.com') ||
+            s.title?.toLowerCase().includes('google')
+          );
+
+          return {
+            id: s.id,
+            title: s.title,
+            scheduled_at: s.scheduled_at,
+            duration_minutes: s.duration_minutes || 60,
+            meet_url: s.meet_url || null,
+            status: s.status as any,
+            class_name: s.classes?.name || 'Atendimento individual',
+            class_level: s.classes?.level || null,
+            lesson_title: s.lessons?.title || null,
+            is_google_synced: isGoogle,
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao buscar próximas aulas:', err);
+    }
+  }
 
   // 4. Busca Itens do Radar de Atenção ("Precisa da sua atenção")
   const actionItems: ActionItem[] = [];
@@ -321,6 +377,7 @@ export async function getDashboardData(
   return {
     teacherName,
     todaySessions,
+    upcomingSessions,
     sessionsRemaining,
     sessionsCompleted,
     actionItems,
