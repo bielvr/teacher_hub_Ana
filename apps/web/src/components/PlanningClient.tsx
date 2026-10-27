@@ -215,24 +215,26 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
   return (
     <div className="space-y-8">
       {/* ============================================================== */}
-      {/* 1. TOPO: 4 CARDS DE CONTADORES DE PREPARO PEDAGÓGICO           */}
+      {/* 1. TOPO: 4 INDICADORES COMPACTOS DE PREPARO PEDAGÓGICO         */}
       {/* ============================================================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Total de Aulas */}
         <button
           type="button"
           onClick={() => setSelectedStatusFilter('all')}
-          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-xs ${
+          className={`px-4 py-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs flex items-center justify-between gap-3 ${
             selectedStatusFilter === 'all'
-              ? 'bg-white border-[#6C0F37] ring-2 ring-[#6C0F37]/20'
+              ? 'bg-white border-[#6C0F37] ring-1 ring-[#6C0F37]/30'
               : 'bg-white border-[#E6E1D8] hover:border-[#6C0F37]/40 hover:bg-[#FAF8F5]'
           }`}
         >
-          <div className="flex items-center justify-between text-[#6F6865]">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total de Aulas</span>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#6F6865] block truncate">
+              Total de aulas
+            </span>
+            <span className="text-[11px] text-[#6F6865]/80 block truncate">Currículo completo</span>
           </div>
-          <p className="text-3xl font-bold text-[#2B2426] mt-1">{stats.total}</p>
-          <span className="text-[11px] text-[#6F6865] mt-1 block">Currículo pedagógico completo</span>
+          <p className="text-xl sm:text-2xl font-bold text-[#2B2426] shrink-0">{stats.total}</p>
         </button>
 
         {/* Card 2: Precisa Preparar (Vermelho / Rose) */}
@@ -241,19 +243,19 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
           onClick={() =>
             setSelectedStatusFilter(selectedStatusFilter === 'needs_prep' ? 'all' : 'needs_prep')
           }
-          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-xs ${
+          className={`px-4 py-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs flex items-center justify-between gap-3 ${
             selectedStatusFilter === 'needs_prep'
-              ? 'bg-rose-50 border-rose-500 ring-2 ring-rose-300'
+              ? 'bg-rose-50 border-rose-500 ring-1 ring-rose-400'
               : 'bg-white border-rose-200 hover:bg-rose-50/50 hover:border-rose-400'
           }`}
         >
-          <div className="flex items-center justify-between text-rose-700">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Precisa Preparar</span>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block truncate">
+              Precisa preparar
+            </span>
+            <span className="text-[11px] text-rose-600/80 block truncate">Revisão pendente</span>
           </div>
-          <p className="text-3xl font-bold text-rose-700 mt-1">{stats.needsPrep}</p>
-          <span className="text-[11px] text-rose-600/90 mt-1 block font-medium">
-            Demandam elaboração ou revisão
-          </span>
+          <p className="text-xl sm:text-2xl font-bold text-rose-700 shrink-0">{stats.needsPrep}</p>
         </button>
 
         {/* Card 3: Em Preparação (Âmbar) */}
@@ -262,19 +264,19 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
           onClick={() =>
             setSelectedStatusFilter(selectedStatusFilter === 'in_progress' ? 'all' : 'in_progress')
           }
-          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-xs ${
+          className={`px-4 py-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs flex items-center justify-between gap-3 ${
             selectedStatusFilter === 'in_progress'
-              ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-300'
+              ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-400'
               : 'bg-white border-amber-200 hover:bg-amber-50/50 hover:border-amber-400'
           }`}
         >
-          <div className="flex items-center justify-between text-amber-800">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Em Preparação</span>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block truncate">
+              Em preparação
+            </span>
+            <span className="text-[11px] text-amber-700/80 block truncate">Em elaboração ativa</span>
           </div>
-          <p className="text-3xl font-bold text-amber-800 mt-1">{stats.inProgress}</p>
-          <span className="text-[11px] text-amber-700/90 mt-1 block font-medium">
-            Em elaboração ativa
-          </span>
+          <p className="text-xl sm:text-2xl font-bold text-amber-800 shrink-0">{stats.inProgress}</p>
         </button>
 
         {/* Card 4: Pronta para Uso (Verde / Emerald) */}
@@ -283,19 +285,19 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
           onClick={() =>
             setSelectedStatusFilter(selectedStatusFilter === 'ready' ? 'all' : 'ready')
           }
-          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-xs ${
+          className={`px-4 py-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs flex items-center justify-between gap-3 ${
             selectedStatusFilter === 'ready'
-              ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-300'
+              ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-400'
               : 'bg-white border-emerald-200 hover:bg-emerald-50/50 hover:border-emerald-400'
           }`}
         >
-          <div className="flex items-center justify-between text-emerald-800">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Pronta para Uso</span>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block truncate">
+              Pronta para uso
+            </span>
+            <span className="text-[11px] text-emerald-600/80 block truncate">Materiais finalizados</span>
           </div>
-          <p className="text-3xl font-bold text-emerald-700 mt-1">{stats.ready}</p>
-          <span className="text-[11px] text-emerald-600/90 mt-1 block font-medium">
-            Finalizadas com materiais prontos
-          </span>
+          <p className="text-xl sm:text-2xl font-bold text-emerald-700 shrink-0">{stats.ready}</p>
         </button>
       </div>
 
@@ -407,8 +409,8 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
                     </span>
                   </div>
 
-                  {/* Grade Padronizada: 5 lições por linha no desktop */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {/* Grid inteligente e adaptável de lições */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
                     {unit.lessons.map((lesson, lIdx) => {
                       const meta = parseLessonMetadata(lesson.description);
                       const category = getPrepStatusCategory(meta);

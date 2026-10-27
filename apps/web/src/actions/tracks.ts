@@ -1026,6 +1026,16 @@ export async function updatePlanningLessonAction(
       }
     }
 
+    let timeline: any[] = existingMeta.timeline || [];
+    const timelineRaw = (formData.get('timeline') as string) || '';
+    if (timelineRaw) {
+      try {
+        timeline = JSON.parse(timelineRaw);
+      } catch {
+        // mantém existente
+      }
+    }
+
     const status =
       preparation_status === 'ready'
         ? 'done'
@@ -1039,6 +1049,7 @@ export async function updatePlanningLessonAction(
       communicative_goals: communicative_objectives,
       notes,
       topics,
+      timeline,
       checklist,
       vocabulary,
       grammar,

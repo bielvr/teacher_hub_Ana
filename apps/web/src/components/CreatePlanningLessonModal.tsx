@@ -83,8 +83,9 @@ export function CreatePlanningLessonModal({
   // 5. Conteúdos Trabalhados (Tópicos customizáveis dinâmicos com Título e Descrição)
   const [topics, setTopics] = useState<TopicItem[]>([]);
 
-  // 6. Roteiro da Aula (opcional)
+  // 6. Roteiro da Aula (opcional e retrátil por padrão)
   const [timeline, setTimeline] = useState<TimelineStep[]>([]);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
 
   // 7. Materiais e Recursos (opcional)
   const [materials, setMaterials] = useState<MaterialResourceItem[]>([]);
@@ -366,6 +367,7 @@ export function CreatePlanningLessonModal({
           setMaterialFilesMap({});
           setTopics([]);
           setTimeline([]);
+          setIsTimelineOpen(false);
           setChecklist([]);
           setPrepStatus('in_progress');
         }, 1200);
@@ -836,143 +838,174 @@ export function CreatePlanningLessonModal({
                 )}
               </div>
 
-              {/* 2.5 ROTEIRO DA AULA (OPCIONAL: SEM ROLAGEM DUPLA) */}
-              <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-left">
-                    <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                      <span>Roteiro da aula</span>
-                    </label>
-                    <p className="text-xs text-[#6F6865] mt-0.5">
-                      Defina a sequência didática em etapas numeradas com duração e orientações.
-                    </p>
+              {/* 2.5 ROTEIRO DA AULA (OPCIONAL: RETRÁTIL / ACCORDION) */}
+              {!isTimelineOpen && timeline.length === 0 ? (
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-4 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsTimelineOpen(true)}
+                    className="w-full flex items-center justify-between text-left text-xs font-semibold text-[#6C0F37] hover:text-[#57102E] transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-bold">+ Adicionar roteiro com minutagem (opcional)</span>
+                      <span className="text-[11px] text-[#6F6865] font-normal hidden sm:inline">
+                        — sequenciamento didático de etapas e minutos
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-[#6F6865] group-hover:text-[#6C0F37]">Expandir ↓</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-left">
+                      <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                        <span>Roteiro da aula</span>
+                        {timeline.length > 0 && (
+                          <span className="text-[10px] bg-[#F7F4ED] text-[#6C0F37] px-2 py-0.5 rounded-full border border-[#E6E1D8]">
+                            {timeline.length} {timeline.length === 1 ? 'etapa' : 'etapas'}
+                          </span>
+                        )}
+                      </label>
+                      <p className="text-xs text-[#6F6865] mt-0.5">
+                        Defina a sequência didática em etapas numeradas com duração e orientações.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      {timeline.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={handleLoadTimelineSuggestions}
+                          className="text-xs text-[#6F6865] hover:text-[#6C0F37] hover:underline transition-colors cursor-pointer"
+                        >
+                          Carregar sugestões padrão
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleAddTimelineStep}
+                        className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                      >
+                        + Adicionar etapa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsTimelineOpen(false)}
+                        className="text-xs text-[#6F6865] hover:text-[#2B2426] px-2 py-1 transition cursor-pointer"
+                        title="Recolher roteiro"
+                      >
+                        Recolher ↑
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {timeline.length === 0 && (
+                  {timeline.length === 0 ? (
+                    <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
+                      Nenhuma etapa cadastrada no roteiro.{' '}
+                      <button
+                        type="button"
+                        onClick={handleAddTimelineStep}
+                        className="text-[#6C0F37] font-semibold underline cursor-pointer"
+                      >
+                        Clique para adicionar uma etapa
+                      </button>{' '}
+                      ou{' '}
                       <button
                         type="button"
                         onClick={handleLoadTimelineSuggestions}
-                        className="text-xs text-[#6C0F37] hover:underline font-medium cursor-pointer"
+                        className="text-[#6F6865] hover:text-[#6C0F37] underline cursor-pointer"
                       >
-                        Carregar sugestões
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleAddTimelineStep}
-                      className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
-                    >
-                      + Adicionar etapa
-                    </button>
-                  </div>
-                </div>
+                        carregue sugestões padrão
+                      </button>.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {timeline.map((step, index) => (
+                        <div
+                          key={step.id}
+                          className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2 relative"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="w-6 h-6 rounded-lg bg-[#6C0F37] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                {index + 1}
+                              </span>
+                              <input
+                                type="text"
+                                value={step.title}
+                                onChange={(e) =>
+                                  handleUpdateTimelineStep(step.id, 'title', e.target.value)
+                                }
+                                placeholder="Nome da etapa..."
+                                className="flex-1 px-2.5 py-1 text-xs font-bold text-[#2B2426] bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                              />
+                            </div>
 
-                {timeline.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
-                    Nenhuma etapa cadastrada no roteiro.{' '}
-                    <button
-                      type="button"
-                      onClick={handleAddTimelineStep}
-                      className="text-[#6C0F37] font-semibold underline cursor-pointer"
-                    >
-                      Clique para adicionar uma etapa
-                    </button>{' '}
-                    ou{' '}
-                    <button
-                      type="button"
-                      onClick={handleLoadTimelineSuggestions}
-                      className="text-[#6C0F37] font-semibold underline cursor-pointer"
-                    >
-                      carregue sugestões padrão
-                    </button>.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {timeline.map((step, index) => (
-                      <div
-                        key={step.id}
-                        className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2 relative"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className="w-6 h-6 rounded-lg bg-[#6C0F37] text-white text-xs font-bold flex items-center justify-center shrink-0">
-                              {index + 1}
-                            </span>
-                            <input
-                              type="text"
-                              value={step.title}
-                              onChange={(e) =>
-                                handleUpdateTimelineStep(step.id, 'title', e.target.value)
-                              }
-                              placeholder="Nome da etapa..."
-                              className="flex-1 px-2.5 py-1 text-xs font-bold text-[#2B2426] bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                            />
+                            <div className="flex items-center gap-1 shrink-0">
+                              <input
+                                type="number"
+                                min={1}
+                                max={300}
+                                value={step.duration || ''}
+                                onChange={(e) =>
+                                  handleUpdateTimelineStep(
+                                    step.id,
+                                    'duration',
+                                    parseInt(e.target.value, 10) || 0
+                                  )
+                                }
+                                placeholder="15"
+                                className="w-14 px-2 py-1 text-xs text-center font-semibold bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                              />
+                              <span className="text-xs font-medium text-[#6F6865]">min</span>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => handleMoveTimelineStep(index, 'up')}
+                                className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-[10px] text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
+                                title="Mover para cima"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === timeline.length - 1}
+                                onClick={() => handleMoveTimelineStep(index, 'down')}
+                                className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-[10px] text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
+                                title="Mover para baixo"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTimelineStep(step.id)}
+                                className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-xs text-[#6F6865] hover:text-red-600 cursor-pointer flex items-center justify-center"
+                                title="Remover etapa"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            <input
-                              type="number"
-                              min={1}
-                              max={300}
-                              value={step.duration || ''}
-                              onChange={(e) =>
-                                handleUpdateTimelineStep(
-                                  step.id,
-                                  'duration',
-                                  parseInt(e.target.value, 10) || 0
-                                )
-                              }
-                              placeholder="15"
-                              className="w-14 px-2 py-1 text-xs text-center font-semibold bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
-                            />
-                            <span className="text-xs font-medium text-[#6F6865]">min</span>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              disabled={index === 0}
-                              onClick={() => handleMoveTimelineStep(index, 'up')}
-                              className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-[10px] text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
-                              title="Mover para cima"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              disabled={index === timeline.length - 1}
-                              onClick={() => handleMoveTimelineStep(index, 'down')}
-                              className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-[10px] text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
-                              title="Mover para baixo"
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveTimelineStep(step.id)}
-                              className="w-6 h-6 rounded bg-white border border-red-200 text-[10px] text-red-600 hover:bg-red-50 cursor-pointer flex items-center justify-center"
-                              title="Excluir etapa"
-                            >
-                              ✕
-                            </button>
-                          </div>
+                          <textarea
+                            rows={2}
+                            value={step.description || ''}
+                            onChange={(e) =>
+                              handleUpdateTimelineStep(step.id, 'description', e.target.value)
+                            }
+                            placeholder="Orientações pedagógicas, atividades e procedimentos desta etapa..."
+                            className="w-full px-2.5 py-1.5 text-xs text-[#2B2426] bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37] leading-relaxed resize-y"
+                          />
                         </div>
-
-                        <textarea
-                          rows={2}
-                          value={step.description || ''}
-                          onChange={(e) =>
-                            handleUpdateTimelineStep(step.id, 'description', e.target.value)
-                          }
-                          placeholder="Orientações pedagógicas, atividades e procedimentos desta etapa..."
-                          className="w-full px-2.5 py-1.5 text-xs text-[#2B2426] bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37] leading-relaxed resize-y"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 2.6 MATERIAIS E RECURSOS (OPCIONAL: SEM ROLAGEM DUPLA) */}
               <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">

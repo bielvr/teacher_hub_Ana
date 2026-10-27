@@ -60,7 +60,6 @@ export function ActivityBankClient({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
-  const [levelCarouselIndex, setLevelCarouselIndex] = useState(0);
 
   // Mapeamento e contagens de níveis
   const trackStats = useMemo(() => {
@@ -87,38 +86,29 @@ export function ActivityBankClient({
     return { tracks: stats, generalCount, totalCount: initialActivities.length };
   }, [tracks, initialActivities]);
 
-  // Lista consolidada de cartões para o carrossel de níveis
+  // Lista consolidada de níveis para a barra de filtros por pills
   const allLevelCards = useMemo(() => {
     return [
       {
         id: 'all',
-        title: 'Todos os Níveis',
-        icon: '📚',
-        count: `${trackStats.totalCount} atividades totais`,
-        badge: null,
+        title: 'Todos os níveis',
+        countNumber: trackStats.totalCount,
       },
       ...tracks.map((trk) => {
         const stats = trackStats.tracks[trk.id] || { activityCount: 0, lessonCount: 0 };
         return {
           id: trk.id,
           title: trk.title || trk.name || 'Sem título',
-          icon: '📚',
-          count: `${stats.activityCount} atividades totais`,
-          badge: null,
+          countNumber: stats.activityCount,
         };
       }),
       {
         id: 'general',
-        title: 'Atividades Gerais',
-        icon: '🌐',
-        count: `${trackStats.generalCount} atividades totais`,
-        badge: 'Banco livre',
+        title: 'Atividades gerais',
+        countNumber: trackStats.generalCount,
       },
     ];
   }, [tracks, trackStats]);
-
-  const maxLevelIndex = Math.max(0, allLevelCards.length - 5);
-  const visibleLevelCards = allLevelCards.slice(levelCarouselIndex, levelCarouselIndex + 5);
 
   // Filtra as atividades na memória em tempo real
   const filteredActivities = useMemo(() => {
@@ -459,11 +449,11 @@ export function ActivityBankClient({
         </div>
       )}
 
-      {/* Barra de Busca + Botão Nova Atividade */}
-      <div className="bg-white border border-[#E6E1D8] rounded-2xl p-4 sm:p-5 shadow-[0_2px_8px_rgba(44,30,34,0.06)] space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* Barra de Controles Compacta: Busca, Filtros, Seleção e Nova Atividade */}
+      <div className="bg-white border border-[#E6E1D8] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
           {/* Campo de Busca */}
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-[240px]">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#6F6865]">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -479,12 +469,43 @@ export function ActivityBankClient({
               placeholder="Buscar por nome da atividade, enunciado ou tema..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37] transition bg-white"
+              className="w-full pl-9 pr-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs sm:text-sm text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-1 focus:ring-[#6C0F37] transition bg-[#FAF8F5] focus:bg-white"
             />
           </div>
 
-          {/* Botão de Destaque no Topo */}
-          <div className="shrink-0">
+          {/* Filtro por Categoria */}
+          <div className="w-full sm:w-52 shrink-0">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+            >
+              <option value="">Todas as categorias</option>
+              {allCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro por Formato de Correção */}
+          <div className="w-full sm:w-52 shrink-0">
+            <select
+              value={correctionFilter}
+              onChange={(e) => setCorrectionFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+            >
+              <option value="all">Todos os formatos</option>
+              <option value="auto">Automática (Gabarito)</option>
+              <option value="manual">Manual (Pela Equipe)</option>
+              <option value="mixed">Mista</option>
+              <option value="external">Correção externa</option>
+            </select>
+          </div>
+
+          {/* Botão de Destaque */}
+          <div className="shrink-0 self-start sm:self-auto">
             <CreateActivityModal
               tracks={tracks}
               triggerText="+ Nova atividade"
@@ -495,48 +516,41 @@ export function ActivityBankClient({
           </div>
         </div>
 
-        {/* Filtros Auxiliares + Checkbox Selecionar Todas */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#E6E1D8] items-end">
-          {/* Filtro por Categoria / Objetivo */}
-          <div>
-            <label className="block text-[11px] font-semibold text-[#6F6865] mb-1">
-              Tipo / Objetivo Pedagógico
-            </label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-            >
-              <option value="">Todas as Categorias</option>
-              {allCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filtro por Formato de Correção */}
-          <div>
-            <label className="block text-[11px] font-semibold text-[#6F6865] mb-1">
-              Formato de Correção
-            </label>
-            <select
-              value={correctionFilter}
-              onChange={(e) => setCorrectionFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
-            >
-              <option value="all">Todos os Formatos</option>
-              <option value="auto">Automática (Gabarito)</option>
-              <option value="manual">Manual (Pela Equipe Docente)</option>
-              <option value="mixed">Mista</option>
-              <option value="external">Correção Externa / Sem Pendência</option>
-            </select>
+        {/* Linha Inferior Sutil com Pills de Níveis e Checkbox de Seleção */}
+        <div className="pt-2.5 border-t border-[#E6E1D8]/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Pills Horizontais de Níveis com rolagem suave */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none flex-1 min-w-0">
+            {allLevelCards.map((card) => {
+              const isSelected = selectedTrackId === card.id;
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => setSelectedTrackId(card.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    isSelected
+                      ? 'bg-[#6C0F37] text-white shadow-2xs'
+                      : 'bg-[#FAF8F5] text-[#2B2426] border border-[#E6E1D8] hover:border-[#6C0F37]/40 hover:bg-white'
+                  }`}
+                >
+                  <span>{card.title}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : 'bg-white text-[#6F6865] border border-[#E6E1D8]/60'
+                    }`}
+                  >
+                    {card.countNumber}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Checkbox de Selecionar Todas as Visíveis */}
-          <div className="pb-1">
-            <label className="flex items-center gap-2 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] cursor-pointer">
+          <div className="shrink-0 pl-1">
+            <label className="flex items-center gap-2 text-xs font-semibold text-[#6F6865] hover:text-[#2B2426] cursor-pointer whitespace-nowrap">
               <input
                 type="checkbox"
                 checked={
@@ -546,100 +560,9 @@ export function ActivityBankClient({
                 onChange={handleSelectAll}
                 className="w-4 h-4 text-[#6C0F37] border-[#E6E1D8] rounded focus:ring-[#6C0F37] accent-[#6C0F37] cursor-pointer"
               />
-              <span>Selecionar todas as visíveis ({filteredActivities.length})</span>
+              <span>Selecionar todas ({filteredActivities.length})</span>
             </label>
           </div>
-        </div>
-      </div>
-
-      {/* SEÇÃO PRINCIPAL: CARROSSEL DOS NÍVEIS DIDÁTICOS (5 CARDS VISÍVEIS POR VEZ NO DESKTOP) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-            <span>Níveis didáticos cadastrados</span>
-            <span className="text-[11px] text-[#6F6865] font-normal hidden sm:inline">
-              (Selecione um nível para explorar suas aulas e atividades associadas)
-            </span>
-          </h2>
-
-          {/* Controles de Paginação com Setas Circulares */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#6F6865] font-medium mr-1 hidden sm:inline">
-              {levelCarouselIndex + 1}–{Math.min(levelCarouselIndex + 5, allLevelCards.length)} de {allLevelCards.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => setLevelCarouselIndex((prev) => Math.max(0, prev - 1))}
-              disabled={levelCarouselIndex === 0}
-              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] hover:border-[#6C0F37]/40 transition shadow-2xs cursor-pointer active:scale-95"
-              aria-label="Níveis anteriores"
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              onClick={() => setLevelCarouselIndex((prev) => Math.min(maxLevelIndex, prev + 1))}
-              disabled={levelCarouselIndex >= maxLevelIndex}
-              className="w-8 h-8 rounded-full border border-[#E6E1D8] bg-white text-[#6C0F37] flex items-center justify-center font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAF8F5] hover:border-[#6C0F37]/40 transition shadow-2xs cursor-pointer active:scale-95"
-              aria-label="Próximos níveis"
-            >
-              →
-            </button>
-          </div>
-        </div>
-
-        {/* Exatamente 5 quadradinhos/cards visíveis por vez em linha horizontal compacta no desktop */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {visibleLevelCards.map((card) => {
-            const isSelected = selectedTrackId === card.id;
-
-            return (
-              <button
-                key={card.id}
-                type="button"
-                onClick={() => setSelectedTrackId(card.id)}
-                className={`p-4 rounded-2xl cursor-pointer transition-all border text-left flex flex-col justify-between shadow-2xs ${
-                  isSelected
-                    ? 'bg-[#6C0F37] text-white border-[#57102E] shadow-sm ring-2 ring-[#6C0F37]/20'
-                    : 'bg-white text-[#2B2426] border-[#E6E1D8] hover:border-[#6C0F37]/50 hover:bg-[#FAF8F5]'
-                }`}
-              >
-                <div>
-                  <span className="text-lg block mb-1">{card.icon}</span>
-                  <h3
-                    className={`text-sm font-bold transition-colors line-clamp-1 ${
-                      isSelected ? 'text-white' : 'text-[#6C0F37]'
-                    }`}
-                  >
-                    {card.title}
-                  </h3>
-                  {card.badge && (
-                    <span
-                      className={`text-[11px] block mt-0.5 ${
-                        isSelected ? 'text-white/80' : 'text-[#6F6865]'
-                      }`}
-                    >
-                      {card.badge}
-                    </span>
-                  )}
-                </div>
-
-                <div
-                  className={`mt-3 pt-2 border-t ${
-                    isSelected ? 'border-white/20' : 'border-[#E6E1D8]'
-                  }`}
-                >
-                  <span
-                    className={`text-xs block ${
-                      isSelected ? 'text-white/90 font-medium' : 'text-[#6F6865]'
-                    }`}
-                  >
-                    {card.count}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -747,10 +670,7 @@ export function ActivityBankClient({
             {/* Cabeçalho Fixo no Topo */}
             <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white flex items-center justify-between z-20">
               <div className="text-left">
-                <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
-                  Materiais didáticos
-                </span>
-                <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+                <h1 className="text-2xl font-bold text-[#6C0F37] text-left">
                   Atribuir em lote
                 </h1>
                 <p className="text-xs text-[#6F6865] mt-0.5 text-left">

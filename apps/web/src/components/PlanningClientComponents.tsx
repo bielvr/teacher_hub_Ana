@@ -12,13 +12,40 @@ import {
 export * from '../types/planning';
 export { CreatePlanningLessonModal } from './CreatePlanningLessonModal';
 
-import type { FlatLessonItem, PlanningTrackOption, ChecklistItem, TopicItem } from '../types/planning';
+import type { FlatLessonItem, PlanningTrackOption, ChecklistItem, TopicItem, TimelineStep } from '../types/planning';
 
 interface PlanningLessonCardProps {
   lesson: FlatLessonItem;
   activeOrgId: string;
   tracks: PlanningTrackOption[];
 }
+
+const SUGGESTED_TIMELINE: TimelineStep[] = [
+  {
+    id: 'step-1',
+    title: 'Boas-vindas & Aquecimento',
+    duration: 10,
+    description: 'Recepção, conversa informal em língua-alvo e checagem de dúvidas prévias.',
+  },
+  {
+    id: 'step-2',
+    title: 'Apresentação do Conteúdo',
+    duration: 15,
+    description: 'Exposição contextualizada do tema central, vocabulário e estruturas.',
+  },
+  {
+    id: 'step-3',
+    title: 'Prática Guiada & Produção',
+    duration: 25,
+    description: 'Exercícios práticos, roleplay ou dinâmicas comunicativas em pares/individual.',
+  },
+  {
+    id: 'step-4',
+    title: 'Feedback & Tarefas Finais',
+    duration: 10,
+    description: 'Resumo dos aprendizados, orientações de estudos e tarefas para casa.',
+  },
+];
 
 export function PlanningLessonCard({
   lesson,
@@ -59,6 +86,8 @@ export function PlanningLessonCard({
     return [];
   });
   const [checklist, setChecklist] = useState<ChecklistItem[]>(lesson.checklist || []);
+  const [timeline, setTimeline] = useState<TimelineStep[]>(lesson.timeline || []);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [newCheckItem, setNewCheckItem] = useState('');
   const editContentRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +115,8 @@ export function PlanningLessonCard({
       setTopics([]);
     }
     setChecklist(lesson.checklist || []);
+    setTimeline(lesson.timeline || []);
+    setIsTimelineOpen(false);
   }, [lesson]);
 
   useEffect(() => {
@@ -112,6 +143,46 @@ export function PlanningLessonCard({
 
   const handleRemoveTopic = (id: string) => {
     setTopics((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleAddTimelineStep = () => {
+    const nextNumber = timeline.length + 1;
+    const newStep: TimelineStep = {
+      id: `step-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title: `Etapa ${nextNumber}`,
+      duration: 15,
+      description: '',
+    };
+    setTimeline((prev) => [...prev, newStep]);
+  };
+
+  const handleLoadTimelineSuggestions = () => {
+    setTimeline(SUGGESTED_TIMELINE);
+  };
+
+  const handleUpdateTimelineStep = (
+    id: string,
+    field: keyof TimelineStep,
+    value: string | number
+  ) => {
+    setTimeline((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s))
+    );
+  };
+
+  const handleRemoveTimelineStep = (id: string) => {
+    setTimeline((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleMoveTimelineStep = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === timeline.length - 1) return;
+    const updated = [...timeline];
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    const temp = updated[index];
+    updated[index] = updated[targetIdx];
+    updated[targetIdx] = temp;
+    setTimeline(updated);
   };
 
   useEffect(() => {
@@ -187,6 +258,7 @@ export function PlanningLessonCard({
     formData.append('notes', notes);
     formData.append('topics', JSON.stringify(topics));
     formData.append('checklist', JSON.stringify(checklist));
+    formData.append('timeline', JSON.stringify(timeline));
 
     startTransition(async () => {
       const res = await updatePlanningLessonAction(formData);
@@ -604,6 +676,175 @@ export function PlanningLessonCard({
                     </div>
                   )}
                 </div>
+
+                {/* Roteiro da Aula (Opcional: Retrátil / Accordion) */}
+                {!isTimelineOpen && timeline.length === 0 ? (
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-4 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setIsTimelineOpen(true)}
+                      className="w-full flex items-center justify-between text-left text-xs font-semibold text-[#6C0F37] hover:text-[#57102E] transition-colors cursor-pointer group"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="font-bold">+ Adicionar roteiro com minutagem (opcional)</span>
+                        <span className="text-[11px] text-[#6F6865] font-normal hidden sm:inline">
+                          — sequenciamento didático de etapas e minutos
+                        </span>
+                      </span>
+                      <span className="text-[11px] text-[#6F6865] group-hover:text-[#6C0F37]">Expandir ↓</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-left">
+                        <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+                          <span>Roteiro da aula</span>
+                          {timeline.length > 0 && (
+                            <span className="text-[10px] bg-[#F7F4ED] text-[#6C0F37] px-2 py-0.5 rounded-full border border-[#E6E1D8]">
+                              {timeline.length} {timeline.length === 1 ? 'etapa' : 'etapas'}
+                            </span>
+                          )}
+                        </label>
+                        <p className="text-xs text-[#6F6865] mt-0.5">
+                          Defina a sequência didática em etapas numeradas com duração e orientações.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        {timeline.length === 0 && (
+                          <button
+                            type="button"
+                            onClick={handleLoadTimelineSuggestions}
+                            className="text-xs text-[#6F6865] hover:text-[#6C0F37] hover:underline transition-colors cursor-pointer"
+                          >
+                            Carregar sugestões padrão
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleAddTimelineStep}
+                          className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#F3E8EC] hover:bg-[#6C0F37] hover:text-white rounded-lg border border-[#6C0F37]/30 transition cursor-pointer shrink-0"
+                        >
+                          + Adicionar etapa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsTimelineOpen(false)}
+                          className="text-xs text-[#6F6865] hover:text-[#2B2426] px-2 py-1 transition cursor-pointer"
+                          title="Recolher roteiro"
+                        >
+                          Recolher ↑
+                        </button>
+                      </div>
+                    </div>
+
+                    {timeline.length === 0 ? (
+                      <div className="text-center py-6 border border-dashed border-[#E6E1D8] rounded-xl bg-[#FAF8F5]/60 text-xs text-[#6F6865]">
+                        Nenhuma etapa cadastrada no roteiro.{' '}
+                        <button
+                          type="button"
+                          onClick={handleAddTimelineStep}
+                          className="text-[#6C0F37] font-semibold underline cursor-pointer"
+                        >
+                          Clique para adicionar uma etapa
+                        </button>{' '}
+                        ou{' '}
+                        <button
+                          type="button"
+                          onClick={handleLoadTimelineSuggestions}
+                          className="text-[#6F6865] hover:text-[#6C0F37] underline cursor-pointer"
+                        >
+                          carregue sugestões padrão
+                        </button>.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {timeline.map((step, index) => (
+                          <div
+                            key={step.id}
+                            className="p-3.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded-xl space-y-2 relative"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                <span className="w-6 h-6 rounded-lg bg-[#6C0F37] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                  {index + 1}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={step.title}
+                                  onChange={(e) =>
+                                    handleUpdateTimelineStep(step.id, 'title', e.target.value)
+                                  }
+                                  placeholder="Nome da etapa..."
+                                  className="flex-1 px-2.5 py-1 text-xs font-bold text-[#2B2426] bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={300}
+                                  value={step.duration || ''}
+                                  onChange={(e) =>
+                                    handleUpdateTimelineStep(
+                                      step.id,
+                                      'duration',
+                                      parseInt(e.target.value, 10) || 0
+                                    )
+                                  }
+                                  placeholder="15"
+                                  className="w-14 px-2 py-1 text-xs text-center font-semibold bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
+                                />
+                                <span className="text-xs font-medium text-[#6F6865]">min</span>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => handleMoveTimelineStep(index, 'up')}
+                                  className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-[10px] text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
+                                  title="Mover para cima"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === timeline.length - 1}
+                                  onClick={() => handleMoveTimelineStep(index, 'down')}
+                                  className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-[10px] text-[#6F6865] hover:text-[#2B2426] disabled:opacity-30 cursor-pointer flex items-center justify-center"
+                                  title="Mover para baixo"
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTimelineStep(step.id)}
+                                  className="w-6 h-6 rounded bg-white border border-[#E6E1D8] text-xs text-[#6F6865] hover:text-red-600 cursor-pointer flex items-center justify-center"
+                                  title="Remover etapa"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+
+                            <textarea
+                              rows={2}
+                              value={step.description || ''}
+                              onChange={(e) =>
+                                handleUpdateTimelineStep(step.id, 'description', e.target.value)
+                              }
+                              placeholder="Orientações pedagógicas, atividades e procedimentos desta etapa..."
+                              className="w-full px-2.5 py-1.5 text-xs text-[#2B2426] bg-white border border-[#E6E1D8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6C0F37] leading-relaxed resize-y"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Checklist Arejado */}
                 <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">

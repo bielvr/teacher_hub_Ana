@@ -229,38 +229,46 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
         }
       />
 
-      {/* 1. CARDS DE MÉTRICAS NO TOPO (Status de Preparo) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#E6E1D8] rounded-xl p-4 shadow-2xs">
-          <div className="text-2xl font-bold text-[#6C0F37]">{totalLessons}</div>
-          <div className="text-xs font-semibold text-[#6F6865] mt-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#6C0F37]"></span>
-            Total de aulas
+      {/* 1. CARDS DE MÉTRICAS NO TOPO (Formato Compacto Horizontal) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white border border-[#E6E1D8] rounded-xl px-4 py-3 shadow-2xs flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#6F6865] block truncate">
+              Total de aulas
+            </span>
+            <span className="text-[11px] text-[#6F6865]/80 block truncate">Currículo completo</span>
           </div>
+          <div className="text-xl sm:text-2xl font-bold text-[#6C0F37] shrink-0">{totalLessons}</div>
         </div>
 
-        <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-xl p-4 shadow-2xs">
-          <div className="text-2xl font-bold text-[#DC3545]">{countNeedPrep}</div>
-          <div className="text-xs font-semibold text-[#DC3545] mt-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#DC3545]"></span>
-            Preciso preparar
+        <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-xl px-4 py-3 shadow-2xs flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#DC3545] block truncate">
+              Preciso preparar
+            </span>
+            <span className="text-[11px] text-[#DC3545]/80 block truncate">Revisão pendente</span>
           </div>
+          <div className="text-xl sm:text-2xl font-bold text-[#DC3545] shrink-0">{countNeedPrep}</div>
         </div>
 
-        <div className="bg-[#FFFDF0] border border-[#FEEBAA] rounded-xl p-4 shadow-2xs">
-          <div className="text-2xl font-bold text-[#B78103]">{countInProgress}</div>
-          <div className="text-xs font-semibold text-[#B78103] mt-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#B78103]"></span>
-            Em preparação
+        <div className="bg-[#FFFDF0] border border-[#FEEBAA] rounded-xl px-4 py-3 shadow-2xs flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#B78103] block truncate">
+              Em preparação
+            </span>
+            <span className="text-[11px] text-[#B78103]/80 block truncate">Em elaboração ativa</span>
           </div>
+          <div className="text-xl sm:text-2xl font-bold text-[#B78103] shrink-0">{countInProgress}</div>
         </div>
 
-        <div className="bg-[#F0FDF4] border border-[#B9F5D0] rounded-xl p-4 shadow-2xs">
-          <div className="text-2xl font-bold text-[#198754]">{countReady}</div>
-          <div className="text-xs font-semibold text-[#198754] mt-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#198754]"></span>
-            Pronta para usar
+        <div className="bg-[#F0FDF4] border border-[#B9F5D0] rounded-xl px-4 py-3 shadow-2xs flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#198754] block truncate">
+              Pronta para usar
+            </span>
+            <span className="text-[11px] text-[#198754]/80 block truncate">Materiais finalizados</span>
           </div>
+          <div className="text-xl sm:text-2xl font-bold text-[#198754] shrink-0">{countReady}</div>
         </div>
       </div>
 
@@ -370,8 +378,8 @@ export default async function ProfessorPlanningPage({ searchParams }: PlanningPa
                   </Link>
                 </div>
 
-                {/* Grade padronizada com 5 cards por linha no desktop */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {/* Grid inteligente e adaptável de lições */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
                   {track.filteredLessons.map((lesson: FlatLessonItem) => (
                     <PlanningLessonCard
                       key={lesson.id}

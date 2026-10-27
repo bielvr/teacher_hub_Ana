@@ -788,10 +788,7 @@ export function CreateActivityModal({
             <div className="shrink-0 border-b border-[#E6E1D8] p-6 bg-white space-y-3 z-20">
               <div className="flex items-center justify-between">
                 <div className="text-left">
-                  <span className="text-[11px] font-bold tracking-wider text-[#6C0F37] uppercase bg-[#F3E8EC] px-2.5 py-0.5 rounded border border-[#6C0F37]/20 inline-block">
-                    Materiais didáticos
-                  </span>
-                  <h1 className="text-2xl font-bold text-[#6C0F37] mt-0.5 text-left">
+                  <h1 className="text-2xl font-bold text-[#6C0F37] text-left">
                     Criar atividade
                   </h1>
                   <p className="text-xs text-[#6F6865] mt-0.5 text-left">
