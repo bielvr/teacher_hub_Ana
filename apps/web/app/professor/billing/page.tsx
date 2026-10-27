@@ -125,13 +125,13 @@ export default async function TeacherBillingPage({
       pendingItems.push({
         id: `p-${p.id}`,
         type: 'payment',
-        title: (p.profiles as any)?.full_name || p.description || 'Mensalidade de Estudante',
+        title: (p.profiles as any)?.full_name || p.description || 'Cobrança de estudante',
         subtitle: `Recebimento • Vencimento: ${new Date(p.due_date).toLocaleDateString('pt-BR')}`,
         amount: Number(p.amount) || 0,
         dueDate: p.due_date,
         isOverdue,
         actionHref: `/professor/billing/receivables?org=${activeOrgId}`,
-        actionLabel: isOverdue ? 'Cobrar mensalidade' : 'Receber',
+        actionLabel: isOverdue ? 'Cobrar' : 'Receber',
       });
     });
 
@@ -163,8 +163,8 @@ export default async function TeacherBillingPage({
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
-          title="Gestão Financeira da Escola"
-          description="Acompanhe o fluxo de caixa, mensalidades dos estudantes, despesas operacionais e resultados do mês."
+          title="Gestão financeira"
+          description="Acompanhe o fluxo de caixa, cobranças dos estudantes, despesas operacionais e resultados do mês."
         />
 
         <div className="flex items-center gap-2 self-start sm:self-center">
@@ -242,7 +242,7 @@ export default async function TeacherBillingPage({
             {formatCurrency(overdueTotal)}
           </p>
           <span className="text-xs text-[#6F6865] mt-1 block">
-            {overdueCount} {overdueCount === 1 ? 'mensalidade vencida' : 'mensalidades vencidas'}
+            {overdueCount} {overdueCount === 1 ? 'cobrança vencida' : 'cobranças vencidas'}
           </span>
         </Link>
 
@@ -313,7 +313,7 @@ export default async function TeacherBillingPage({
         <div className="flex items-center justify-between border-b border-[#E6E1D8] pb-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#D7CE36]" />
-            <h3 className="text-base font-bold text-[#2B2426]">Pendências Prioritárias da Escola</h3>
+            <h3 className="text-base font-bold text-[#2B2426]">Pendências prioritárias</h3>
           </div>
           <span className="text-xs font-semibold text-[#6F6865]">
             Ordenadas por data de vencimento
@@ -324,7 +324,7 @@ export default async function TeacherBillingPage({
           <div className="py-10 text-center space-y-2 bg-white rounded-xl border border-dashed border-[#E6E1D8]">
             <p className="text-sm font-bold text-[#2B2426]">Tudo regularizado no financeiro!</p>
             <p className="text-xs text-[#6F6865]">
-              Nenhuma mensalidade vencida ou despesa pendente que necessite de ação no momento.
+              Nenhuma cobrança vencida ou despesa pendente que necessite de ação no momento.
             </p>
           </div>
         ) : (

@@ -55,7 +55,7 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
     try {
       const res = await sendNoticeAction(orgId, noticeTitle, noticeContent);
       if (res?.success) {
-        setNoticeFeedback({ type: 'success', text: 'Aviso transmitido com sucesso a todos os alunos!' });
+        setNoticeFeedback({ type: 'success', text: 'Aviso transmitido com sucesso a todos os estudantes!' });
         setTimeout(() => {
           setIsNoticeModalOpen(false);
           setNoticeTitle('');
@@ -108,7 +108,7 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
           </div>
 
           <div className="py-1">
-            {/* 1. Cadastrar Aluno */}
+            {/* 1. Cadastrar Estudante */}
             <button
               type="button"
               onClick={() => {
@@ -123,8 +123,8 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
                 </svg>
               </span>
               <div>
-                <p className="font-semibold text-xs text-[#2B2426] group-hover:text-[#6C0F37]">Cadastrar aluno</p>
-                <p className="text-[11px] text-[#6F6865]">Adicionar novo aluno à plataforma</p>
+                <p className="font-semibold text-xs text-[#2B2426] group-hover:text-[#6C0F37]">Cadastrar estudante</p>
+                <p className="text-[11px] text-[#6F6865]">Adicionar novo estudante à plataforma</p>
               </div>
             </button>
 
@@ -180,7 +180,7 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
               </span>
               <div>
                 <p className="font-semibold text-xs text-[#2B2426] group-hover:text-[#6C0F37]">Enviar aviso</p>
-                <p className="text-[11px] text-[#6F6865]">Comunicado geral aos alunos</p>
+                <p className="text-[11px] text-[#6F6865]">Comunicado geral aos estudantes</p>
               </div>
             </button>
 
@@ -200,7 +200,7 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
               </span>
               <div>
                 <p className="font-semibold text-xs text-[#2B2426] group-hover:text-[#6C0F37]">Nova mensagem</p>
-                <p className="text-[11px] text-[#6F6865]">Chat direto com aluno</p>
+                <p className="text-[11px] text-[#6F6865]">Chat direto com estudante</p>
               </div>
             </button>
 
@@ -224,7 +224,7 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
         </div>
       )}
 
-      {/* Modal de Cadastrar Aluno */}
+      {/* Modal de Cadastrar Estudante */}
       <CreateStudentModal
         organizationId={orgId}
         showTrigger={false}
@@ -240,7 +240,7 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
         isTeacher={true}
       />
 
-      {/* Modal de Enviar Aviso aos Alunos */}
+      {/* Modal de Enviar Aviso aos Estudantes */}
       {isNoticeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
           <div className="bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl w-full max-w-lg p-6 shadow-xl space-y-4">
@@ -252,8 +252,8 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
                   </svg>
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-[#6C0F37]">Transmitir Aviso aos Alunos</h3>
-                  <p className="text-xs text-[#6F6865]">Esta mensagem será entregue no painel de notificações de todos os alunos.</p>
+                  <h3 className="text-base font-bold text-[#6C0F37]">Transmitir aviso aos estudantes</h3>
+                  <p className="text-xs text-[#6F6865]">Esta mensagem será entregue no painel de notificações de todos os estudantes.</p>
                 </div>
               </div>
               <button
@@ -299,7 +299,7 @@ export function QuickActionsMenu({ orgId }: QuickActionsMenuProps) {
                 <textarea
                   required
                   rows={4}
-                  placeholder="Escreva a mensagem completa que os alunos visualizarão..."
+                  placeholder="Escreva a mensagem completa que os estudantes visualizarão..."
                   value={noticeContent}
                   onChange={(e) => setNoticeContent(e.target.value)}
                   className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-sm bg-white text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#D7CE36] resize-none"

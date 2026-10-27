@@ -555,8 +555,8 @@ export function ActivityBankClient({
       {/* SEÇÃO PRINCIPAL: CARROSSEL DOS NÍVEIS DIDÁTICOS (5 CARDS VISÍVEIS POR VEZ NO DESKTOP) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37] flex items-center gap-2">
-            <span>🎯 Níveis didáticos cadastrados</span>
+          <h2 className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
+            <span>Níveis didáticos cadastrados</span>
             <span className="text-[11px] text-[#6F6865] font-normal hidden sm:inline">
               (Selecione um nível para explorar suas aulas e atividades associadas)
             </span>
@@ -685,8 +685,8 @@ export function ActivityBankClient({
           {/* Atividades Gerais deste Nível */}
           {groupedByLesson.unassignedActivities.length > 0 && (
             <div className="space-y-3 bg-[#FFFDF7] border border-[#E6E1D8] rounded-2xl p-5">
-              <h3 className="text-sm font-bold text-[#6C0F37] uppercase tracking-wider">
-                Outras Atividades deste Nível ({groupedByLesson.unassignedActivities.length})
+              <h3 className="text-sm font-bold text-[#6C0F37]">
+                Outras atividades deste nível ({groupedByLesson.unassignedActivities.length})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {groupedByLesson.unassignedActivities.map(renderActivityCard)}

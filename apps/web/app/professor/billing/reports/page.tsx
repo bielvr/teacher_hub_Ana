@@ -57,8 +57,8 @@ export default async function FinancialReportsPage({
   payments.forEach((p) => {
     transactions.push({
       date: p.paid_at ? p.paid_at.split('T')[0] : p.due_date,
-      description: (p.profiles as any)?.full_name ? `Mensalidade - ${(p.profiles as any).full_name}` : p.description || 'Receita de Aluno',
-      category: 'Mensalidade / Aulas',
+      description: (p.profiles as any)?.full_name ? `Cobrança - ${(p.profiles as any).full_name}` : p.description || 'Recebimento de estudante',
+      category: 'Cobranças / Aulas',
       amount: Number(p.amount) || 0,
       status: p.status === 'paid' ? 'Liquidado' : p.status === 'overdue' ? 'Vencido' : 'Pendente',
       origin: 'Receita',
@@ -215,7 +215,7 @@ export default async function FinancialReportsPage({
           <p className="text-2xl font-bold text-[#2B2426]">
             {formatBRL(grossRevenueYear)}
           </p>
-          <span className="text-[11px] text-[#6F6865]">Total de mensalidades pagas</span>
+          <span className="text-[11px] text-[#6F6865]">Total de cobranças pagas</span>
         </div>
 
         <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-xs space-y-1">

@@ -232,7 +232,7 @@ export function PlanningLessonCard({
                     className="text-[9px] font-bold text-[#6C0F37] bg-white/90 px-1.5 py-0.5 rounded border border-[#E6E1D8]"
                     title="Disponível na biblioteca de Materiais Didáticos"
                   >
-                    📚 Biblioteca
+                    Biblioteca
                   </span>
                 )}
                 <div className="relative">
@@ -321,7 +321,7 @@ export function PlanningLessonCard({
 
               {totalChecks > 0 && (
                 <span className="text-[9px] font-semibold text-[#6F6865] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E6E1D8]">
-                  ☑ {completedChecks}/{totalChecks}
+                  {completedChecks}/{totalChecks}
                 </span>
               )}
             </div>
@@ -526,7 +526,6 @@ export function PlanningLessonCard({
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-left">
                       <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                        <span>📚</span>
                         <span>Conteúdos trabalhados</span>
                       </label>
                       <p className="text-xs text-[#6F6865] mt-0.5">
@@ -610,8 +609,7 @@ export function PlanningLessonCard({
                 <div className="bg-white border border-[#E6E1D8] rounded-2xl p-5 shadow-2xs space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                      <span>☑️</span>
-                      <span>Checklist de preparo</span>
+                      <span>Checklist</span>
                     </label>
                   </div>
 

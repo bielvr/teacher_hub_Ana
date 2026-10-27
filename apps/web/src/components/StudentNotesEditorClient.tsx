@@ -492,7 +492,7 @@ export function StudentNotesEditorClient({
                 Caderno & Registros Pedagógicos
               </h1>
               <p className="text-xs sm:text-sm text-[#6F6865] mt-1 max-w-2xl">
-                Selecione um aluno para acessar o caderno colaborativo de aula ou registrar anotações pedagógicas privadas de acompanhamento.
+                Selecione um estudante para acessar o caderno colaborativo de aula ou registrar anotações pedagógicas privadas de acompanhamento.
               </p>
             </div>
 
@@ -514,7 +514,7 @@ export function StudentNotesEditorClient({
           {/* KPI Summary Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white border border-[#E6E1D8] p-5 rounded-2xl shadow-xs">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">Total de Alunos</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6F6865]">Total de Estudantes</span>
               <p className="text-2xl sm:text-3xl font-bold text-[#2B2426] mt-1">{stats.totalStudents}</p>
               <span className="text-[11px] text-[#6F6865] mt-0.5 block">Com acesso a cadernos</span>
             </div>
@@ -542,14 +542,14 @@ export function StudentNotesEditorClient({
           <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-bold text-[#2B2426]">Alunos e Cadernos de Aula</h2>
-                <p className="text-xs text-[#6F6865]">Clique em um aluno para abrir seu caderno compartilhado e anotações privadas.</p>
+                <h2 className="text-base font-bold text-[#2B2426]">Estudantes e Cadernos de Aula</h2>
+                <p className="text-xs text-[#6F6865]">Clique em um estudante para abrir seu caderno compartilhado e anotações privadas.</p>
               </div>
 
               <div className="w-full sm:w-72">
                 <input
                   type="text"
-                  placeholder="Buscar aluno por nome..."
+                  placeholder="Buscar estudante por nome..."
                   value={overviewStudentSearch}
                   onChange={(e) => setOverviewStudentSearch(e.target.value)}
                   className="w-full px-3.5 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-[#FFFDF7] text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
@@ -559,7 +559,7 @@ export function StudentNotesEditorClient({
 
             {filteredStudents.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#6F6865] italic border border-dashed border-[#E6E1D8] rounded-xl">
-                Nenhum aluno encontrado para &quot;{overviewStudentSearch}&quot;.
+                Nenhum estudante encontrado para &quot;{overviewStudentSearch}&quot;.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -631,7 +631,7 @@ export function StudentNotesEditorClient({
               <div className="flex flex-wrap items-center gap-2.5">
                 <input
                   type="text"
-                  placeholder="Filtrar por título, aluno..."
+                  placeholder="Filtrar por título, estudante..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="px-3 py-1.5 border border-[#E6E1D8] rounded-xl text-xs bg-[#FFFDF7] text-[#2B2426] placeholder:text-[#6F6865]/60 focus:outline-none focus:ring-1 focus:ring-[#6C0F37]"
@@ -685,7 +685,7 @@ export function StudentNotesEditorClient({
                           )}
 
                           <span className="text-xs font-semibold text-[#2B2426]">
-                            Aluno: <strong className="text-[#6C0F37]">{studentObj?.full_name || 'Aluno'}</strong>
+                            Estudante: <strong className="text-[#6C0F37]">{studentObj?.full_name || 'Estudante'}</strong>
                           </span>
 
                           <span className="text-[11px] text-[#6F6865]">
@@ -693,7 +693,7 @@ export function StudentNotesEditorClient({
                           </span>
 
                           <span className="text-[10px] font-medium text-[#6F6865] bg-white px-2 py-0.5 rounded border border-[#E6E1D8]">
-                            Autor: {note.author_role === 'teacher' ? 'Professor' : 'Aluno'}
+                            Autor: {note.author_role === 'teacher' ? 'Professor' : 'Estudante'}
                           </span>
                         </div>
 
@@ -764,7 +764,7 @@ export function StudentNotesEditorClient({
                 <div className="space-y-4 text-xs">
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6F6865] mb-1.5">
-                      Selecione o Aluno
+                      Selecione o Estudante
                     </label>
                     <select
                       value={modalStudentId}
@@ -794,7 +794,7 @@ export function StudentNotesEditorClient({
                         }`}
                       >
                         <span className="font-bold text-[#6C0F37] block">📖 Caderno Compartilhado</span>
-                        <span className="text-[11px] text-[#6F6865] mt-1 block">Espaço mútuo de aula. O aluno tem acesso.</span>
+                        <span className="text-[11px] text-[#6F6865] mt-1 block">Espaço mútuo de aula. O estudante tem acesso.</span>
                       </button>
 
                       <button
@@ -867,7 +867,7 @@ export function StudentNotesEditorClient({
                 type="button"
                 onClick={() => setSelectedStudentId(null)}
                 className="px-3 py-1.5 bg-white border border-[#E6E1D8] hover:border-[#6C0F37] hover:text-[#6C0F37] rounded-xl text-xs font-semibold text-[#6F6865] transition cursor-pointer shadow-2xs flex items-center gap-1.5"
-                title="Voltar para a Visão Geral de todos os alunos"
+                title="Voltar para a Visão Geral de todos os estudantes"
               >
                 <span>←</span>
                 <span>Visão Geral</span>
@@ -889,7 +889,7 @@ export function StudentNotesEditorClient({
 
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#6C0F37] block">
-                    Caderno do Aluno
+                    Caderno do Estudante
                   </span>
                   <div className="flex items-center gap-2">
                     <select
@@ -982,7 +982,7 @@ export function StudentNotesEditorClient({
             <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-3 text-xs text-amber-900 animate-in fade-in">
               <span className="text-base">🔒</span>
               <p>
-                <strong>Área Privada do Professor:</strong> Estas anotações são exclusivas para seu acompanhamento pedagógico interno (desempenho, dificuldades e evolução) e <strong>NÃO</strong> são visíveis para o aluno.
+                <strong>Área Privada do Professor:</strong> Estas anotações são exclusivas para seu acompanhamento pedagógico interno (desempenho, dificuldades e evolução) e <strong>NÃO</strong> são visíveis para o estudante.
               </p>
             </div>
           )}
@@ -1042,7 +1042,7 @@ export function StudentNotesEditorClient({
 
                   {currentTabNotes.length === 0 ? (
                     <div className="p-6 text-center text-xs text-[#6F6865] italic">
-                      {activeTab === 'private' ? 'Nenhum registro privado para este aluno.' : 'Nenhuma página compartilhada cadastrada.'}
+                      {activeTab === 'private' ? 'Nenhum registro privado para este estudante.' : 'Nenhuma página compartilhada cadastrada.'}
                     </div>
                   ) : (
                     currentTabNotes.map((note) => {

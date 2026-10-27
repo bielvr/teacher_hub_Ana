@@ -126,11 +126,11 @@ export function ClassHubClient({
       {/* NAVEGAÇÃO EM 5 ABAS */}
       <div className="border-b border-[#E6E1D8] flex items-center gap-2 overflow-x-auto pb-px">
         {[
-          { key: 'overview', label: 'Visão geral', icon: '📊' },
-          { key: 'schedule', label: 'Agenda', icon: '📅', count: sessions.length },
-          { key: 'content', label: 'Conteúdo', icon: '📚', count: activities.length },
-          { key: 'students', label: 'Estudantes', icon: '👥', count: studentsList.length },
-          { key: 'notes', label: 'Anotações', icon: '📝' },
+          { key: 'overview', label: 'Visão geral' },
+          { key: 'schedule', label: 'Agenda', count: sessions.length },
+          { key: 'content', label: 'Conteúdo', count: activities.length },
+          { key: 'students', label: 'Estudantes', count: studentsList.length },
+          { key: 'notes', label: 'Anotações' },
         ].map((tab) => {
           const isActive = activeTab === tab.key;
           return (
@@ -144,7 +144,6 @@ export function ClassHubClient({
                   : 'border-transparent text-[#6F6865] hover:text-[#2B2426] hover:bg-[#FAF8F5]/60'
               }`}
             >
-              <span>{tab.icon}</span>
               <span>{tab.label}</span>
               {typeof tab.count === 'number' && (
                 <span

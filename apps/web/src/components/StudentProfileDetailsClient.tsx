@@ -567,7 +567,7 @@ export function StudentProfileDetailsClient({
           href={`/professor/students?org=${organizationId}`}
           className="text-xs font-semibold text-[#6C0F37] hover:underline flex items-center gap-1.5"
         >
-          <span>← Voltar para Lista de Alunos</span>
+          <span>← Voltar para Lista de Estudantes</span>
         </Link>
       </div>
 
@@ -591,7 +591,7 @@ export function StudentProfileDetailsClient({
         </div>
       )}
 
-      {/* CABEÇALHO PRINCIPAL DA FICHA DO ALUNO */}
+      {/* CABEÇALHO PRINCIPAL DA FICHA DO ESTUDANTE */}
       <div className="bg-white border border-[#E6E1D8] rounded-2xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-[#D7CE36] text-[#6C0F37] font-extrabold text-xl flex items-center justify-center shrink-0 shadow-sm ring-4 ring-[#FFFDF7]">
@@ -616,7 +616,7 @@ export function StudentProfileDetailsClient({
             <div className="flex items-center gap-4 text-xs text-[#6F6865] flex-wrap">
               <span>📧 {student.email || 'Sem e-mail cadastrado'}</span>
               <span>
-                🎓 {student.class_name ? `Turma: ${student.class_name}` : 'Aulas Individuais / VIP'}
+                🎓 {student.class_name ? `Turma: ${student.class_name}` : 'Atendimento individual'}
               </span>
               <span>
                 🗓 Membro desde:{' '}
@@ -633,7 +633,7 @@ export function StudentProfileDetailsClient({
             onClick={handleToggleStatus}
             disabled={isPending}
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#E6E1D8] bg-[#FFFDF7] hover:bg-[#F7F4ED] text-[#2B2426] transition cursor-pointer shadow-2xs"
-            title="Alternar status do aluno na organização"
+            title="Alternar status do estudante na organização"
           >
             {isActive ? 'Desativar Estudante' : 'Ativar Estudante'}
           </button>
@@ -731,7 +731,7 @@ export function StudentProfileDetailsClient({
             <div className="pt-2 border-t border-[#E6E1D8]/70 text-[#6F6865] text-[11px]">
               <span>
                 <strong className="text-[#2B2426]">Modalidade:</strong>{' '}
-                {student.class_name ? `Turma (${student.class_name})` : 'Individual / VIP'}
+                {student.class_name ? `Turma (${student.class_name})` : 'Atendimento individual'}
               </span>
             </div>
           </div>
@@ -1125,7 +1125,7 @@ export function StudentProfileDetailsClient({
         </div>
       )}
 
-      {/* MODAL 1: EDITAR DADOS CADASTRAIS COMPLETOS DO ALUNO */}
+      {/* MODAL 1: EDITAR DADOS CADASTRAIS COMPLETOS DO ESTUDANTE */}
       {isProfileModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in"
@@ -1173,7 +1173,7 @@ export function StudentProfileDetailsClient({
                     type="email"
                     name="email"
                     defaultValue={student.email || ''}
-                    placeholder="aluno@email.com"
+                    placeholder="estudante@email.com"
                     className="w-full px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs text-[#2B2426] focus:outline-none focus:ring-2 focus:ring-[#6C0F37]"
                   />
                 </div>
@@ -1212,8 +1212,8 @@ export function StudentProfileDetailsClient({
               {/* Seção Endereço Completo */}
               <div className="pt-3 border-t border-[#E6E1D8] space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C0F37]">
-                    Endereço Completo
+                  <h3 className="text-xs font-bold text-[#6C0F37]">
+                    Endereço completo
                   </h3>
                   <span className="text-[10px] text-[#6F6865]">Preenchimento automático via CEP</span>
                 </div>

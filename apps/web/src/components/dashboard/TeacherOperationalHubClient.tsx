@@ -68,14 +68,14 @@ export function TeacherOperationalHubClient({
 
         {/* Ações no Topo do Cabeçalho */}
         <div className="flex items-center gap-3 shrink-0 self-start lg:self-center">
-          {/* Botão de Destaque Global: + Cadastrar Aluno */}
+          {/* Botão de Destaque Global: + Cadastrar Estudante */}
           <button
             type="button"
             onClick={() => setIsStudentModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] transition-all shadow-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D7CE36]/50"
           >
             <span className="text-base leading-none font-bold">+</span>
-            <span>Cadastrar aluno</span>
+            <span>Cadastrar estudante</span>
           </button>
 
           {/* Botão Discreto: ⚡ Acesso Rápido com Dropdown */}
@@ -109,7 +109,7 @@ export function TeacherOperationalHubClient({
         </div>
       </div>
 
-      {/* Modal Global de Cadastro de Aluno acionado pelo botão principal */}
+      {/* Modal Global de Cadastro de Estudante acionado pelo botão principal */}
       <CreateStudentModal
         organizationId={activeOrgId}
         showTrigger={false}

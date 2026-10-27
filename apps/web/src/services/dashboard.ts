@@ -113,7 +113,7 @@ export async function getDashboardData(
       duration_minutes: s.duration_minutes || 60,
       meet_url: s.meet_url || null,
       status: s.status as any,
-      class_name: s.classes?.name || 'Aula Individual',
+      class_name: s.classes?.name || 'Atendimento individual',
       class_level: s.classes?.level || null,
       lesson_title: s.lessons?.title || null,
       is_google_synced: isGoogle,
@@ -147,7 +147,7 @@ export async function getDashboardData(
 
     if (pendingSubmissions && pendingSubmissions.length > 0) {
       const count = pendingSubmissions.length;
-      const latestStudent = (pendingSubmissions[0].profiles as any)?.full_name || 'Aluno';
+      const latestStudent = (pendingSubmissions[0].profiles as any)?.full_name || 'Estudante';
       actionItems.push({
         id: 'pending-corrections',
         type: 'correction',
@@ -196,7 +196,7 @@ export async function getDashboardData(
         .limit(1);
 
       if (!notes || notes.length === 0) {
-        const className = (session.classes as any)?.name || session.title || 'aluno';
+        const className = (session.classes as any)?.name || session.title || 'estudante';
         actionItems.push({
           id: `pending-note-${session.id}`,
           type: 'note',
@@ -292,13 +292,13 @@ export async function getDashboardData(
       .limit(3);
 
     if (overduePayments && overduePayments.length > 0) {
-      const studentName = (overduePayments[0].profiles as any)?.full_name || 'Aluno';
+      const studentName = (overduePayments[0].profiles as any)?.full_name || 'Estudante';
       actionItems.push({
         id: 'overdue-payments',
         type: 'billing',
         urgency: 'medium',
         title: overduePayments.length === 1 ? 'Cobrança pendente ou vencida' : `${overduePayments.length} cobranças pendentes`,
-        description: `Mensalidade de ${studentName} aguarda liquidação no módulo financeiro.`,
+        description: `Cobrança de ${studentName} aguarda liquidação no módulo financeiro.`,
         actionLabel: 'Ver financeiro',
         actionHref: `/professor/billing?org=${activeOrgId}`,
         badgeText: 'Financeiro',

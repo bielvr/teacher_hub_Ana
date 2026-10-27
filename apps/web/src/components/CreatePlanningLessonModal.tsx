@@ -755,7 +755,6 @@ export function CreatePlanningLessonModal({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-left">
                     <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                      <span>📚</span>
                       <span>Conteúdos trabalhados</span>
                     </label>
                     <p className="text-xs text-[#6F6865] mt-0.5">
@@ -842,7 +841,6 @@ export function CreatePlanningLessonModal({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-left">
                     <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                      <span>⏱️</span>
                       <span>Roteiro da aula</span>
                     </label>
                     <p className="text-xs text-[#6F6865] mt-0.5">
@@ -1141,8 +1139,7 @@ export function CreatePlanningLessonModal({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-left">
                     <label className="text-sm font-bold text-[#6C0F37] flex items-center gap-2">
-                      <span>☑️</span>
-                      <span>Checklist de preparo</span>
+                      <span>Checklist</span>
                     </label>
                     <p className="text-xs text-[#6F6865] mt-0.5">
                       Itens de verificação rápida para orientar o preparo antes da aula.

@@ -41,7 +41,7 @@ export default async function ReceivablesPage({
     .eq('organization_id', activeOrgId)
     .order('due_date', { ascending: false });
 
-  // 2. Busca alunas para o modal
+  // 2. Busca estudantes para o modal
   const { data: studentsData } = await supabase
     .from('profiles')
     .select('id, full_name')
@@ -69,7 +69,7 @@ export default async function ReceivablesPage({
     <div className="space-y-6 max-w-5xl mx-auto">
       <PageHeader
         title="Recebimentos"
-        description="Mensalidades e cobranças dos estudantes, pagamentos recebidos, pendentes e previsões de parcelas."
+        description="Cobranças e recebimentos dos estudantes, pagamentos recebidos, pendentes e previsões de parcelas."
         action={
           <CreatePaymentModal
             organizationId={activeOrgId}

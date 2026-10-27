@@ -230,7 +230,6 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
         >
           <div className="flex items-center justify-between text-[#6F6865]">
             <span className="text-[11px] font-bold uppercase tracking-wider">Total de Aulas</span>
-            <span className="text-base">📚</span>
           </div>
           <p className="text-3xl font-bold text-[#2B2426] mt-1">{stats.total}</p>
           <span className="text-[11px] text-[#6F6865] mt-1 block">Currículo pedagógico completo</span>
@@ -250,7 +249,6 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
         >
           <div className="flex items-center justify-between text-rose-700">
             <span className="text-[11px] font-bold uppercase tracking-wider">Precisa Preparar</span>
-            <span className="text-base">⚠️</span>
           </div>
           <p className="text-3xl font-bold text-rose-700 mt-1">{stats.needsPrep}</p>
           <span className="text-[11px] text-rose-600/90 mt-1 block font-medium">
@@ -272,7 +270,6 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
         >
           <div className="flex items-center justify-between text-amber-800">
             <span className="text-[11px] font-bold uppercase tracking-wider">Em Preparação</span>
-            <span className="text-base">⏳</span>
           </div>
           <p className="text-3xl font-bold text-amber-800 mt-1">{stats.inProgress}</p>
           <span className="text-[11px] text-amber-700/90 mt-1 block font-medium">
@@ -294,7 +291,6 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
         >
           <div className="flex items-center justify-between text-emerald-800">
             <span className="text-[11px] font-bold uppercase tracking-wider">Pronta para Uso</span>
-            <span className="text-base">✓</span>
           </div>
           <p className="text-3xl font-bold text-emerald-700 mt-1">{stats.ready}</p>
           <span className="text-[11px] text-emerald-600/90 mt-1 block font-medium">
@@ -340,9 +336,9 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
               className="px-3 py-2 border border-[#E6E1D8] rounded-xl text-xs bg-white text-[#2B2426] focus:outline-none focus:ring-1 focus:ring-[#6C0F37] cursor-pointer"
             >
               <option value="all">Todos os status de preparo</option>
-              <option value="needs_prep">⚠️ Precisa Preparar</option>
-              <option value="in_progress">⏳ Em Preparação</option>
-              <option value="ready">✓ Pronta para Uso</option>
+              <option value="needs_prep">Precisa preparar</option>
+              <option value="in_progress">Em preparação</option>
+              <option value="ready">Pronta para uso</option>
             </select>
 
             {hasActiveFilters && (
@@ -424,20 +420,20 @@ export function PlanningClient({ tracks }: PlanningClientProps) {
                           case 'needs_prep':
                             return (
                               <span className="px-2 py-0.5 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-md">
-                                ⚠️ Precisa Preparar
+                                Precisa preparar
                               </span>
                             );
                           case 'in_progress':
                             return (
                               <span className="px-2 py-0.5 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-md">
-                                ⏳ Em Preparação
+                                Em preparação
                               </span>
                             );
                           case 'ready':
                           default:
                             return (
                               <span className="px-2 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md">
-                                ✓ Pronta para Uso
+                                Pronta para uso
                               </span>
                             );
                         }
