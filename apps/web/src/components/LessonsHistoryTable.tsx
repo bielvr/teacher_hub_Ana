@@ -7,6 +7,8 @@ import {
   EditLessonRecordSession,
   ClassStudentItem,
 } from './EditLessonRecordModal';
+import { SessionAttendanceModal } from './SessionAttendanceModal';
+import { ClassAttendanceMatrix } from '../services/attendance';
 import {
   bulkUpdateSessionsStatusAction,
   bulkDeleteSessionsAction,
@@ -20,6 +22,7 @@ interface LessonsHistoryTableProps {
   organizationId?: string;
   studentId?: string;
   classId?: string;
+  attendanceMatrix?: ClassAttendanceMatrix;
 }
 
 type LessonFilter = 'all' | 'regular' | 'replacement' | 'holidays_vacations';
@@ -31,6 +34,7 @@ export function LessonsHistoryTable({
   organizationId,
   studentId,
   classId,
+  attendanceMatrix,
 }: LessonsHistoryTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -44,6 +48,9 @@ export function LessonsHistoryTable({
 
   // Modal de Edição Individual
   const [editingSession, setEditingSession] = useState<EditLessonRecordSession | null>(null);
+
+  // Modal de Chamada / Presença
+  const [attendanceSession, setAttendanceSession] = useState<EditLessonRecordSession | null>(null);
 
   // Modal de Edição em Lote
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -238,7 +245,12 @@ export function LessonsHistoryTable({
                 {/* 6. Status */}
                 <th className="py-3 px-4">Status</th>
 
-                {/* 7. Ações */}
+                {/* 7. Presença (se for turma) */}
+                {isClassSession && (
+                  <th className="py-3 px-4">Frequência</th>
+                )}
+
+                {/* 8. Ações */}
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
@@ -246,7 +258,7 @@ export function LessonsHistoryTable({
             <tbody className="divide-y divide-[#E6E1D8]">
               {numberedSessions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-xs text-[#6F6865]">
+                  <td colSpan={isClassSession ? 8 : 7} className="py-12 text-center text-xs text-[#6F6865]">
                     Nenhuma aula encontrada para os filtros selecionados.
                   </td>
                 </tr>
@@ -420,15 +432,66 @@ export function LessonsHistoryTable({
                         {renderStatusBadge()}
                       </td>
 
-                      {/* 7. Ações */}
+                      {/* 7. Presença Estruturada (se for turma) */}
+                      {isClassSession && (
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {isHoliday || isVacation ? (
+                            <span className="text-[11px] text-[#6F6865]">—</span>
+                          ) : (() => {
+                            const summary = attendanceMatrix?.sessionsMap[sess.id];
+                            const hasRecords = summary && summary.totalRecorded > 0;
+                            const totalStudents = classStudents.length;
+
+                            if (!hasRecords) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setAttendanceSession(sess)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#6C0F37] bg-[#FAF8F5] border border-[#E6E1D8] hover:border-[#6C0F37] cursor-pointer transition"
+                                >
+                                  <span>+ Registrar chamada</span>
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setAttendanceSession(sess)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition"
+                                title="Clique para auditar ou editar a lista de presença"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                                <span>
+                                  {summary.presentCount}/{totalStudents || summary.totalRecorded} presentes
+                                </span>
+                              </button>
+                            );
+                          })()}
+                        </td>
+                      )}
+
+                      {/* 8. Ações */}
                       <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setEditingSession(sess)}
-                          className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-white border border-[#E6E1D8] hover:border-[#6C0F37] hover:bg-[#FAF8F5] rounded-xl transition cursor-pointer"
-                        >
-                          Editar registro
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isClassSession && !isHoliday && !isVacation && (
+                            <button
+                              type="button"
+                              onClick={() => setAttendanceSession(sess)}
+                              className="px-2.5 py-1.5 text-xs font-semibold text-[#6C0F37] bg-[#FFFDF7] border border-[#E6E1D8] hover:border-[#6C0F37] rounded-xl transition cursor-pointer"
+                              title="Registrar ou auditar presença"
+                            >
+                              Presença
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEditingSession(sess)}
+                            className="px-3 py-1.5 text-xs font-semibold text-[#6C0F37] bg-white border border-[#E6E1D8] hover:border-[#6C0F37] hover:bg-[#FAF8F5] rounded-xl transition cursor-pointer"
+                          >
+                            Editar registro
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -525,6 +588,25 @@ export function LessonsHistoryTable({
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE CHAMADA E PRESENÇA RÁPIDA */}
+      {attendanceSession && (
+        <SessionAttendanceModal
+          isOpen={Boolean(attendanceSession)}
+          onClose={() => setAttendanceSession(null)}
+          sessionId={attendanceSession.id}
+          sessionTitle={attendanceSession.title}
+          scheduledAt={attendanceSession.scheduled_at}
+          durationMinutes={attendanceSession.duration_minutes}
+          classId={classId}
+          students={classStudents}
+          initialAttendance={attendanceMatrix?.sessionsMap[attendanceSession.id]?.records}
+          onSaved={() => {
+            setAttendanceSession(null);
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

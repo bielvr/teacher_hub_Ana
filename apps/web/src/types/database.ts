@@ -21,6 +21,7 @@ export type ActivityType =
 export type AffiliatePartnerStatus = 'active' | 'inactive' | 'suspended';
 export type AffiliatePlanCycle = 'monthly' | 'yearly';
 export type AffiliateCommissionStatus = 'pending' | 'available' | 'paid' | 'cancelled';
+export type AttendanceStatus = 'present' | 'absent' | 'excused';
 
 export interface Database {
   public: {
@@ -760,6 +761,62 @@ export interface Database {
             columns: ['lesson_id'];
             isOneToOne: false;
             referencedRelation: 'lessons';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      session_attendance: {
+        Row: {
+          id: string;
+          organization_id: string;
+          group_session_id: string | null;
+          student_id: string;
+          status: AttendanceStatus;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          group_session_id?: string | null;
+          student_id: string;
+          status: AttendanceStatus;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          group_session_id?: string | null;
+          student_id?: string;
+          status?: AttendanceStatus;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'session_attendance_organization_id_fkey';
+            columns: ['organization_id'];
+            isOneToOne: false;
+            referencedRelation: 'organizations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'session_attendance_group_session_id_fkey';
+            columns: ['group_session_id'];
+            isOneToOne: false;
+            referencedRelation: 'group_sessions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'session_attendance_student_id_fkey';
+            columns: ['student_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           }
         ];

@@ -4,6 +4,7 @@ import { getClassWithStudents } from '../../../../src/services/classes';
 import { AvailableStudentOption } from '../../../../src/components/EnrollStudentModal';
 import { ClassHubClient } from '../../../../src/components/ClassHubClient';
 import { EditLessonRecordSession } from '../../../../src/components/EditLessonRecordModal';
+import { getClassAttendanceMatrix } from '../../../../src/services/attendance';
 
 export default async function ClassDetailsPage({
   params,
@@ -148,6 +149,9 @@ export default async function ClassDetailsPage({
     (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
   );
 
+  const sessionIds = rawSessions.map((s) => s.id);
+  const attendanceMatrix = await getClassAttendanceMatrix(supabase, sessionIds);
+
   return (
     <ClassHubClient
       classData={classData}
@@ -156,6 +160,7 @@ export default async function ClassDetailsPage({
       sessions={rawSessions}
       activities={activitiesRes.data || []}
       orgClasses={orgClassesRes.data || []}
+      attendanceMatrix={attendanceMatrix}
     />
   );
 }

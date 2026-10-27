@@ -6,6 +6,7 @@ import { getClassWithStudents } from '../../../../../src/services/classes';
 import { PageHeader } from '../../../../../src/components/PageHeader';
 import { LessonsHistoryTable } from '../../../../../src/components/LessonsHistoryTable';
 import { EditLessonRecordSession, ClassStudentItem } from '../../../../../src/components/EditLessonRecordModal';
+import { getClassAttendanceMatrix } from '../../../../../src/services/attendance';
 
 export default async function ClassLessonsPage({
   params,
@@ -32,7 +33,7 @@ export default async function ClassLessonsPage({
 
   // Alunos matriculados
   const studentsList: ClassStudentItem[] = (classData.class_students || []).map((cs: any) => ({
-    id: cs.student?.id || cs.student_id,
+    id: cs.student?.profiles?.id || cs.student?.profile_id || cs.student?.id || cs.student_id,
     name: cs.student?.profiles?.full_name || 'Estudante',
     email: cs.student?.profiles?.email || null,
   }));
@@ -111,6 +112,9 @@ export default async function ClassLessonsPage({
     (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
   );
 
+  const sessionIds = rawSessions.map((s) => s.id);
+  const attendanceMatrix = await getClassAttendanceMatrix(supabase, sessionIds);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -134,6 +138,7 @@ export default async function ClassLessonsPage({
         classStudents={studentsList}
         organizationId={effectiveOrgId}
         classId={classId}
+        attendanceMatrix={attendanceMatrix}
       />
     </div>
   );

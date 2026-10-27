@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react';
 import { updateSessionAction } from '../actions/calendar';
+import { saveSessionAttendanceAction } from '../actions/attendance';
 import { formatSafeDate, formatSafeTime } from '../lib/calendar';
 
 export interface ClassStudentItem {
@@ -219,6 +220,19 @@ export function EditLessonRecordModal({
 
         if (res && !res.success) {
           throw new Error(res.error || 'Erro ao salvar registro da aula.');
+        }
+
+        // Se for aula de turma, persiste também na tabela session_attendance estruturada
+        if (isClassSession && classStudents.length > 0) {
+          const attendanceRecords = classStudents.map((st) => ({
+            studentId: st.id,
+            status: classAttendance[st.id] || 'present',
+          }));
+          await saveSessionAttendanceAction(
+            session.id,
+            attendanceRecords,
+            session.class_id || undefined
+          );
         }
 
         if (onSuccess) onSuccess();

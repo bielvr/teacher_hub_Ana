@@ -14,6 +14,8 @@ import {
 } from './EditLessonRecordModal';
 import { removeStudentAction } from '../actions/students';
 import { formatSafeDate, formatSafeTime } from '../lib/calendar';
+import { SessionAttendanceModal } from './SessionAttendanceModal';
+import { ClassAttendanceMatrix } from '../services/attendance';
 
 interface ClassHubClientProps {
   classData: any;
@@ -22,6 +24,7 @@ interface ClassHubClientProps {
   sessions: EditLessonRecordSession[];
   activities?: any[];
   orgClasses?: { id: string; name: string }[];
+  attendanceMatrix?: ClassAttendanceMatrix;
 }
 
 type ClassTab = 'overview' | 'schedule' | 'content' | 'students' | 'notes';
@@ -33,6 +36,7 @@ export function ClassHubClient({
   sessions = [],
   activities = [],
   orgClasses = [],
+  attendanceMatrix,
 }: ClassHubClientProps) {
   const [activeTab, setActiveTab] = useState<ClassTab>('overview');
 
@@ -46,12 +50,16 @@ export function ClassHubClient({
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesFeedback, setNotesFeedback] = useState(false);
 
-  // Modal para editar registro de aula rápido pelo botão "Abrir registro e presença"
+  // Modal para editar registro de aula rápido
   const [selectedSessionForEdit, setSelectedSessionForEdit] =
     useState<EditLessonRecordSession | null>(null);
 
+  // Modal rápido de Presença e Chamada
+  const [attendanceSession, setAttendanceSession] =
+    useState<EditLessonRecordSession | null>(null);
+
   const studentsList: ClassStudentItem[] = (classData.class_students || []).map((cs: any) => ({
-    id: cs.student?.id || cs.student_id,
+    id: cs.student?.profiles?.id || cs.student?.profile_id || cs.student?.id || cs.student_id,
     name: cs.student?.profiles?.full_name || 'Estudante',
     email: cs.student?.profiles?.email || null,
   }));
@@ -293,13 +301,33 @@ export function ClassHubClient({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full md:w-auto">
+                {(() => {
+                  const summary = attendanceMatrix?.sessionsMap[nextSession.id];
+                  const hasRecords = summary && summary.totalRecorded > 0;
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceSession(nextSession)}
+                      className="w-full md:w-auto px-4 py-2.5 text-xs font-bold text-[#6C0F37] bg-[#D7CE36] hover:bg-[#C2B92F] rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <span>✓</span>
+                      <span>
+                        {hasRecords
+                          ? `Ver presença (${summary.presentCount}/${studentsList.length || summary.totalRecorded})`
+                          : 'Registrar presença'}
+                      </span>
+                    </button>
+                  );
+                })()}
+
                 <button
                   type="button"
                   onClick={() => setSelectedSessionForEdit(nextSession)}
-                  className="w-full md:w-auto px-4 py-2.5 text-xs font-bold text-white bg-[#6C0F37] hover:bg-[#57102E] rounded-xl transition shadow-xs cursor-pointer"
+                  className="w-full md:w-auto px-3.5 py-2.5 text-xs font-semibold text-[#2B2426] bg-[#FFFDF7] border border-[#E6E1D8] hover:bg-[#FAF8F5] rounded-xl transition cursor-pointer"
                 >
-                  Abrir registro e presença
+                  Registro e notas
                 </button>
               </div>
             </div>
@@ -369,6 +397,7 @@ export function ClassHubClient({
             classStudents={studentsList}
             organizationId={organizationId}
             classId={classData.id}
+            attendanceMatrix={attendanceMatrix}
           />
         </div>
       )}
@@ -462,13 +491,47 @@ export function ClassHubClient({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Resumo de Frequência Individual */}
+                        {(() => {
+                          const profileId =
+                            item.student?.profile_id ||
+                            item.student?.profiles?.id ||
+                            item.student_id;
+                          const stats = attendanceMatrix?.studentsMap[profileId];
+
+                          if (!stats || stats.totalConducted === 0) {
+                            return (
+                              <span className="text-[11px] text-[#6F6865] bg-[#FAF8F5] border border-[#E6E1D8] px-2 py-0.5 rounded-md">
+                                Sem chamadas
+                              </span>
+                            );
+                          }
+
+                          const isHigh = stats.ratePercentage >= 75;
+                          return (
+                            <div
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${
+                                isHigh
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                              title={`${stats.presentCount} presenças, ${stats.absentCount} faltas, ${stats.excusedCount} justificadas em ${stats.totalConducted} aulas`}
+                            >
+                              <span className="font-extrabold">{stats.ratePercentage}%</span>
+                              <span className="text-[11px] opacity-80">
+                                ({stats.presentCount}/{stats.totalConducted} presenças)
+                              </span>
+                            </div>
+                          );
+                        })()}
+
                         {item.student?.profile_id && (
                           <Link
                             href={`/professor/students/${item.student.profile_id}?org=${organizationId}`}
                             className="text-xs font-semibold text-[#6C0F37] hover:underline px-2 py-1"
                           >
-                            Ver perfil individual
+                            Ver perfil
                           </Link>
                         )}
                         <form action={removeStudentAction.bind(null, classData.id, memberId)}>
@@ -476,7 +539,7 @@ export function ClassHubClient({
                             type="submit"
                             className="text-xs text-red-600 hover:text-red-800 font-medium px-2.5 py-1 rounded-lg hover:bg-red-50 cursor-pointer"
                           >
-                            Remover da turma
+                            Remover
                           </button>
                         </form>
                       </div>
@@ -542,6 +605,24 @@ export function ClassHubClient({
           classStudents={studentsList}
           onSuccess={() => {
             setSelectedSessionForEdit(null);
+          }}
+        />
+      )}
+
+      {/* MODAL DE CHAMADA E PRESENÇA RÁPIDA */}
+      {attendanceSession && (
+        <SessionAttendanceModal
+          isOpen={Boolean(attendanceSession)}
+          onClose={() => setAttendanceSession(null)}
+          sessionId={attendanceSession.id}
+          sessionTitle={attendanceSession.title}
+          scheduledAt={attendanceSession.scheduled_at}
+          durationMinutes={attendanceSession.duration_minutes}
+          classId={classData.id}
+          students={studentsList}
+          initialAttendance={attendanceMatrix?.sessionsMap[attendanceSession.id]?.records}
+          onSaved={() => {
+            setAttendanceSession(null);
           }}
         />
       )}
