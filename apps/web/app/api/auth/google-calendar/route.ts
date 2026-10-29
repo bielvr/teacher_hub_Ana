@@ -3,6 +3,7 @@ import { createClient } from '../../../../src/lib/supabase/server';
 import {
   getGoogleOAuthConsentUrl,
   getGoogleOAuthCredentials,
+  getGoogleOAuthRedirectUri,
 } from '../../../../src/services/googleCalendar';
 
 export async function GET(request: NextRequest) {
@@ -28,11 +29,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(fallbackUrl);
     }
 
-    // Determina a redirect URI oficial
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-    const redirectUri = appUrl
-      ? `${appUrl.replace(/\/$/, '')}/api/auth/google-calendar/callback`
-      : new URL('/api/auth/google-calendar/callback', request.url).toString();
+    // Determina a redirect URI oficial com protocolo HTTPS garantido
+    const redirectUri = getGoogleOAuthRedirectUri(
+      request.url,
+      request.headers.get('x-forwarded-proto'),
+      request.headers.get('x-forwarded-host')
+    );
 
     // Codifica state seguro com user_id e url de retorno
     const statePayload = {

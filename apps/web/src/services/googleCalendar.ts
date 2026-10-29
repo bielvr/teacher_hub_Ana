@@ -38,15 +38,53 @@ export const GOOGLE_CALENDAR_SCOPES = [
  * Obtém as credenciais de OAuth do Google a partir das variáveis de ambiente
  */
 export function getGoogleOAuthCredentials() {
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim().replace(/^https?:\/\//, '');
+  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
   const isConfigured = Boolean(clientId && clientSecret);
 
   return {
-    clientId: clientId || '',
-    clientSecret: clientSecret || '',
+    clientId,
+    clientSecret,
     isConfigured,
   };
+}
+
+/**
+ * Retorna a URI de redirecionamento oficial com protocolo HTTPS e path correto (/api/auth/google-calendar/callback)
+ */
+export function getGoogleOAuthRedirectUri(
+  requestUrl?: string,
+  forwardedProto?: string | null,
+  forwardedHost?: string | null
+): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+  let base = appUrl;
+  if (!base && forwardedHost) {
+    const isLocal = forwardedHost.includes('localhost') || forwardedHost.includes('127.0.0.1');
+    const proto = isLocal ? (forwardedProto || 'http') : 'https';
+    base = `${proto}://${forwardedHost}`;
+  } else if (!base && requestUrl) {
+    try {
+      const parsed = new URL(requestUrl);
+      base = parsed.origin;
+    } catch {
+      // Ignora erro de parse de URL
+    }
+  }
+
+  if (!base) {
+    base = 'http://localhost:3000';
+  }
+
+  // Garante HTTPS em produção se não for localhost
+  if (!base.startsWith('http://') && !base.startsWith('https://')) {
+    base = `https://${base}`;
+  } else if (base.startsWith('http://') && !base.includes('localhost') && !base.includes('127.0.0.1')) {
+    base = base.replace(/^http:\/\//, 'https://');
+  }
+
+  return `${base.replace(/\/$/, '')}/api/auth/google-calendar/callback`;
 }
 
 /**
@@ -58,8 +96,10 @@ export function getGoogleOAuthConsentUrl(redirectUri: string, state?: string): s
     throw new Error('Credenciais GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não configuradas.');
   }
 
+  const cleanClientId = clientId.trim().replace(/^https?:\/\//, '');
+
   const params = new URLSearchParams({
-    client_id: clientId,
+    client_id: cleanClientId,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: GOOGLE_CALENDAR_SCOPES,

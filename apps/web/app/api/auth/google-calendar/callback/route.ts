@@ -3,6 +3,7 @@ import { createClient } from '../../../../../src/lib/supabase/server';
 import {
   exchangeCodeForTokens,
   getGoogleAccountEmail,
+  getGoogleOAuthRedirectUri,
 } from '../../../../../src/services/googleCalendar';
 
 export async function GET(request: NextRequest) {
@@ -46,11 +47,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Mesma redirectUri utilizada no endpoint de consentimento
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-    const redirectUri = appUrl
-      ? `${appUrl.replace(/\/$/, '')}/api/auth/google-calendar/callback`
-      : new URL('/api/auth/google-calendar/callback', request.url).toString();
+    // Mesma redirectUri oficial com protocolo HTTPS utilizada no endpoint de consentimento
+    const redirectUri = getGoogleOAuthRedirectUri(
+      request.url,
+      request.headers.get('x-forwarded-proto'),
+      request.headers.get('x-forwarded-host')
+    );
 
     // 1. Troca o authorization code pelos tokens
     const tokens = await exchangeCodeForTokens(code, redirectUri);
